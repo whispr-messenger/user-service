@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  user-service-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: user-service-dev
+    ports:
+      - "3000:3000"
+      - "9229:9229"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_HOST=postgres-dev
+      - DATABASE_PORT=5432
+      - DATABASE_USERNAME=whisper_user
+      - DATABASE_PASSWORD=whisper_password
+      - DATABASE_NAME=whisper_users_dev
+      - DATABASE_SYNCHRONIZE=true
+      - DATABASE_LOGGING=true
+      - REDIS_HOST=redis-dev
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=redis_password
+      - JWT_SECRET=dev-jwt-secret
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
+      redis-dev:
+        condition: service_healthy
+    networks:
+      - whisper-dev-network
+    restart: unless-stopped
+    command: npm run start:dev
+
+  postgres-dev:
+    image: postgres:15-alpine
+    container_name: user-service-postgres-dev
+    environment:
+      - POSTGRES_DB=whisper_users_dev
+      - POSTGRES_USER=whisper_user
+      - POSTGRES_PASSWORD=whisper_password
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    networks:
+      - whisper-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whisper_user -d whisper_users_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis-dev:
+    image: redis:7-alpine
+    container_name: user-service-redis-dev
+    command: redis-server --appendonly yes --requirepass redis_password
+    environment:
+      - REDIS_PASSWORD=redis_password
+    volumes:
+      - redis_dev_data:/data
+    ports:
+      - "6380:6379"
+    networks:
+      - whisper-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "redis_password", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+
+networks:
+  whisper-dev-network:
+    driver: bridge
