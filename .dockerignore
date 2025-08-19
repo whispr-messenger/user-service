@@ -20,8 +20,8 @@ documentation
 *.md
 .eslintrc.js
 .prettierrc
-tsconfig.json
-nest-cli.json
+# tsconfig.json
+# nest-cli.json
 **/*.spec.ts
 **/*.test.ts
 test

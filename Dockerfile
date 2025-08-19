@@ -3,10 +3,11 @@ FROM node:18-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install
 
 COPY . .
 RUN npm run build
+RUN npm ci --only=production && npm cache clean --force
 
 FROM node:18-alpine AS production
 

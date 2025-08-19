@@ -1,14 +1,22 @@
-const http = require('http');
+import * as http from 'http';
 
-const options = {
+interface RequestOptions {
+  hostname: string;
+  port: number;
+  path: string;
+  method: string;
+  timeout: number;
+}
+
+const options: RequestOptions = {
   hostname: 'localhost',
   port: 3000,
   path: '/health',
   method: 'GET',
-  timeout: 2000
+  timeout: 2000,
 };
 
-const req = http.request(options, (res) => {
+const req = http.request(options, (res: http.IncomingMessage) => {
   if (res.statusCode === 200) {
     process.exit(0);
   } else {
