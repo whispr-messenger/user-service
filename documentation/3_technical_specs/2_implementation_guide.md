@@ -38,7 +38,7 @@ Fonctionnalités prioritaires P.O.C
 - API REST endpoints basiques
 
 **Semaines 3-4 : Paramètres de confidentialité (P.O.C)**
-Fonctionnalités prioritaires P.O.C  
+Fonctionnalités prioritaires P.O.C
 - Système de permissions basique (everyone, contacts, nobody)
 - Filtrage des profils selon confidentialité
 - Tests d'intégration avec profils
@@ -104,7 +104,7 @@ Epic: User Profile Management
 
 Stories:
 - Modification avancée de profil
-- Validation robuste des données  
+- Validation robuste des données
 - Gestion des photos de profil (intégration media-service)
 - Historique des modifications
 - API complète avec pagination
@@ -128,7 +128,7 @@ Stories:
 
 Sprint 3 - Contact Management
 
-Epic: Contact Relationship Management  
+Epic: Contact Relationship Management
 
 Stories:
 - Synchronisation contacts téléphoniques
@@ -216,7 +216,7 @@ Epic: Performance Optimization
 Stories:
 - Optimisation des requêtes BDD
 - Cache Redis avancé
-- Pagination et lazy loading  
+- Pagination et lazy loading
 - Monitoring et métriques
 - Tests de charge complets
 
@@ -326,11 +326,11 @@ Stories:
 ```mermaid
 graph TD
     A[User Service] --> B[Auth Service]
-    A --> C[Messaging Service]  
+    A --> C[Messaging Service]
     A --> D[Media Service]
     A --> E[Moderation Service]
     A --> F[Notification Service]
-    
+
     B --> A
     C --> A
     D --> A
@@ -362,17 +362,17 @@ graph TD
 ## 📊 Métriques de Succès
 
 ### Phase P.O.C
-- ✅ Architecture validée techniquement
-- ✅ Prototypes fonctionnels des modules core
-- ✅ Tests d'intégration basiques passants
-- ✅ Documentation technique disponible
+- ⚪️ Architecture validée techniquement
+- ⚪️ Prototypes fonctionnels des modules core
+- ⚪️ Tests d'intégration basiques passants
+- ⚪️ Documentation technique disponible
 
 ### Phase Implémentation
-- ✅ Couverture de tests > 80%
-- ✅ Temps de réponse API < 200ms (99e percentile)
-- ✅ Conformité RGPD complète
-- ✅ Intégration avec tous les services
-- ✅ Déploiement production réussi
+- ⚪️ Couverture de tests > 80%
+- ⚪️ Temps de réponse API < 200ms (99e percentile)
+- ⚪️ Conformité RGPD complète
+- ⚪️ Intégration avec tous les services
+- ⚪️ Déploiement production réussi
 
 ---
 
@@ -399,7 +399,7 @@ graph TD
 
 ### Équipe Core
 - **1 Tech Lead** (temps plein)
-- **2 Développeurs Backend** (temps plein)  
+- **2 Développeurs Backend** (temps plein)
 - **1 DevOps** (50% temps)
 - **1 Expert Sécurité** (support ponctuel)
 

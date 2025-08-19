@@ -30,11 +30,11 @@ graph TD
     A[Niveaux de visibilité] --> B[everyone]
     A --> C[contacts]
     A --> D[nobody]
-    
+
     B --> E[Visible par tous les utilisateurs authentifiés]
     C --> F[Visible uniquement par les contacts]
     D --> G[Visible uniquement par l'utilisateur lui-même]
-    
+
     style A fill:#f9f,stroke:#333,stroke-width:2px
     style B fill:#bbf,stroke:#333,stroke-width:1px
     style C fill:#ddf,stroke:#333,stroke-width:1px
@@ -70,17 +70,6 @@ graph TD
 | Dernière connexion | Visible par tous | Visible par les contacts uniquement | Non visible pour les autres |
 | Numéro de téléphone | Jamais visible | Partiellement masqué | Visible intégralement |
 
-#### 2.2.2 Matrice des actions par relation avec l'utilisateur
-
-| Action | Propriétaire | Contact | Non-contact | Utilisateur bloqué |
-|--------|-------------|---------|-------------|-------------------|
-| Voir le profil complet | ✅ | ⚠️ (selon paramètres) | ⚠️ (restrictions) | ❌ |
-| Rechercher par nom | ✅ | ✅ | ✅ | ❌ |
-| Rechercher par téléphone | ✅ | ⚠️ (si activé) | ⚠️ (si activé) | ❌ |
-| Voir si en ligne | ✅ | ⚠️ (si activé) | ❌ | ❌ |
-| Voir dernière connexion | ✅ | ⚠️ (si activé) | ❌ | ❌ |
-| Recevoir accusé de lecture | ✅ | ⚠️ (si activé) | ❌ | ❌ |
-
 ## 3. Configuration des paramètres de confidentialité
 
 ### 3.1 Interface de gestion
@@ -93,11 +82,11 @@ sequenceDiagram
     participant UserService as User Service
     participant MessagingService as Messaging Service
     participant Redis as Cache Redis
-    
+
     User->>Client: Accède aux paramètres de confidentialité
     Client->>APIGateway: GET /api/v1/users/me/privacy
     APIGateway->>UserService: Forward request
-    
+
     UserService->>Redis: Recherche cache privacy
     alt Cache hit
         Redis-->>UserService: privacySettings
@@ -105,24 +94,24 @@ sequenceDiagram
         UserService->>UserService: Récupère paramètres de la BDD
         UserService->>Redis: Cache privacySettings (TTL: 60min)
     end
-    
+
     UserService-->>Client: 200 OK (paramètres actuels)
     Client->>User: Affiche interface de configuration
-    
+
     User->>Client: Modifie un ou plusieurs paramètres
     Client->>APIGateway: PUT /api/v1/users/me/privacy
     APIGateway->>UserService: Forward request
-    
+
     UserService->>UserService: Valide les paramètres
     UserService->>UserService: Enregistre les modifications en BDD
     UserService->>Redis: Invalide cache des paramètres
-    
+
     alt Paramètres liés aux messages modifiés
         UserService->>MessagingService: updateMessagingPrivacy (gRPC)
         MessagingService->>MessagingService: Met à jour paramètres locaux
         MessagingService-->>UserService: settingsUpdated: true
     end
-    
+
     UserService-->>Client: 200 OK (mise à jour réussie)
     Client->>User: Confirmation visuelle
 ```
@@ -200,14 +189,14 @@ FONCTION verifyAccess(viewer_id, target_id, attribute):
     // Vérifier les blocages
     SI isBlocked(target_id, viewer_id) OU isBlocked(viewer_id, target_id):
         RETOURNER false
-    
+
     // Cas spécial: le propriétaire a toujours accès
     SI viewer_id = target_id:
         RETOURNER true
-    
+
     // Récupérer le niveau de confidentialité de l'attribut
     privacy_level = getPrivacyLevel(target_id, attribute)
-    
+
     // Vérifier selon le niveau
     SI privacy_level = "everyone":
         RETOURNER true
@@ -215,7 +204,7 @@ FONCTION verifyAccess(viewer_id, target_id, attribute):
         RETOURNER isContact(target_id, viewer_id)
     SINON SI privacy_level = "nobody":
         RETOURNER false
-    
+
     // Par défaut, refuser l'accès
     RETOURNER false
 ```
@@ -388,21 +377,21 @@ sequenceDiagram
     participant UserService
     participant MessagingService
     participant MessagingDB
-    
+
     UserService->>MessagingService: updateMessagingPrivacy (gRPC)
     Note over UserService,MessagingService: userId, readReceipts, onlineStatus
-    
+
     MessagingService->>MessagingDB: Mettre à jour les paramètres utilisateur
     MessagingService->>MessagingService: Reconfigurer comportement temps réel
-    
+
     alt Accusés de lecture désactivés
         MessagingService->>MessagingService: Désactiver l'envoi des statuts de lecture
     end
-    
+
     alt Statut en ligne restreint
         MessagingService->>MessagingService: Restreindre la visibilité du statut en ligne
     end
-    
+
     MessagingService-->>UserService: settingsUpdated: true
 ```
 
@@ -412,13 +401,13 @@ sequenceDiagram
 sequenceDiagram
     participant UserService
     participant MediaService
-    
+
     UserService->>MediaService: updateMediaPrivacy (gRPC)
     Note over UserService,MediaService: userId, profilePicturePrivacy
-    
+
     MediaService->>MediaService: Mettre à jour les règles d'accès
     MediaService->>MediaService: Ajuster les politiques de signature d'URL
-    
+
     MediaService-->>UserService: settingsUpdated: true
 ```
 
