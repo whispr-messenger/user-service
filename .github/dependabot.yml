@@ -1,0 +1,117 @@
+version: 2
+updates:
+  # Enable version updates for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "whispr-team"
+    assignees:
+      - "whispr-team"
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # Group updates by dependency type
+    groups:
+      nestjs:
+        patterns:
+          - "@nestjs/*"
+        update-types:
+          - "minor"
+          - "patch"
+      typescript:
+        patterns:
+          - "typescript"
+          - "@typescript-eslint/*"
+          - "ts-*"
+        update-types:
+          - "minor"
+          - "patch"
+      testing:
+        patterns:
+          - "jest"
+          - "@types/jest"
+          - "supertest"
+          - "@types/supertest"
+          - "ts-jest"
+        update-types:
+          - "minor"
+          - "patch"
+      linting:
+        patterns:
+          - "eslint*"
+          - "prettier"
+        update-types:
+          - "minor"
+          - "patch"
+      database:
+        patterns:
+          - "typeorm"
+          - "pg"
+          - "@types/pg"
+        update-types:
+          - "minor"
+          - "patch"
+      security:
+        patterns:
+          - "bcrypt"
+          - "@types/bcrypt"
+          - "helmet"
+          - "passport*"
+          - "@nestjs/passport"
+          - "@nestjs/jwt"
+        update-types:
+          - "minor"
+          - "patch"
+    # Ignore specific dependencies that might cause breaking changes
+    ignore:
+      # Major version updates for core dependencies that might break compatibility
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@nestjs/*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typeorm"
+        update-types: ["version-update:semver-major"]
+      # Ignore patch updates for specific packages if they're known to be stable
+      # - dependency-name: "express"
+      #   update-types: ["version-update:semver-patch"]
+    
+  # Enable version updates for Docker if you have Dockerfile
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "10:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "whispr-team"
+    assignees:
+      - "whispr-team"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+
+  # Enable version updates for GitHub Actions if you have workflows
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "first-monday"
+      time: "09:00"
+      timezone: "UTC"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "whispr-team"
+    assignees:
+      - "whispr-team"
+    commit-message:
+      prefix: "ci"
+      include: "scope"
