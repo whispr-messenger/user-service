@@ -1,0 +1,45 @@
+name: 🛡️ Security Analysis
+
+on:
+  repository_dispatch:
+    types: [run-security]
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      should_deploy:
+        required: false
+        type: string
+        default: 'false'
+
+permissions:
+  contents: read
+  security-events: write
+  actions: read
+
+jobs:
+  trivy-scan:
+    name: 🔍 Vulnerability Assessment
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.client_payload.ref }}
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+        continue-on-error: true
+
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: 'trivy-results.sarif'
