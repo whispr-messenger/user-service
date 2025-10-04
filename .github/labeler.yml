@@ -1,0 +1,270 @@
+# GitHub Labeler Configuration
+# Automatically applies labels based on changed files
+
+# ================================
+# 📁 Core Components
+# ================================
+
+# User Management Core
+👤 users:core:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/users/users.module.ts'
+      - 'src/users/users.service.ts'
+      - 'src/users/users.service.spec.ts'
+      - 'src/users/users.controller.ts'
+      - 'src/dto/create-user.dto.ts'
+      - 'src/dto/update-user.dto.ts'
+
+# Contact Management
+📞 contacts:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/contacts/**/*'
+      - 'src/dto/add-contact.dto.ts'
+      - 'src/dto/update-contact.dto.ts'
+
+# Group Management
+👥 groups:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/groups/**/*'
+      - 'src/dto/create-group.dto.ts'
+      - 'src/dto/update-group.dto.ts'
+      - 'src/dto/add-group-member.dto.ts'
+
+# Privacy Settings
+🔒 privacy:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/privacy/**/*'
+      - 'src/dto/update-privacy-settings.dto.ts'
+
+# Search Functionality
+🔍 search:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/search/**/*'
+      - 'src/cache/search-index.service.ts'
+
+# Blocked Users
+🚫 blocked-users:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/blocked-users/**/*'
+      - 'src/dto/block-user.dto.ts'
+
+# ================================
+# 🏗️ Infrastructure & Configuration
+# ================================
+
+# Database & Entities
+🗄️ database:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/entities/**/*'
+      - 'src/database/migrations/**/*'
+      - 'src/database/seeds/**/*'
+      - 'scripts/init.sql'
+      - '**/*entity*.ts'
+      - '**/*migration*.ts'
+
+# Configuration
+⚙️ config:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/main.ts'
+      - 'src/app.module.ts'
+      - 'src/config/**/*'
+      - '**/*config*.ts'
+      - '**/*config*.js'
+      - 'nest-cli.json'
+      - 'tsconfig*.json'
+
+# Cache & Redis
+💾 cache:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/cache/**/*'
+      - 'src/config/redis.config.ts'
+
+# Health & Monitoring
+💊 health:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'scripts/health-check.ts'
+
+# ================================
+# 🌐 Communication & APIs
+# ================================
+
+# Controllers & APIs
+🎮 api:controllers:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/**/*controller*.ts'
+
+# DTOs & Interfaces
+📋 api:dto:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/dto/**/*'
+      - '**/*dto*.ts'
+
+# ================================
+# 🛡️ Security & Middleware
+# ================================
+
+# Guards & Security
+🛡️ security:guards:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/common/guards/**/*'
+      - '**/*guard*.ts'
+
+# Interceptors & Middleware
+🔄 middleware:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/common/interceptors/**/*'
+      - 'src/common/pipes/**/*'
+      - 'src/common/decorators/**/*'
+      - '**/*interceptor*.ts'
+      - '**/*pipe*.ts'
+      - '**/*decorator*.ts'
+
+# Filters
+🗂️ filters:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/common/filters/**/*'
+      - '**/*filter*.ts'
+
+# ================================
+# 🧪 Testing & Quality
+# ================================
+
+# Unit Tests
+🧪 tests:unit:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '**/*.spec.ts'
+      - 'src/**/*.test.ts'
+
+# E2E Tests
+🔬 tests:e2e:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'test/**/*'
+      - '**/*.e2e-spec.ts'
+      - 'test/jest-e2e.json'
+
+# ================================
+# 🚀 DevOps & Infrastructure
+# ================================
+
+# Docker & Containers
+🐳 devops:docker:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docker/**/*'
+      - 'Dockerfile*'
+      - 'docker-compose*.yml'
+      - '.dockerignore'
+
+# CI/CD Workflows
+⚡ devops:ci-cd:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/workflows/**/*'
+      - '.github/actions/**/*'
+
+# Scripts & Automation
+📜 devops:scripts:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'scripts/**/*'
+      - 'Makefile'
+      - '**/*.sh'
+
+# ================================
+# 📚 Documentation
+# ================================
+
+# Architecture Documentation
+📐 docs:architecture:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'documentation/1_architecture/**/*'
+
+# Functional Specifications
+📋 docs:specs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'documentation/2_fonctional_specs/**/*'
+      - 'documentation/3_technical_specs/**/*'
+
+# Integration Documentation
+🔗 docs:integration:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'documentation/INTEGRATION.md'
+      - 'documentation/DOCKER.md'
+
+# General Documentation
+📖 documentation:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'README*.md'
+      - 'documentation/**/*'
+      - '**/*.md'
+      - 'AGENTS.md'
+
+# ================================
+# 🔧 Development Tools
+# ================================
+
+# Dependencies & Package Management
+📦 dependencies:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'yarn.lock'
+      - 'pnpm-lock.yaml'
+
+# Linting & Formatting
+🎨 tools:linting:
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.eslintrc*'
+      - '.prettierrc*'
+      - '.editorconfig'
+
+# Security Scanning
+🔒 tools:security:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'sonar-project.properties'
+
+# ================================
+# 🎯 Special Categories
+# ================================
+
+# Breaking Changes
+💥 breaking-change:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/main.ts'
+      - 'src/app.module.ts'
+      - 'src/database/migrations/**/*'
+
+# Performance Critical
+⚡ performance:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/**/*service*.ts'
+      - 'src/common/guards/**/*'
+      - 'src/common/interceptors/**/*'
+      - 'src/cache/**/*'
+      - 'src/config/redis.config.ts'
