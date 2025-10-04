@@ -1,0 +1,72 @@
+name: 📢 Deployment Notification
+
+on:
+  repository_dispatch:
+    types: [deployment-success]
+
+permissions:
+  contents: read
+
+jobs:
+  # ================================
+  # Deployment notifications
+  # ================================
+  notify:
+    name: Deployment Success
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.client_payload.ref }}
+
+      - name: Extract commit info
+        id: commit
+        run: |
+          SHORT_SHA=$(echo "${{ github.event.client_payload.sha }}" | cut -c1-7)
+          COMMIT_MESSAGE=$(git log -1 --pretty=format:"%s" ${{ github.event.client_payload.sha }} || echo "Unable to fetch commit message")
+ 
+          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+          echo "commit_message=$COMMIT_MESSAGE" >> $GITHUB_OUTPUT
+
+      - name: Create deployment summary
+        run: |
+          echo "# 🚀 Deployment Successful!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Deployment Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Service**: user-service" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit**: ${{ steps.commit.outputs.short_sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Message**: ${{ steps.commit.outputs.commit_message }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch**: ${{ github.event.client_payload.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Images**: ${{ github.event.client_payload.image_tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
+          echo "- [GHCR Package](https://ghcr.io/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Repository](https://github.com/${{ github.repository }})" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Pipeline Status" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Security checks passed" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker build successful" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Image pushed to registry" >> $GITHUB_STEP_SUMMARY
+
+      - name: Notify deployment success
+        run: |
+          echo "🚀 Deployment successful!"
+          echo "📦 Images pushed: ${{ github.event.client_payload.image_tags }}"
+          echo "🔧 Commit: ${{ steps.commit.outputs.short_sha }}"
+          echo "💬 Message: ${{ steps.commit.outputs.commit_message }}"
+
+      # Optional: Slack/Discord/Teams notification
+      # - name: Slack Notification
+      #   uses: 8398a7/action-slack@v3
+      #   with:
+      #     status: success
+      #     text: |
+      #       🚀 *Deployment Successful!*
+      #       Service: `user-service`
+      #       Commit: `${{ steps.commit.outputs.short_sha }}`
+      #       Branch: `${{ github.event.client_payload.ref }}`
+      #   env:
+      #     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
