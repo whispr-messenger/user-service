@@ -17,10 +17,21 @@ jobs:
   notify-discord:
     name: Send Discord Notification
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    if: ${{ !github.event.pull_request.draft }}
 
     steps:
+      - name: Check Discord webhook configuration
+        id: check_webhook
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+            echo "skip_notification=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Discord webhook URL not configured, skipping notification"
+          else
+            echo "skip_notification=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine PR action details
+        if: steps.check_webhook.outputs.skip_notification != 'true'
         id: pr_action
         run: |
           case "${{ github.event.action }}" in
@@ -58,12 +69,14 @@ jobs:
           esac
 
       - name: Extract commit SHA
+        if: steps.check_webhook.outputs.skip_notification != 'true'
         id: commit
         run: |
           SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
 
       - name: Send Discord notification
+        if: steps.check_webhook.outputs.skip_notification != 'true'
         uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -95,7 +108,18 @@ jobs:
     if: github.event_name == 'pull_request_review'
 
     steps:
+      - name: Check Discord webhook configuration
+        id: check_webhook
+        run: |
+          if [ -z "${{ secrets.DISCORD_WEBHOOK_URL }}" ]; then
+            echo "skip_notification=true" >> $GITHUB_OUTPUT
+            echo "⚠️ Discord webhook URL not configured, skipping notification"
+          else
+            echo "skip_notification=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Determine review details
+        if: steps.check_webhook.outputs.skip_notification != 'true'
         id: review_action
         run: |
           case "${{ github.event.review.state }}" in
@@ -122,6 +146,7 @@ jobs:
           esac
 
       - name: Send review notification
+        if: steps.check_webhook.outputs.skip_notification != 'true'
         uses: tsickert/discord-webhook@v7.0.0
         with:
           webhook-url: ${{ secrets.DISCORD_WEBHOOK_URL }}
