@@ -1,0 +1,40 @@
+name: 🏷️ Sync Repository Labels
+
+on:
+  push:
+    branches: [main]
+    paths: ['.github/labels.yml']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (preview changes without applying)'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  sync-labels:
+    name: 🏷️ Sync Labels
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🏷️ Sync Labels from YAML
+        uses: EndBug/label-sync@v2
+        with:
+          config-file: .github/labels.yml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          delete-other-labels: false
+          dry-run: ${{ github.event.inputs.dry_run == 'true' }}
+
+      - name: 📊 Summary
+        if: success()
+        run: |
+          echo "✅ Labels have been synchronized successfully!"
+          echo "🔗 View labels at: https://github.com/${{ github.repository }}/labels"

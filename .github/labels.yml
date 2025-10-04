@@ -1,6 +1,6 @@
 # 🏷️ Repository Labels Configuration
 # This file defines all labels that should exist in the repository
-# Use the setup-labels.sh script to create these labels in the repository
+# Labels are automatically synced when this file is updated via the sync-labels.yml workflow
 
 labels:
   # ================================
