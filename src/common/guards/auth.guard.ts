@@ -24,7 +24,9 @@ export class AuthGuard implements CanActivate {
     // - Expiry validation
     // - Audience/scope validation
     // - Token format validation (Bearer prefix)
-    console.warn('AuthGuard: Using placeholder authentication - implement proper JWT validation before production');
+    console.warn(
+      'AuthGuard: Using placeholder authentication - implement proper JWT validation before production',
+    );
     return true;
   }
 }

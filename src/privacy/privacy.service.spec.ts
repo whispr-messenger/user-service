@@ -132,9 +132,15 @@ describe('PrivacyService', () => {
       // Note: Current implementation doesn't check user authorization
       // This test would need to be updated when authorization is added
       mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-      mockPrivacyRepository.save.mockResolvedValue({ ...mockPrivacySettings, ...updateDto });
-      
-      const result = await service.updatePrivacySettings(mockUser.id, updateDto);
+      mockPrivacyRepository.save.mockResolvedValue({
+        ...mockPrivacySettings,
+        ...updateDto,
+      });
+
+      const result = await service.updatePrivacySettings(
+        mockUser.id,
+        updateDto,
+      );
       expect(result).toBeDefined();
     });
   });
@@ -222,6 +228,4 @@ describe('PrivacyService', () => {
       expect(result).toBe(true);
     });
   });
-
-
 });

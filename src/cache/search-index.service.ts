@@ -44,25 +44,41 @@ export class SearchIndexService {
       const commands: Array<[string, ...any[]]> = [
         // Phone number index (hash: phone -> userId)
         ['hset', this.PHONE_INDEX_KEY, user.phoneNumber, user.id],
-        
+
         // Username index (hash: username -> userId)
         ['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id],
-        
+
         // Name search index (sorted set: score based on creation time)
-        ['zadd', `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`, 
-         user.createdAt.getTime(), user.id],
-        ['zadd', `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`, 
-         user.createdAt.getTime(), user.id],
-        ['zadd', `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`, 
-         user.createdAt.getTime(), user.id],
-        
+        [
+          'zadd',
+          `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`,
+          user.createdAt.getTime(),
+          user.id,
+        ],
+        [
+          'zadd',
+          `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`,
+          user.createdAt.getTime(),
+          user.id,
+        ],
+        [
+          'zadd',
+          `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`,
+          user.createdAt.getTime(),
+          user.id,
+        ],
+
         // Cache user data
-        ['setex', `${this.USER_CACHE_PREFIX}:${user.id}`, 
-         this.CACHE_TTL, JSON.stringify(indexEntry)],
+        [
+          'setex',
+          `${this.USER_CACHE_PREFIX}:${user.id}`,
+          this.CACHE_TTL,
+          JSON.stringify(indexEntry),
+        ],
       ];
 
       await this.cacheService.pipeline(commands);
-      
+
       this.logger.debug(`Indexed user ${user.id} in search indexes`);
     } catch (error) {
       this.logger.error(`Failed to index user ${user.id}:`, error);
@@ -75,29 +91,42 @@ export class SearchIndexService {
    */
   async removeUserFromIndex(user: User): Promise<void> {
     try {
-      const fullName = `${user.firstName} ${user.lastName}`.toLowerCase().trim();
-      
+      const fullName = `${user.firstName} ${user.lastName}`
+        .toLowerCase()
+        .trim();
+
       const commands: Array<[string, ...any[]]> = [
         // Remove from phone index
         ['hdel', this.PHONE_INDEX_KEY, user.phoneNumber],
-        
+
         // Remove from username index
         ['hdel', this.USERNAME_INDEX_KEY, user.username.toLowerCase()],
-        
+
         // Remove from name indexes
-        ['zrem', `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`, user.id],
-        ['zrem', `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`, user.id],
+        [
+          'zrem',
+          `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`,
+          user.id,
+        ],
+        [
+          'zrem',
+          `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`,
+          user.id,
+        ],
         ['zrem', `${this.NAME_INDEX_KEY}:${fullName}`, user.id],
-        
+
         // Remove from cache
         ['del', `${this.USER_CACHE_PREFIX}:${user.id}`],
       ];
 
       await this.cacheService.pipeline(commands);
-      
+
       this.logger.debug(`Removed user ${user.id} from search indexes`);
     } catch (error) {
-      this.logger.error(`Failed to remove user ${user.id} from indexes:`, error);
+      this.logger.error(
+        `Failed to remove user ${user.id} from indexes:`,
+        error,
+      );
       throw error;
     }
   }
@@ -107,10 +136,15 @@ export class SearchIndexService {
    */
   async searchByPhoneNumber(phoneNumber: string): Promise<string | null> {
     try {
-      const userId = await this.cacheService.get<string>(`${this.PHONE_INDEX_KEY}:${phoneNumber}`);
+      const userId = await this.cacheService.get<string>(
+        `${this.PHONE_INDEX_KEY}:${phoneNumber}`,
+      );
       return userId;
     } catch (error) {
-      this.logger.error(`Failed to search by phone number ${phoneNumber}:`, error);
+      this.logger.error(
+        `Failed to search by phone number ${phoneNumber}:`,
+        error,
+      );
       return null;
     }
   }
@@ -120,7 +154,9 @@ export class SearchIndexService {
    */
   async searchByUsername(username: string): Promise<string | null> {
     try {
-      const userId = await this.cacheService.get<string>(`${this.USERNAME_INDEX_KEY}:${username.toLowerCase()}`);
+      const userId = await this.cacheService.get<string>(
+        `${this.USERNAME_INDEX_KEY}:${username.toLowerCase()}`,
+      );
       return userId;
     } catch (error) {
       this.logger.error(`Failed to search by username ${username}:`, error);
@@ -144,21 +180,26 @@ export class SearchIndexService {
 
       for (const key of searchKeys) {
         const ids = await this.cacheService.zrange(key, 0, limit - 1);
-        ids.forEach(id => userIds.add(id));
-        
+        ids.forEach((id) => userIds.add(id));
+
         if (userIds.size >= limit) break;
       }
 
       // If we don't have enough results, try fuzzy matching
       if (userIds.size < limit) {
-        const allNameKeys = await this.cacheService.keys(`${this.NAME_INDEX_KEY}:*`);
-        
+        const allNameKeys = await this.cacheService.keys(
+          `${this.NAME_INDEX_KEY}:*`,
+        );
+
         for (const key of allNameKeys) {
           const nameFromKey = key.replace(`${this.NAME_INDEX_KEY}:`, '');
-          if (nameFromKey.includes(normalizedQuery) || normalizedQuery.includes(nameFromKey)) {
+          if (
+            nameFromKey.includes(normalizedQuery) ||
+            normalizedQuery.includes(nameFromKey)
+          ) {
             const ids = await this.cacheService.zrange(key, 0, limit - 1);
-            ids.forEach(id => userIds.add(id));
-            
+            ids.forEach((id) => userIds.add(id));
+
             if (userIds.size >= limit) break;
           }
         }
@@ -176,7 +217,9 @@ export class SearchIndexService {
    */
   async getCachedUser(userId: string): Promise<SearchIndexEntry | null> {
     try {
-      return await this.cacheService.get<SearchIndexEntry>(`${this.USER_CACHE_PREFIX}:${userId}`);
+      return await this.cacheService.get<SearchIndexEntry>(
+        `${this.USER_CACHE_PREFIX}:${userId}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to get cached user ${userId}:`, error);
       return null;
@@ -204,22 +247,43 @@ export class SearchIndexService {
 
         commands.push(
           ['hset', this.PHONE_INDEX_KEY, user.phoneNumber, user.id],
-          ['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id],
-          ['zadd', `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`, 
-           user.createdAt.getTime(), user.id],
-          ['zadd', `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`, 
-           user.createdAt.getTime(), user.id],
-          ['zadd', `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`, 
-           user.createdAt.getTime(), user.id],
-          ['setex', `${this.USER_CACHE_PREFIX}:${user.id}`, 
-           this.CACHE_TTL, JSON.stringify(indexEntry)]
+          [
+            'hset',
+            this.USERNAME_INDEX_KEY,
+            user.username.toLowerCase(),
+            user.id,
+          ],
+          [
+            'zadd',
+            `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`,
+            user.createdAt.getTime(),
+            user.id,
+          ],
+          [
+            'zadd',
+            `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`,
+            user.createdAt.getTime(),
+            user.id,
+          ],
+          [
+            'zadd',
+            `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`,
+            user.createdAt.getTime(),
+            user.id,
+          ],
+          [
+            'setex',
+            `${this.USER_CACHE_PREFIX}:${user.id}`,
+            this.CACHE_TTL,
+            JSON.stringify(indexEntry),
+          ],
         );
       }
 
       if (commands.length > 0) {
         await this.cacheService.pipeline(commands);
       }
-      
+
       this.logger.debug(`Batch indexed ${users.length} users`);
     } catch (error) {
       this.logger.error(`Failed to batch index users:`, error);
@@ -233,15 +297,19 @@ export class SearchIndexService {
   async clearAllIndexes(): Promise<void> {
     try {
       const keys = await this.cacheService.keys('search:*');
-      const userCacheKeys = await this.cacheService.keys(`${this.USER_CACHE_PREFIX}:*`);
-      const nameIndexKeys = await this.cacheService.keys(`${this.NAME_INDEX_KEY}:*`);
-      
+      const userCacheKeys = await this.cacheService.keys(
+        `${this.USER_CACHE_PREFIX}:*`,
+      );
+      const nameIndexKeys = await this.cacheService.keys(
+        `${this.NAME_INDEX_KEY}:*`,
+      );
+
       const allKeys = [...keys, ...userCacheKeys, ...nameIndexKeys];
-      
+
       if (allKeys.length > 0) {
         await this.cacheService.delMany(allKeys);
       }
-      
+
       this.logger.warn('Cleared all search indexes');
     } catch (error) {
       this.logger.error('Failed to clear search indexes:', error);
@@ -259,12 +327,14 @@ export class SearchIndexService {
     totalCachedUsers: number;
   }> {
     try {
-      const [phoneCount, usernameCount, nameIndexKeys, cachedUserKeys] = await Promise.all([
-        this.cacheService.get<number>(`${this.PHONE_INDEX_KEY}:count`) || 0,
-        this.cacheService.get<number>(`${this.USERNAME_INDEX_KEY}:count`) || 0,
-        this.cacheService.keys(`${this.NAME_INDEX_KEY}:*`),
-        this.cacheService.keys(`${this.USER_CACHE_PREFIX}:*`),
-      ]);
+      const [phoneCount, usernameCount, nameIndexKeys, cachedUserKeys] =
+        await Promise.all([
+          this.cacheService.get<number>(`${this.PHONE_INDEX_KEY}:count`) || 0,
+          this.cacheService.get<number>(`${this.USERNAME_INDEX_KEY}:count`) ||
+            0,
+          this.cacheService.keys(`${this.NAME_INDEX_KEY}:*`),
+          this.cacheService.keys(`${this.USER_CACHE_PREFIX}:*`),
+        ]);
 
       return {
         totalPhoneIndexes: phoneCount,
