@@ -1,0 +1,139 @@
+name: 🧪 Quality Assurance
+
+on:
+  repository_dispatch:
+    types: [run-tests]
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      should_deploy:
+        required: false
+        type: string
+        default: 'false'
+    secrets:
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: '22'
+
+jobs:
+  test-and-quality:
+    name: 🔍 Code Analysis & Testing
+    runs-on: ubuntu-latest
+
+    ####################################################################################################
+    # Services
+    ####################################################################################################
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      ####################################################################################################
+      # Setup
+      ####################################################################################################
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.client_payload.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      ####################################################################################################
+      # Linting and Formatting
+      ####################################################################################################
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run format check
+        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+
+      ####################################################################################################
+      # Unit and E2E Tests
+      ####################################################################################################
+      - name: Run unit tests
+        run: npm run test:cov
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
+
+      ####################################################################################################
+      # SonarQube Analysis (conditional on should_deploy and secrets availability)
+      ####################################################################################################
+      - name: Check SonarQube secrets
+        id: check-secrets
+        run: |
+          if [[ -n "${{ secrets.SONAR_TOKEN }}" && -n "${{ secrets.SONAR_HOST_URL }}" ]]; then
+            echo "secrets-available=true" >> $GITHUB_OUTPUT
+          else
+            echo "secrets-available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ SonarQube secrets not configured. Skipping SonarQube analysis."
+          fi
+
+      - name: SonarQube Analysis
+        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+        uses: sonarsource/sonarqube-scan-action@v6.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube Quality Gate
+        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella

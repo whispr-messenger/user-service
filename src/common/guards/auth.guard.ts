@@ -18,7 +18,10 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    // TODO: Implement actual JWT validation
+    // SECURITY WARNING: This is a placeholder implementation
+    // TODO: Implement actual JWT validation with proper token verification
+    // This currently allows all requests with any token - NOT SECURE
+    console.warn('⚠️  AuthGuard: Using placeholder implementation - implement JWT validation before production');
     return true;
   }
 }
