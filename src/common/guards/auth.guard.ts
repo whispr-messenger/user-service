@@ -18,7 +18,13 @@ export class AuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    // TODO: Implement actual JWT validation
+    // SECURITY WARNING: This guard currently accepts any non-empty token
+    // TODO: Implement proper JWT validation including:
+    // - Signature verification
+    // - Expiry validation
+    // - Audience/scope validation
+    // - Token format validation (Bearer prefix)
+    console.warn('AuthGuard: Using placeholder authentication - implement proper JWT validation before production');
     return true;
   }
 }
