@@ -79,7 +79,11 @@ describe('CacheService', () => {
 
       await service.set(key, value, ttl);
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(key, ttl, JSON.stringify(value));
+      expect(mockRedis.setex).toHaveBeenCalledWith(
+        key,
+        ttl,
+        JSON.stringify(value),
+      );
     });
 
     it('should handle errors when setting value', async () => {

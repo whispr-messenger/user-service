@@ -38,7 +38,8 @@ export class UsersService {
       throw new ConflictException('Username already exists');
     }
 
-    const queryRunner = this.userRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.userRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -73,7 +74,10 @@ export class UsersService {
     }
   }
 
-  async findAll(page: number = 1, limit: number = 10): Promise<{ users: User[]; total: number }> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ users: User[]; total: number }> {
     const [users, total] = await this.userRepository.findAndCount({
       relations: ['privacySettings'],
       skip: (page - 1) * limit,
@@ -124,7 +128,8 @@ export class UsersService {
       }
     }
 
-    const queryRunner = this.userRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.userRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -134,20 +139,27 @@ export class UsersService {
       const updatedUser = await queryRunner.manager.save(user);
 
       // Mettre à jour l'index de recherche si nécessaire
-      if (updateUserDto.username || updateUserDto.firstName || updateUserDto.lastName) {
+      if (
+        updateUserDto.username ||
+        updateUserDto.firstName ||
+        updateUserDto.lastName
+      ) {
         const searchIndex = await queryRunner.manager.findOne(UserSearchIndex, {
           where: { userId: id },
         });
 
         if (searchIndex) {
           if (updateUserDto.username) {
-            searchIndex.usernameNormalized = updateUserDto.username.toLowerCase();
+            searchIndex.usernameNormalized =
+              updateUserDto.username.toLowerCase();
           }
           if (updateUserDto.firstName) {
-            searchIndex.firstNameNormalized = updateUserDto.firstName.toLowerCase();
+            searchIndex.firstNameNormalized =
+              updateUserDto.firstName.toLowerCase();
           }
           if (updateUserDto.lastName !== undefined) {
-            searchIndex.lastNameNormalized = updateUserDto.lastName?.toLowerCase() || null;
+            searchIndex.lastNameNormalized =
+              updateUserDto.lastName?.toLowerCase() || null;
           }
           await queryRunner.manager.save(searchIndex);
         }
