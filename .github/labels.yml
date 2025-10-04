@@ -1,0 +1,283 @@
+# 🏷️ Repository Labels Configuration
+# This file defines all labels that should exist in the repository
+# Use the setup-labels.sh script to create these labels in the repository
+
+labels:
+  # ================================
+  # 🎯 Priority Labels
+  # ================================
+  - name: "🔥 priority:high"
+    color: "d73a4a"
+    description: "Critical issues that need immediate attention"
+
+  - name: "⚡ priority:medium"
+    color: "fbca04"
+    description: "Important issues that should be addressed soon"
+
+  - name: "📝 priority:low"
+    color: "0075ca"
+    description: "Nice to have improvements"
+
+  # ================================
+  # 📏 Size Labels
+  # ================================
+  - name: "📏 size:XS"
+    color: "c2e0c6"
+    description: "Extra small changes (1-10 lines)"
+
+  - name: "📏 size:S"
+    color: "a3d977"
+    description: "Small changes (11-100 lines)"
+
+  - name: "📏 size:M"
+    color: "7fc84a"
+    description: "Medium changes (101-500 lines)"
+
+  - name: "📏 size:L"
+    color: "f9ca24"
+    description: "Large changes (501-1000 lines)"
+
+  - name: "📏 size:XL"
+    color: "e17055"
+    description: "Extra large changes (1000+ lines)"
+
+  # ================================
+  # 🔍 Type Labels
+  # ================================
+  - name: "🧪 type:testing"
+    color: "0e8a16"
+    description: "Changes related to testing"
+
+  - name: "📚 type:documentation"
+    color: "1d76db"
+    description: "Documentation improvements or additions"
+
+  - name: "🔒 type:security"
+    color: "b60205"
+    description: "Security-related changes"
+
+  - name: "🗄️ type:database"
+    color: "5319e7"
+    description: "Database schema or migration changes"
+
+  - name: "🐛 type:bugfix"
+    color: "d73a4a"
+    description: "Bug fixes"
+
+  - name: "✨ type:feature"
+    color: "0075ca"
+    description: "New features or enhancements"
+
+  - name: "🔧 type:maintenance"
+    color: "fef2c0"
+    description: "Code maintenance and refactoring"
+
+  - name: "⚡ type:performance"
+    color: "f9ca24"
+    description: "Performance improvements"
+
+  # ================================
+  # 👤 User Management & Features
+  # ================================
+  - name: "👤 users:core"
+    color: "0366d6"
+    description: "Core user management functionality"
+
+  - name: "📞 contacts"
+    color: "28a745"
+    description: "Contact management features"
+
+  - name: "👥 groups"
+    color: "6f42c1"
+    description: "Group management and functionality"
+
+  - name: "🔒 privacy"
+    color: "b60205"
+    description: "Privacy settings and controls"
+
+  - name: "🔍 search"
+    color: "f59e0b"
+    description: "Search functionality and indexing"
+
+  - name: "🚫 blocked-users"
+    color: "d73a4a"
+    description: "User blocking and anti-harassment features"
+
+  # ================================
+  # 🏗️ Infrastructure & APIs
+  # ================================
+  - name: "🗄️ database"
+    color: "5319e7"
+    description: "Database entities, migrations, and schemas"
+
+  - name: "⚙️ config"
+    color: "0e8a16"
+    description: "Configuration files and settings"
+
+  - name: "💾 cache"
+    color: "7057ff"
+    description: "Cache management and Redis integration"
+
+  - name: "💊 health"
+    color: "7057ff"
+    description: "Health checks and monitoring"
+
+  - name: "🎮 api:controllers"
+    color: "1d76db"
+    description: "API controllers and endpoints"
+
+  - name: "📋 api:dto"
+    color: "0075ca"
+    description: "Data Transfer Objects and interfaces"
+
+  - name: "🛡️ security:guards"
+    color: "d93f0b"
+    description: "Security guards and middleware"
+
+  - name: "🔄 middleware"
+    color: "fef2c0"
+    description: "Interceptors, pipes, and decorators"
+
+  - name: "🗂️ filters"
+    color: "fbca04"
+    description: "Exception filters and error handling"
+
+  # ================================
+  # 🚀 DevOps & Infrastructure
+  # ================================
+  - name: "🐳 devops:docker"
+    color: "0366d6"
+    description: "Docker containers and orchestration"
+
+  - name: "⚡ devops:ci-cd"
+    color: "28a745"
+    description: "CI/CD workflows and automation"
+
+  - name: "📜 devops:scripts"
+    color: "0e8a16"
+    description: "Scripts and automation tools"
+
+  # ================================
+  # 📚 Documentation Categories
+  # ================================
+  - name: "📐 docs:architecture"
+    color: "1d76db"
+    description: "Architecture and system design documentation"
+
+  - name: "📋 docs:specs"
+    color: "0075ca"
+    description: "Functional and technical specifications"
+
+  - name: "🔗 docs:integration"
+    color: "0366d6"
+    description: "Integration and Docker documentation"
+
+  - name: "📖 documentation"
+    color: "1d76db"
+    description: "General documentation updates"
+
+  # ================================
+  # 🔧 Development Tools
+  # ================================
+  - name: "📦 dependencies"
+    color: "0e8a16"
+    description: "Package dependencies and updates"
+
+  - name: "🎨 tools:linting"
+    color: "f9ca24"
+    description: "Code linting and formatting tools"
+
+  - name: "🔒 tools:security"
+    color: "b60205"
+    description: "Security scanning and analysis tools"
+
+  # ================================
+  # 🧪 Testing Categories
+  # ================================
+  - name: "🧪 tests:unit"
+    color: "0e8a16"
+    description: "Unit tests and test coverage"
+
+  - name: "🔬 tests:e2e"
+    color: "28a745"
+    description: "End-to-end and integration tests"
+
+  # ================================
+  # 💥 Special Impact Labels
+  # ================================
+  - name: "💥 breaking-change"
+    color: "d73a4a"
+    description: "Changes that break backward compatibility"
+
+  - name: "⚡ performance"
+    color: "f9ca24"
+    description: "Performance-critical changes"
+
+  # ================================
+  # 🔄 Workflow States
+  # ================================
+  - name: "🔄 status:in-progress"
+    color: "fbca04"
+    description: "Work in progress"
+
+  - name: "👀 status:needs-review"
+    color: "0075ca"
+    description: "Ready for review"
+
+  - name: "🔴 status:blocked"
+    color: "d73a4a"
+    description: "Blocked by dependencies or issues"
+
+  - name: "✅ status:ready-to-merge"
+    color: "0e8a16"
+    description: "Approved and ready to merge"
+
+  - name: "❌ status:needs-changes"
+    color: "e99695"
+    description: "Changes requested by reviewers"
+
+  # ================================
+  # 🎯 Review Categories
+  # ================================
+  - name: "👨‍💻 review:backend"
+    color: "5319e7"
+    description: "Requires backend developer review"
+
+  - name: "🔒 review:security"
+    color: "b60205"
+    description: "Requires security team review"
+
+  - name: "🚀 review:devops"
+    color: "0366d6"
+    description: "Requires DevOps team review"
+
+  - name: "🏗️ review:architecture"
+    color: "6f42c1"
+    description: "Requires architecture review"
+
+  # ================================
+  # 🚨 Issue Labels
+  # ================================
+  - name: "🐛 bug"
+    color: "d73a4a"
+    description: "Something isn't working"
+
+  - name: "✨ enhancement"
+    color: "0075ca"
+    description: "New feature or request"
+
+  - name: "❓ question"
+    color: "d876e3"
+    description: "Further information is requested"
+
+  - name: "📖 good first issue"
+    color: "7057ff"
+    description: "Good for newcomers"
+
+  - name: "🆘 help wanted"
+    color: "0e8a16"
+    description: "Extra attention is needed"
+
+  - name: "🔄 duplicate"
+    color: "cfd3d7"
+    description: "This issue or pull request already exists"
