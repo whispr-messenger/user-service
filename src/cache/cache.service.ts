@@ -58,7 +58,7 @@ export class CacheService {
    */
   async delMany(keys: string[]): Promise<void> {
     if (keys.length === 0) return;
-    
+
     try {
       await this.redis.del(...keys);
     } catch (error) {
@@ -75,7 +75,10 @@ export class CacheService {
       const result = await this.redis.exists(key);
       return result === 1;
     } catch (error) {
-      this.logger.error(`Failed to check existence of cache key ${key}:`, error);
+      this.logger.error(
+        `Failed to check existence of cache key ${key}:`,
+        error,
+      );
       return false;
     }
   }
@@ -223,10 +226,12 @@ export class CacheService {
         (pipeline as any)[command](...args);
       });
       const results = await pipeline.exec();
-      return results?.map(([err, result]) => {
-        if (err) throw err;
-        return result;
-      }) || [];
+      return (
+        results?.map(([err, result]) => {
+          if (err) throw err;
+          return result;
+        }) || []
+      );
     } catch (error) {
       this.logger.error('Failed to execute pipeline:', error);
       throw error;

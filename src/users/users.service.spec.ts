@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ConflictException,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User, PrivacySettings, PrivacyLevel } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
@@ -255,7 +259,7 @@ describe('UsersService', () => {
     it('should throw BadRequestException if username already exists', async () => {
       const updateWithUsername = { ...updateUserDto, username: 'existinguser' };
       const existingUser = { ...mockUser, id: 'different-id' };
-      
+
       mockUserRepository.findOne
         .mockResolvedValueOnce(mockUser) // findUserById
         .mockResolvedValueOnce(existingUser); // username check
@@ -295,11 +299,10 @@ describe('UsersService', () => {
     it('should return paginated users', async () => {
       const users = [mockUser];
       const total = 1;
-      
-      mockUserRepository.createQueryBuilder().getManyAndCount.mockResolvedValue([
-        users,
-        total,
-      ]);
+
+      mockUserRepository
+        .createQueryBuilder()
+        .getManyAndCount.mockResolvedValue([users, total]);
 
       const result = await service.findAll(1, 10);
 
@@ -316,11 +319,10 @@ describe('UsersService', () => {
     it('should search users by query', async () => {
       const users = [mockUser];
       const total = 1;
-      
-      mockUserRepository.createQueryBuilder().getManyAndCount.mockResolvedValue([
-        users,
-        total,
-      ]);
+
+      mockUserRepository
+        .createQueryBuilder()
+        .getManyAndCount.mockResolvedValue([users, total]);
 
       const result = await service.findAll(1, 10);
 

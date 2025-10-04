@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import { Contact, User, BlockedUser } from '../entities';
 import { AddContactDto, UpdateContactDto } from '../dto';
@@ -115,7 +119,9 @@ describe('ContactsService', () => {
     }).compile();
 
     service = module.get<ContactsService>(ContactsService);
-    contactRepository = module.get<Repository<Contact>>(getRepositoryToken(Contact));
+    contactRepository = module.get<Repository<Contact>>(
+      getRepositoryToken(Contact),
+    );
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
     blockedUserRepository = module.get<Repository<BlockedUser>>(
       getRepositoryToken(BlockedUser),
@@ -159,9 +165,9 @@ describe('ContactsService', () => {
 
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.addContact('nonexistent', addContactDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.addContact('nonexistent', addContactDto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw NotFoundException if contact user not found', async () => {
@@ -173,9 +179,9 @@ describe('ContactsService', () => {
         .mockResolvedValueOnce(mockUser)
         .mockResolvedValueOnce(null);
 
-      await expect(service.addContact(mockUser.id, addContactDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.addContact(mockUser.id, addContactDto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if contact already exists', async () => {
@@ -188,9 +194,9 @@ describe('ContactsService', () => {
         .mockResolvedValueOnce(mockContactUser);
       mockContactRepository.findOne.mockResolvedValue(mockContact);
 
-      await expect(service.addContact(mockUser.id, addContactDto)).rejects.toThrow(
-        ConflictException,
-      );
+      await expect(
+        service.addContact(mockUser.id, addContactDto),
+      ).rejects.toThrow(ConflictException);
     });
 
     it('should throw ForbiddenException if user is blocked', async () => {
@@ -209,9 +215,9 @@ describe('ContactsService', () => {
       mockContactRepository.findOne.mockResolvedValue(null);
       mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUser);
 
-      await expect(service.addContact(mockUser.id, addContactDto)).rejects.toThrow(
-        ForbiddenException,
-      );
+      await expect(
+        service.addContact(mockUser.id, addContactDto),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -227,7 +233,9 @@ describe('ContactsService', () => {
         getManyAndCount: jest.fn().mockResolvedValue([[mockContact], 1]),
       };
 
-      mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockContactRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
       mockPrivacyService.filterUserData.mockResolvedValue(mockContactUser);
 
       const result = await service.getContacts(mockUser.id);
@@ -257,9 +265,9 @@ describe('ContactsService', () => {
     it('should throw NotFoundException if contact not found', async () => {
       mockContactRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.getContact(mockUser.id, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getContact(mockUser.id, 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -313,9 +321,9 @@ describe('ContactsService', () => {
     it('should throw NotFoundException if contact not found', async () => {
       mockContactRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.removeContact(mockUser.id, 'nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.removeContact(mockUser.id, 'nonexistent'),
+      ).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -331,7 +339,9 @@ describe('ContactsService', () => {
         getManyAndCount: jest.fn().mockResolvedValue([[mockContact], 1]),
       };
 
-      mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockContactRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
       mockPrivacyService.filterUserData.mockResolvedValue(mockContactUser);
 
       const result = await service.searchContacts(mockUser.id, 'Contact');
@@ -355,7 +365,9 @@ describe('ContactsService', () => {
         getManyAndCount: jest.fn().mockResolvedValue([[favoriteContact], 1]),
       };
 
-      mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockContactRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
       mockPrivacyService.filterUserData.mockResolvedValue(mockContactUser);
 
       const result = await service.getFavoriteContacts(mockUser.id);
@@ -376,7 +388,9 @@ describe('ContactsService', () => {
         getCount: jest.fn().mockResolvedValue(5),
       };
 
-      mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockContactRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
 
       const result = await service.getContactsCount(mockUser.id);
 
@@ -392,7 +406,10 @@ describe('ContactsService', () => {
     it('should return true if users are contacts', async () => {
       mockContactRepository.findOne.mockResolvedValue(mockContact);
 
-      const result = await service.areUsersContacts(mockUser.id, mockContactUser.id);
+      const result = await service.areUsersContacts(
+        mockUser.id,
+        mockContactUser.id,
+      );
 
       expect(result).toBe(true);
       expect(mockContactRepository.findOne).toHaveBeenCalledWith({
@@ -406,7 +423,10 @@ describe('ContactsService', () => {
     it('should return false if users are not contacts', async () => {
       mockContactRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.areUsersContacts(mockUser.id, mockContactUser.id);
+      const result = await service.areUsersContacts(
+        mockUser.id,
+        mockContactUser.id,
+      );
 
       expect(result).toBe(false);
     });

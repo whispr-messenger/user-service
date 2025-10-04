@@ -5,13 +5,7 @@ import { BlockedUsersController } from './blocked-users.controller';
 import { BlockedUser, User, Contact } from '../entities';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      BlockedUser,
-      User,
-      Contact,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([BlockedUser, User, Contact])],
   controllers: [BlockedUsersController],
   providers: [BlockedUsersService],
   exports: [BlockedUsersService],

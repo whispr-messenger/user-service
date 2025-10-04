@@ -1,7 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { Group, GroupMember, User, GroupRole } from '../entities';
 import { CreateGroupDto, UpdateGroupDto, AddGroupMemberDto } from '../dto';
@@ -269,7 +273,11 @@ describe('GroupsService', () => {
         role: GroupRole.MEMBER,
       };
       const newUser = { ...mockUser, id: 'new-user-id' };
-      const newMember = { ...mockGroupMember, userId: 'new-user-id', role: GroupRole.MEMBER };
+      const newMember = {
+        ...mockGroupMember,
+        userId: 'new-user-id',
+        role: GroupRole.MEMBER,
+      };
 
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
       mockUserRepository.findOne.mockResolvedValue(newUser);
@@ -363,7 +371,9 @@ describe('GroupsService', () => {
       };
 
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
-      mockGroupMemberRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockGroupMemberRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
 
       const result = await service.getGroupMembers(mockGroup.id, mockUser.id);
 

@@ -27,7 +27,10 @@ export class GroupsService {
   /**
    * Create a new group
    */
-  async createGroup(createGroupDto: CreateGroupDto, creatorId: string): Promise<Group> {
+  async createGroup(
+    createGroupDto: CreateGroupDto,
+    creatorId: string,
+  ): Promise<Group> {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -87,7 +90,9 @@ export class GroupsService {
 
     // Check if user is a member (if userId provided)
     if (userId) {
-      const isMember = group.members.some(member => member.user.id === userId);
+      const isMember = group.members.some(
+        (member) => member.user.id === userId,
+      );
       if (!isMember) {
         throw new ForbiddenException('You are not a member of this group');
       }
@@ -145,7 +150,9 @@ export class GroupsService {
     });
 
     if (!userMember) {
-      throw new ForbiddenException('Only group admins can update group information');
+      throw new ForbiddenException(
+        'Only group admins can update group information',
+      );
     }
 
     // Update group
@@ -290,13 +297,15 @@ export class GroupsService {
       }
 
       // Allow self-removal or admin removal
-      const canRemove = 
+      const canRemove =
         removedById === memberId || // Self removal
         remover.role === GroupRole.ADMIN || // Admin removal
         group.createdBy.id === removedById; // Creator removal
 
       if (!canRemove) {
-        throw new ForbiddenException('You do not have permission to remove this member');
+        throw new ForbiddenException(
+          'You do not have permission to remove this member',
+        );
       }
 
       // Prevent removing the last admin
@@ -309,7 +318,9 @@ export class GroupsService {
         });
 
         if (adminCount <= 1) {
-          throw new BadRequestException('Cannot remove the last admin from the group');
+          throw new BadRequestException(
+            'Cannot remove the last admin from the group',
+          );
         }
       }
 
@@ -376,16 +387,18 @@ export class GroupsService {
       throw new ForbiddenException('You are not a member of this group');
     }
 
-    const canUpdate = 
-      updater.role === GroupRole.ADMIN ||
-      group.createdBy.id === updatedById;
+    const canUpdate =
+      updater.role === GroupRole.ADMIN || group.createdBy.id === updatedById;
 
     if (!canUpdate) {
       throw new ForbiddenException('Only admins can update member roles');
     }
 
     // Prevent demoting the last admin
-    if (memberToUpdate.role === GroupRole.ADMIN && newRole !== GroupRole.ADMIN) {
+    if (
+      memberToUpdate.role === GroupRole.ADMIN &&
+      newRole !== GroupRole.ADMIN
+    ) {
       const adminCount = await this.groupMemberRepository.count({
         where: {
           group: { id: groupId },
@@ -416,7 +429,12 @@ export class GroupsService {
     userId: string,
     page: number = 1,
     limit: number = 50,
-  ): Promise<{ members: GroupMember[]; total: number; page: number; limit: number }> {
+  ): Promise<{
+    members: GroupMember[];
+    total: number;
+    page: number;
+    limit: number;
+  }> {
     // Check if user is a member
     const userMember = await this.groupMemberRepository.findOne({
       where: {
@@ -534,12 +552,14 @@ export class GroupsService {
         },
       });
 
-      const canDelete = 
+      const canDelete =
         group.createdBy.id === userId ||
         (userMember && userMember.role === GroupRole.ADMIN);
 
       if (!canDelete) {
-        throw new ForbiddenException('Only group creator or admin can delete the group');
+        throw new ForbiddenException(
+          'Only group creator or admin can delete the group',
+        );
       }
 
       // Delete all members first
@@ -596,7 +616,10 @@ export class GroupsService {
   /**
    * Get group statistics
    */
-  async getGroupStats(groupId: string, userId: string): Promise<{
+  async getGroupStats(
+    groupId: string,
+    userId: string,
+  ): Promise<{
     memberCount: number;
     adminCount: number;
     createdAt: Date;
@@ -630,14 +653,14 @@ export class GroupsService {
     });
 
     const memberCount = await this.groupMemberRepository.count({
-        where: { group: { id: groupId } },
-      });
+      where: { group: { id: groupId } },
+    });
 
-      return {
-        memberCount,
-        adminCount,
-        createdAt: group.createdAt,
-        lastActivity: group.updatedAt,
-      };
+    return {
+      memberCount,
+      adminCount,
+      createdAt: group.createdAt,
+      lastActivity: group.updatedAt,
+    };
   }
 }
