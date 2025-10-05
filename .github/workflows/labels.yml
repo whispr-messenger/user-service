@@ -76,6 +76,15 @@ jobs:
               { name: '🔬 tests:e2e', color: '84b6eb', description: 'End-to-end testing' },
               { name: '🧪 tests:unit', color: '84b6eb', description: 'Unit testing' },
               { name: '🎯 tests:integration', color: '84b6eb', description: 'Integration testing' },
+              { name: 'tests', color: '84b6eb', description: 'Test-related changes' },
+
+              // ================================
+              // Auto-labeler Labels
+              // ================================
+              { name: 'feature', color: 'a2eeef', description: 'New feature or functionality' },
+              { name: 'config', color: 'fef2c0', description: 'Configuration changes' },
+              { name: 'ci/cd', color: '1d76db', description: 'CI/CD configuration' },
+              { name: '📝 priority:low', color: '0e8a16', description: 'Low priority' },
 
               // ================================
               // Standard GitHub Labels
