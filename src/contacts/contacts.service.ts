@@ -20,7 +20,10 @@ export class ContactsService {
     private readonly blockedUserRepository: Repository<BlockedUser>,
   ) {}
 
-  async addContact(userId: string, addContactDto: AddContactDto): Promise<Contact> {
+  async addContact(
+    userId: string,
+    addContactDto: AddContactDto,
+  ): Promise<Contact> {
     // Vérifier que l'utilisateur ne s'ajoute pas lui-même
     if (userId === addContactDto.contactId) {
       throw new BadRequestException('Cannot add yourself as a contact');
@@ -78,7 +81,9 @@ export class ContactsService {
       .orderBy('contact.addedAt', 'DESC');
 
     if (favorites) {
-      queryBuilder.andWhere('contact.isFavorite = :isFavorite', { isFavorite: true });
+      queryBuilder.andWhere('contact.isFavorite = :isFavorite', {
+        isFavorite: true,
+      });
     }
 
     const [contacts, total] = await queryBuilder

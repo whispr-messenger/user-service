@@ -1,16 +1,10 @@
-FROM node:18-alpine
-
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nestjs -u 1001
+FROM node:20-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
+
 RUN npm ci && npm cache clean --force
-
-COPY --chown=nestjs:nodejs . .
-
-USER nestjs
 
 EXPOSE 3000 9229
 

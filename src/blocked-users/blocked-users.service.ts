@@ -20,7 +20,10 @@ export class BlockedUsersService {
     private readonly contactRepository: Repository<Contact>,
   ) {}
 
-  async blockUser(userId: string, blockUserDto: BlockUserDto): Promise<BlockedUser> {
+  async blockUser(
+    userId: string,
+    blockUserDto: BlockUserDto,
+  ): Promise<BlockedUser> {
     // Vérifier que l'utilisateur ne se bloque pas lui-même
     if (userId === blockUserDto.blockedUserId) {
       throw new BadRequestException('Cannot block yourself');
@@ -69,18 +72,23 @@ export class BlockedUsersService {
     page: number = 1,
     limit: number = 10,
   ): Promise<{ blockedUsers: BlockedUser[]; total: number }> {
-    const [blockedUsers, total] = await this.blockedUserRepository.findAndCount({
-      where: { userId },
-      relations: ['blockedUser'],
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { blockedAt: 'DESC' },
-    });
+    const [blockedUsers, total] = await this.blockedUserRepository.findAndCount(
+      {
+        where: { userId },
+        relations: ['blockedUser'],
+        skip: (page - 1) * limit,
+        take: limit,
+        order: { blockedAt: 'DESC' },
+      },
+    );
 
     return { blockedUsers, total };
   }
 
-  async getBlockedUser(userId: string, blockedUserId: string): Promise<BlockedUser> {
+  async getBlockedUser(
+    userId: string,
+    blockedUserId: string,
+  ): Promise<BlockedUser> {
     const blockedUser = await this.blockedUserRepository.findOne({
       where: {
         userId,
@@ -157,13 +165,14 @@ export class BlockedUsersService {
     page: number = 1,
     limit: number = 10,
   ): Promise<{ blockingUsers: BlockedUser[]; total: number }> {
-    const [blockingUsers, total] = await this.blockedUserRepository.findAndCount({
-      where: { blockedUserId: userId },
-      relations: ['user'],
-      skip: (page - 1) * limit,
-      take: limit,
-      order: { blockedAt: 'DESC' },
-    });
+    const [blockingUsers, total] =
+      await this.blockedUserRepository.findAndCount({
+        where: { blockedUserId: userId },
+        relations: ['user'],
+        skip: (page - 1) * limit,
+        take: limit,
+        order: { blockedAt: 'DESC' },
+      });
 
     return { blockingUsers, total };
   }

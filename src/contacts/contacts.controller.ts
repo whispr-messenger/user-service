@@ -96,7 +96,8 @@ export class ContactsController {
     @Param('userId', ParseUUIDPipe) userId: string,
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
-    @Query('favorites', new ParseBoolPipe({ optional: true })) favorites: boolean = false,
+    @Query('favorites', new ParseBoolPipe({ optional: true }))
+    favorites: boolean = false,
   ): Promise<{ contacts: Contact[]; total: number }> {
     return this.contactsService.getContacts(userId, page, limit, favorites);
   }
@@ -226,7 +227,12 @@ export class ContactsController {
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
   ): Promise<{ contacts: Contact[]; total: number }> {
-    return this.contactsService.getMutualContacts(userId, otherUserId, page, limit);
+    return this.contactsService.getMutualContacts(
+      userId,
+      otherUserId,
+      page,
+      limit,
+    );
   }
 
   @Get(':userId/:contactId')
@@ -287,7 +293,11 @@ export class ContactsController {
     @Param('contactId', ParseUUIDPipe) contactId: string,
     @Body() updateContactDto: UpdateContactDto,
   ): Promise<Contact> {
-    return this.contactsService.updateContact(userId, contactId, updateContactDto);
+    return this.contactsService.updateContact(
+      userId,
+      contactId,
+      updateContactDto,
+    );
   }
 
   @Patch(':userId/:contactId/toggle-favorite')

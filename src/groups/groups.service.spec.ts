@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
-import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ForbiddenException,
+  ConflictException,
+} from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { Group, GroupMember, User, GroupRole } from '../entities';
 import { CreateGroupDto, UpdateGroupDto, AddGroupMemberDto } from '../dto';
@@ -76,6 +81,7 @@ describe('GroupsService', () => {
     find: jest.fn(),
     count: jest.fn(),
     remove: jest.fn(),
+    delete: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
 
@@ -269,7 +275,11 @@ describe('GroupsService', () => {
         role: GroupRole.MEMBER,
       };
       const newUser = { ...mockUser, id: 'new-user-id' };
-      const newMember = { ...mockGroupMember, userId: 'new-user-id', role: GroupRole.MEMBER };
+      const newMember = {
+        ...mockGroupMember,
+        userId: 'new-user-id',
+        role: GroupRole.MEMBER,
+      };
 
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
       mockUserRepository.findOne.mockResolvedValue(newUser);
@@ -363,7 +373,9 @@ describe('GroupsService', () => {
       };
 
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
-      mockGroupMemberRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockGroupMemberRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
 
       const result = await service.getGroupMembers(mockGroup.id, mockUser.id);
 
@@ -416,6 +428,7 @@ describe('GroupsService', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
@@ -437,8 +450,11 @@ describe('GroupsService', () => {
 
   describe('getGroupStats', () => {
     it('should return group statistics', async () => {
+      mockGroupMemberRepository.findOne.mockResolvedValue(mockGroupMember);
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
-      mockGroupMemberRepository.count.mockResolvedValue(5);
+      mockGroupMemberRepository.count
+        .mockResolvedValueOnce(1) // First call for adminCount
+        .mockResolvedValueOnce(5); // Second call for memberCount
 
       const result = await service.getGroupStats(mockGroup.id, mockUser.id);
 
