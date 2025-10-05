@@ -1,0 +1,176 @@
+name: 🧪 Quality Assurance
+
+on:
+  repository_dispatch:
+    types: [run-tests]
+  workflow_call:
+    inputs:
+      ref:
+        required: true
+        type: string
+      should_deploy:
+        required: false
+        type: string
+        default: 'false'
+    secrets:
+      SONAR_TOKEN:
+        required: false
+      SONAR_HOST_URL:
+        required: false
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test-and-quality:
+    name: 🔍 Code Analysis & Testing
+    runs-on: ubuntu-latest
+
+    steps:
+      ####################################################################################################
+      # Setup
+      ####################################################################################################
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.client_payload.ref }}
+          fetch-depth: 0
+
+      - name: Create .env.development file
+        run: |
+          cat > .env.development << 'EOF'
+          # Application
+          PORT=3000
+          NODE_ENV=test
+
+          # Database
+          DATABASE_HOST=postgres-test
+          DATABASE_PORT=5432
+          DATABASE_USERNAME=whisper_user
+          DATABASE_PASSWORD=whisper_password
+          DATABASE_NAME=whisper_users_test
+          DATABASE_SYNCHRONIZE=true
+          DATABASE_LOGGING=false
+          DATABASE_SSL=false
+
+          # Redis
+          REDIS_HOST=redis-test
+          REDIS_PORT=6379
+          REDIS_PASSWORD=redis_password
+          REDIS_DB=0
+
+          # JWT
+          JWT_SECRET=test-jwt-secret
+          JWT_EXPIRES_IN=24h
+          EOF
+
+      - name: Start Docker Compose services
+        run: |
+          docker compose -f docker/docker-compose.dev.yml up -d postgres-dev redis-dev
+          # Wait for services to be healthy
+          timeout 60 bash -c 'until docker compose -f docker/docker-compose.dev.yml exec postgres-dev pg_isready -U whisper_user -d whisper_users_dev; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f docker/docker-compose.dev.yml exec redis-dev redis-cli -a redis_password ping; do sleep 2; done'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run DB migrations
+        run: npm run migration:run
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5433
+          DATABASE_USERNAME: whisper_user
+          DATABASE_PASSWORD: whisper_password
+          DATABASE_NAME: whisper_users_dev
+          DATABASE_SSL: false
+
+      ####################################################################################################
+      # Linting and Formatting
+      ####################################################################################################
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run format check
+        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+
+      ####################################################################################################
+      # Unit and E2E Tests
+      ####################################################################################################
+      - name: Run unit tests
+        run: npm run test:cov
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5433
+          DATABASE_USERNAME: whisper_user
+          DATABASE_PASSWORD: whisper_password
+          DATABASE_NAME: whisper_users_dev
+          DATABASE_SSL: false
+          REDIS_HOST: localhost
+          REDIS_PORT: 6380
+          REDIS_PASSWORD: redis_password
+          REDIS_DB: 0
+
+      - name: Run e2e tests
+        run: npm run test:e2e
+        env:
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5433
+          DATABASE_USERNAME: whisper_user
+          DATABASE_PASSWORD: whisper_password
+          DATABASE_NAME: whisper_users_dev
+          DATABASE_SSL: false
+          REDIS_HOST: localhost
+          REDIS_PORT: 6380
+          REDIS_PASSWORD: redis_password
+          REDIS_DB: 0
+
+      - name: Stop Docker Compose services
+        if: always()
+        run: docker compose -f docker/docker-compose.dev.yml down -v
+
+      ####################################################################################################
+      # SonarQube Analysis (conditional on should_deploy and secrets availability)
+      ####################################################################################################
+      - name: Check SonarQube secrets
+        id: check-secrets
+        run: |
+          if [[ -n "${{ secrets.SONAR_TOKEN }}" && -n "${{ secrets.SONAR_HOST_URL }}" ]]; then
+            echo "secrets-available=true" >> $GITHUB_OUTPUT
+          else
+            echo "secrets-available=false" >> $GITHUB_OUTPUT
+            echo "⚠️ SonarQube secrets not configured. Skipping SonarQube analysis."
+          fi
+
+      - name: SonarQube Analysis
+        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+        uses: sonarsource/sonarqube-scan-action@v6.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube Quality Gate
+        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella

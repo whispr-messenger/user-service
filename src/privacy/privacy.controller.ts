@@ -72,7 +72,10 @@ export class PrivacyController {
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() updatePrivacySettingsDto: UpdatePrivacySettingsDto,
   ): Promise<PrivacySettings> {
-    return this.privacyService.updatePrivacySettings(userId, updatePrivacySettingsDto);
+    return this.privacyService.updatePrivacySettings(
+      userId,
+      updatePrivacySettingsDto,
+    );
   }
 
   @Get(':userId/can-view-profile-picture/:viewerId')
