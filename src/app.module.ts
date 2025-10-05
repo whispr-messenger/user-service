@@ -29,6 +29,7 @@ import { GroupsModule } from './groups/groups.module';
     BlockedUsersModule,
     UserSearchModule,
     GroupsModule,
+    RedisConfig,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseConfig],

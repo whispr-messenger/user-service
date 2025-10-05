@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchIndexService } from './search-index.service';
 import { CacheService } from './cache.service';
