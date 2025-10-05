@@ -25,7 +25,7 @@ export class ValidationPipe implements PipeTransform<any> {
   }
 
   private formatErrors(errors: any[]) {
-    return errors.map(err => ({
+    return errors.map((err) => ({
       property: err.property,
       constraints: err.constraints,
     }));

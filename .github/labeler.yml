@@ -1,0 +1,42 @@
+# Label configuration for PR auto-labeling
+# See: https://github.com/actions/labeler
+
+# Documentation changes
+documentation:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.md', 'docs/**/*']
+
+# CI/CD changes
+ci/cd:
+  - changed-files:
+    - any-glob-to-any-file: ['.github/**/*', 'docker/**/*']
+
+# Source code changes
+feature:
+  - changed-files:
+    - any-glob-to-any-file: ['src/**/*.ts', '!src/**/*.spec.ts']
+
+# Test changes
+tests:
+  - changed-files:
+    - any-glob-to-any-file: ['**/*.spec.ts', 'test/**/*', '**/*.e2e-spec.ts']
+
+# Configuration changes
+config:
+  - changed-files:
+    - any-glob-to-any-file: ['*.json', '*.yml', '*.yaml', '.env*', '!package.json']
+
+# Dependencies
+dependencies:
+  - changed-files:
+    - any-glob-to-any-file: ['package.json', 'package-lock.json']
+
+# Database migrations
+database:
+  - changed-files:
+    - any-glob-to-any-file: ['src/migrations/**/*', '**/migration/**/*']
+
+# Security
+security:
+  - changed-files:
+    - any-glob-to-any-file: ['**/guards/**/*', '**/auth/**/*', '**/security/**/*']
