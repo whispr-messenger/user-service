@@ -2,10 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryRunner } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User, PrivacySettings, UserSearchIndex } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import * as crypto from 'crypto';
@@ -38,7 +37,8 @@ export class UsersService {
       throw new ConflictException('Username already exists');
     }
 
-    const queryRunner = this.userRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.userRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -73,7 +73,10 @@ export class UsersService {
     }
   }
 
-  async findAll(page: number = 1, limit: number = 10): Promise<{ users: User[]; total: number }> {
+  async findAll(
+    page: number = 1,
+    limit: number = 10,
+  ): Promise<{ users: User[]; total: number }> {
     const [users, total] = await this.userRepository.findAndCount({
       relations: ['privacySettings'],
       skip: (page - 1) * limit,
@@ -113,18 +116,10 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
+    await this.ensureUsernameNotTaken(updateUserDto, user);
 
-    // Vérifier si le nom d'utilisateur existe déjà (si modifié)
-    if (updateUserDto.username && updateUserDto.username !== user.username) {
-      const existingUser = await this.userRepository.findOne({
-        where: { username: updateUserDto.username },
-      });
-      if (existingUser) {
-        throw new ConflictException('Username already exists');
-      }
-    }
-
-    const queryRunner = this.userRepository.manager.connection.createQueryRunner();
+    const queryRunner =
+      this.userRepository.manager.connection.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
@@ -134,20 +129,27 @@ export class UsersService {
       const updatedUser = await queryRunner.manager.save(user);
 
       // Mettre à jour l'index de recherche si nécessaire
-      if (updateUserDto.username || updateUserDto.firstName || updateUserDto.lastName) {
+      if (
+        updateUserDto.username ||
+        updateUserDto.firstName ||
+        updateUserDto.lastName
+      ) {
         const searchIndex = await queryRunner.manager.findOne(UserSearchIndex, {
           where: { userId: id },
         });
 
         if (searchIndex) {
           if (updateUserDto.username) {
-            searchIndex.usernameNormalized = updateUserDto.username.toLowerCase();
+            searchIndex.usernameNormalized =
+              updateUserDto.username.toLowerCase();
           }
           if (updateUserDto.firstName) {
-            searchIndex.firstNameNormalized = updateUserDto.firstName.toLowerCase();
+            searchIndex.firstNameNormalized =
+              updateUserDto.firstName.toLowerCase();
           }
           if (updateUserDto.lastName !== undefined) {
-            searchIndex.lastNameNormalized = updateUserDto.lastName?.toLowerCase() || null;
+            searchIndex.lastNameNormalized =
+              updateUserDto.lastName?.toLowerCase() || null;
           }
           await queryRunner.manager.save(searchIndex);
         }
@@ -163,22 +165,36 @@ export class UsersService {
     }
   }
 
+  private async ensureUsernameNotTaken(
+    updateUserDto: UpdateUserDto,
+    user: User,
+  ): Promise<void> {
+    if (updateUserDto.username && updateUserDto.username !== user.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: updateUserDto.username },
+      });
+      if (existingUser) {
+        throw new ConflictException('Username already exists');
+      }
+    }
+  }
+
   async updateLastSeen(id: string): Promise<void> {
     await this.userRepository.update(id, { lastSeen: new Date() });
   }
 
   async deactivate(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.update(id, { isActive: false });
   }
 
   async activate(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.update(id, { isActive: true });
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.softDelete(id);
   }
 

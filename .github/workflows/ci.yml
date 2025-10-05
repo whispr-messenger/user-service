@@ -1,0 +1,56 @@
+name: 🚀 CI Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  packages: write
+  security-events: write
+  actions: read
+  attestations: write
+  id-token: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ================================
+  # Tests and Quality
+  # ================================
+  tests:
+    name: 🧪 Quality Assurance
+    uses: ./.github/workflows/tests.yml
+    with:
+      ref: ${{ github.ref }}
+      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  # ================================
+  # Security Scanning
+  # ================================
+  security:
+    name: 🛡️ Security Analysis
+    uses: ./.github/workflows/trivy.yml
+    with:
+      ref: ${{ github.ref }}
+      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+
+  # ================================
+  # Docker Build
+  # ================================
+  docker:
+    name: 📦 Container Registry
+    needs: [tests, security]
+    if: success()
+    uses: ./.github/workflows/docker.yml
+    with:
+      ref: ${{ github.ref }}
+      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}

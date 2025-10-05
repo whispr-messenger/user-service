@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { SearchIndexService } from './search-index.service';
 import { CacheService } from './cache.service';
@@ -75,14 +76,21 @@ describe('SearchIndexService', () => {
 
       await service.indexUser(mockUser);
 
-      expect(mockCacheService.pipeline).toHaveBeenCalledWith(expect.arrayContaining([
-        ['hset', 'search:phone', mockUser.phoneNumber, mockUser.id],
-        ['hset', 'search:username', mockUser.username.toLowerCase(), mockUser.id],
-        ['zadd', 'search:name:john', expect.any(Number), mockUser.id],
-        ['zadd', 'search:name:doe', expect.any(Number), mockUser.id],
-        ['zadd', 'search:name:john doe', expect.any(Number), mockUser.id],
-        ['setex', `user:cache:${mockUser.id}`, 3600, expect.any(String)],
-      ]));
+      expect(mockCacheService.pipeline).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          ['hset', 'search:phone', mockUser.phoneNumber, mockUser.id],
+          [
+            'hset',
+            'search:username',
+            mockUser.username.toLowerCase(),
+            mockUser.id,
+          ],
+          ['zadd', 'search:name:john', expect.any(Number), mockUser.id],
+          ['zadd', 'search:name:doe', expect.any(Number), mockUser.id],
+          ['zadd', 'search:name:john doe', expect.any(Number), mockUser.id],
+          ['setex', `user:cache:${mockUser.id}`, 3600, expect.any(String)],
+        ]),
+      );
     });
 
     it('should index username lookup', async () => {
@@ -116,7 +124,9 @@ describe('SearchIndexService', () => {
       const result = await service.getCachedUser(mockUser.id);
 
       expect(result).toEqual(cachedUser);
-      expect(mockCacheService.get).toHaveBeenCalledWith(`user:cache:${mockUser.id}`);
+      expect(mockCacheService.get).toHaveBeenCalledWith(
+        `user:cache:${mockUser.id}`,
+      );
     });
 
     it('should return null if user not cached', async () => {
@@ -216,7 +226,10 @@ describe('SearchIndexService', () => {
 
   describe('batchIndexUsers', () => {
     it('should index multiple users', async () => {
-      const users = [mockUser, { ...mockUser, id: 'user2', username: 'testuser2' }];
+      const users = [
+        mockUser,
+        { ...mockUser, id: 'user2', username: 'testuser2' },
+      ];
       mockCacheService.set.mockResolvedValue(undefined);
 
       await service.batchIndexUsers(users);
