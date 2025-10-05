@@ -78,6 +78,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run DB migrations
+        run: npm run migration:run
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+
       ####################################################################################################
       # Linting and Formatting
       ####################################################################################################
