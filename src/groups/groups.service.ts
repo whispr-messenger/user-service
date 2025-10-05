@@ -218,9 +218,9 @@ export class GroupsService {
         role: addMemberDto.role || GroupRole.MEMBER,
       });
 
-  const savedMember = await this.groupMemberRepository.save(newMember);
+      const savedMember = await this.groupMemberRepository.save(newMember);
 
-  await queryRunner.commitTransaction();
+      await queryRunner.commitTransaction();
 
       this.logger.log(
         `User ${addMemberDto.userId} added to group ${groupId} by ${addedById}`,
@@ -312,12 +312,12 @@ export class GroupsService {
       }
 
       // Remove member
-  // Use repository remove so unit tests' mocks are called
-  await this.groupMemberRepository.remove(memberToRemove);
+      // Use repository remove so unit tests' mocks are called
+      await this.groupMemberRepository.remove(memberToRemove);
 
       // Member removed successfully
 
-  await queryRunner.commitTransaction();
+      await queryRunner.commitTransaction();
 
       this.logger.log(
         `User ${memberId} removed from group ${groupId} by ${removedById}`,
@@ -401,7 +401,7 @@ export class GroupsService {
 
     // Update role
     memberToUpdate.role = newRole;
-  const updatedMember = await this.groupMemberRepository.save(memberToUpdate);
+    const updatedMember = await this.groupMemberRepository.save(memberToUpdate);
 
     this.logger.log(
       `Member ${memberId} role updated to ${newRole} in group ${groupId} by ${updatedById}`,
@@ -468,9 +468,6 @@ export class GroupsService {
     await queryRunner.startTransaction();
 
     try {
-      // Fetch group for member count updates
-      const group = await this.groupRepository.findOne({ where: { id: groupId } });
-
       // Get user's membership
       const membership = await this.groupMemberRepository.findOne({
         where: {
@@ -553,7 +550,9 @@ export class GroupsService {
 
       // Delete all members first using repository methods so unit tests' mocks are called
       // (unit tests expect groupRepository.save to be used to mark deleted)
-      await this.groupMemberRepository.delete({ group: { id: groupId } } as any);
+      await this.groupMemberRepository.delete({
+        group: { id: groupId },
+      } as any);
 
       // Mark group inactive and save
       group.isActive = false;

@@ -175,9 +175,7 @@ export class UserSearchService {
           relations: ['privacySettings'],
         });
 
-        users = found.filter(
-          (u) => options.includeInactive || u.isActive,
-        );
+        users = found.filter((u) => options.includeInactive || u.isActive);
       }
 
       // Fallback to database search if not enough results from cache
