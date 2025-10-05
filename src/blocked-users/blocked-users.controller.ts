@@ -129,7 +129,12 @@ export class BlockedUsersController {
     @Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
     @Query('limit', new ParseIntPipe({ optional: true })) limit: number = 10,
   ): Promise<{ blockedUsers: BlockedUser[]; total: number }> {
-    return this.blockedUsersService.searchBlockedUsers(userId, query, page, limit);
+    return this.blockedUsersService.searchBlockedUsers(
+      userId,
+      query,
+      page,
+      limit,
+    );
   }
 
   @Get(':userId/count')
@@ -280,7 +285,11 @@ export class BlockedUsersController {
     @Param('blockedUserId', ParseUUIDPipe) blockedUserId: string,
     @Body('reason') reason: string,
   ): Promise<BlockedUser> {
-    return this.blockedUsersService.updateBlockReason(userId, blockedUserId, reason);
+    return this.blockedUsersService.updateBlockReason(
+      userId,
+      blockedUserId,
+      reason,
+    );
   }
 
   @Delete(':userId/:blockedUserId')

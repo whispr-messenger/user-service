@@ -1,7 +1,7 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { CacheService } from './cache.service';
 import { RedisConfig } from '../config/redis.config';
-import Redis from 'ioredis';
 
 // Mock Redis
 const mockRedis = {
@@ -79,7 +79,11 @@ describe('CacheService', () => {
 
       await service.set(key, value, ttl);
 
-      expect(mockRedis.setex).toHaveBeenCalledWith(key, ttl, JSON.stringify(value));
+      expect(mockRedis.setex).toHaveBeenCalledWith(
+        key,
+        ttl,
+        JSON.stringify(value),
+      );
     });
 
     it('should handle errors when setting value', async () => {
