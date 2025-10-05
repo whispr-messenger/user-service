@@ -81,6 +81,7 @@ describe('GroupsService', () => {
     find: jest.fn(),
     count: jest.fn(),
     remove: jest.fn(),
+    delete: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
 
@@ -427,6 +428,7 @@ describe('GroupsService', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         leftJoinAndSelect: jest.fn().mockReturnThis(),
+        leftJoin: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
@@ -448,8 +450,11 @@ describe('GroupsService', () => {
 
   describe('getGroupStats', () => {
     it('should return group statistics', async () => {
+      mockGroupMemberRepository.findOne.mockResolvedValue(mockGroupMember);
       mockGroupRepository.findOne.mockResolvedValue(mockGroup);
-      mockGroupMemberRepository.count.mockResolvedValue(5);
+      mockGroupMemberRepository.count
+        .mockResolvedValueOnce(1) // First call for adminCount
+        .mockResolvedValueOnce(5); // Second call for memberCount
 
       const result = await service.getGroupStats(mockGroup.id, mockUser.id);
 
