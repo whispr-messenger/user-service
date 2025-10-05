@@ -1,170 +1,170 @@
 # Label configuration for GitHub Issues and Pull Requests
-# Colors: Use hex codes without the # prefix
+# Colors: Use hex codes without the # prefix (quoted to ensure string type)
 
 # ================================
 # Type Labels
 # ================================
 - name: 📚 type:documentation
-  color: 0075ca
+  color: "0075ca"
   description: Documentation improvements or additions
 
 - name: 🔒 type:security
-  color: d93f0b
+  color: "d93f0b"
   description: Security-related changes or fixes
 
 - name: 🗄️ type:database
-  color: 5319e7
+  color: "5319e7"
   description: Database schema, migrations, or queries
 
 - name: 💥 breaking-change
-  color: e99695
+  color: "e99695"
   description: Changes that break backward compatibility
 
 # ================================
 # Priority Labels
 # ================================
 - name: 🔥 priority:high
-  color: d73a4a
+  color: "d73a4a"
   description: High priority issues or PRs
 
 - name: ⚡ priority:medium
-  color: fbca04
+  color: "fbca04"
   description: Medium priority issues or PRs
 
 - name: 🟢 priority:low
-  color: 0e8a16
+  color: "0e8a16"
   description: Low priority issues or PRs
 
 # ================================
 # Size Labels
 # ================================
 - name: 📏 size:XS
-  color: c2e0c6
+  color: "c2e0c6"
   description: Extra small changes (1-10 lines)
 
 - name: 📏 size:S
-  color: 7bcf98
+  color: "7bcf98"
   description: Small changes (11-50 lines)
 
 - name: 📏 size:M
-  color: fef2c0
+  color: "fef2c0"
   description: Medium changes (51-200 lines)
 
 - name: 📏 size:L
-  color: f9d0c4
+  color: "f9d0c4"
   description: Large changes (201-500 lines)
 
 - name: 📏 size:XL
-  color: ee9090
+  color: "ee9090"
   description: Extra large changes (500+ lines)
 
 # ================================
 # DevOps Labels
 # ================================
 - name: ⚡ devops:ci-cd
-  color: 1d76db
+  color: "1d76db"
   description: CI/CD pipeline and automation
 
 - name: 🐳 devops:docker
-  color: 0db7ed
+  color: "0db7ed"
   description: Docker containers and compose
 
 - name: 📜 devops:scripts
-  color: 5319e7
+  color: "5319e7"
   description: Build and deployment scripts
 
 # ================================
 # Component Labels
 # ================================
 - name: 🗄️ database
-  color: 5319e7
+  color: "5319e7"
   description: Database-related changes
 
 - name: 🛡️ security:guards
-  color: d93f0b
+  color: "d93f0b"
   description: Authentication and authorization guards
 
 - name: 🗂️ filters
-  color: 1d76db
+  color: "1d76db"
   description: Exception filters and error handling
 
 - name: 🔄 middleware
-  color: 0366d6
+  color: "0366d6"
   description: Middleware and interceptors
 
 - name: ⚡ performance
-  color: fbca04
+  color: "fbca04"
   description: Performance improvements
 
 - name: 💊 health
-  color: 0e8a16
+  color: "0e8a16"
   description: Health checks and monitoring
 
 # ================================
 # Documentation Labels
 # ================================
 - name: 📖 documentation
-  color: 0075ca
+  color: "0075ca"
   description: General documentation updates
 
 - name: 📐 docs:architecture
-  color: 1d76db
+  color: "1d76db"
   description: Architecture documentation and diagrams
 
 - name: 🔗 docs:integration
-  color: 5319e7
+  color: "5319e7"
   description: Integration guides and API documentation
 
 # ================================
 # Testing Labels
 # ================================
 - name: 🔬 tests:e2e
-  color: 84b6eb
+  color: "84b6eb"
   description: End-to-end testing
 
 - name: 🧪 tests:unit
-  color: 84b6eb
+  color: "84b6eb"
   description: Unit testing
 
 - name: 🎯 tests:integration
-  color: 84b6eb
+  color: "84b6eb"
   description: Integration testing
 
 # ================================
 # Standard GitHub Labels (keep existing)
 # ================================
 - name: bug
-  color: d73a4a
+  color: "d73a4a"
   description: Something isn't working
 
 - name: enhancement
-  color: a2eeef
+  color: "a2eeef"
   description: New feature or request
 
 - name: dependencies
-  color: 0366d6
+  color: "0366d6"
   description: Pull requests that update a dependency file
 
 - name: good first issue
-  color: 7057ff
+  color: "7057ff"
   description: Good for newcomers
 
 - name: help wanted
-  color: 008672
+  color: "008672"
   description: Extra attention is needed
 
 - name: invalid
-  color: e4e669
+  color: "e4e669"
   description: This doesn't seem right
 
 - name: question
-  color: d876e3
+  color: "d876e3"
   description: Further information is requested
 
 - name: wontfix
-  color: ffffff
+  color: "ffffff"
   description: This will not be worked on
 
 - name: duplicate
-  color: cfd3d7
+  color: "cfd3d7"
   description: This issue or pull request already exists
