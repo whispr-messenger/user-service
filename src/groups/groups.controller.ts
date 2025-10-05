@@ -7,7 +7,6 @@ import {
   Body,
   Param,
   Query,
-  UseGuards,
   Request,
   HttpCode,
   HttpStatus,
@@ -48,8 +47,18 @@ export class GroupsController {
 
   @Get('my-groups')
   @ApiOperation({ summary: 'Get current user groups' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiResponse({
     status: 200,
     description: 'User groups retrieved successfully',
@@ -81,9 +90,24 @@ export class GroupsController {
 
   @Get('search')
   @ApiOperation({ summary: 'Search groups by name' })
-  @ApiQuery({ name: 'q', required: true, type: String, description: 'Search query' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'q',
+    required: true,
+    type: String,
+    description: 'Search query',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiResponse({
     status: 200,
     description: 'Groups search results',
@@ -155,7 +179,10 @@ export class GroupsController {
   @ApiParam({ name: 'groupId', type: 'string', description: 'Group ID' })
   @ApiResponse({ status: 204, description: 'Group deleted successfully' })
   @ApiResponse({ status: 404, description: 'Group not found' })
-  @ApiResponse({ status: 403, description: 'Access denied - Creator/Admin only' })
+  @ApiResponse({
+    status: 403,
+    description: 'Access denied - Creator/Admin only',
+  })
   async deleteGroup(
     @Param('groupId') groupId: string,
     @Request() req: any,
@@ -166,8 +193,18 @@ export class GroupsController {
   @Get(':groupId/members')
   @ApiOperation({ summary: 'Get group members' })
   @ApiParam({ name: 'groupId', type: 'string', description: 'Group ID' })
-  @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
-  @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Items per page' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Page number',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Items per page',
+  })
   @ApiResponse({
     status: 200,
     description: 'Group members retrieved successfully',
@@ -197,7 +234,12 @@ export class GroupsController {
     page: number;
     limit: number;
   }> {
-    return this.groupsService.getGroupMembers(groupId, req.user.id, page, limit);
+    return this.groupsService.getGroupMembers(
+      groupId,
+      req.user.id,
+      page,
+      limit,
+    );
   }
 
   @Post(':groupId/members')
@@ -208,7 +250,10 @@ export class GroupsController {
     description: 'Member added successfully',
     type: GroupMember,
   })
-  @ApiResponse({ status: 400, description: 'Bad request - User already member' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request - User already member',
+  })
   @ApiResponse({ status: 404, description: 'Group or user not found' })
   @ApiResponse({ status: 403, description: 'Access denied - Admin only' })
   async addMember(

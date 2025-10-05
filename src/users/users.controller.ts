@@ -110,7 +110,9 @@ export class UsersController {
     status: HttpStatus.NOT_FOUND,
     description: 'User not found',
   })
-  async findByPhoneNumber(@Param('phoneNumber') phoneNumber: string): Promise<User | null> {
+  async findByPhoneNumber(
+    @Param('phoneNumber') phoneNumber: string,
+  ): Promise<User | null> {
     return this.usersService.findByPhoneNumber(phoneNumber);
   }
 
@@ -130,7 +132,9 @@ export class UsersController {
     status: HttpStatus.NOT_FOUND,
     description: 'User not found',
   })
-  async findByUsername(@Param('username') username: string): Promise<User | null> {
+  async findByUsername(
+    @Param('username') username: string,
+  ): Promise<User | null> {
     return this.usersService.findByUsername(username);
   }
 

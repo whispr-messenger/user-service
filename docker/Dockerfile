@@ -1,15 +1,18 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm install
+# Install all dependencies but ignore postinstall scripts (just-install)
+RUN npm ci --ignore-scripts
 
 COPY . .
 RUN npm run build
-RUN npm ci --only=production && npm cache clean --force
 
-FROM node:18-alpine AS production
+# Install only production dependencies for runtime
+RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+
+FROM node:20-alpine AS production
 
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nestjs -u 1001
