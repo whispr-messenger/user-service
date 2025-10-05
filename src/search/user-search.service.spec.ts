@@ -76,6 +76,8 @@ describe('UserSearchService', () => {
     removeFromIndex: jest.fn(),
     updateIndex: jest.fn(),
     rebuildIndexes: jest.fn(),
+    clearAllIndexes: jest.fn(),
+    batchIndexUsers: jest.fn(),
   };
 
   const mockPrivacyService = {
@@ -219,8 +221,18 @@ describe('UserSearchService', () => {
         canViewLastName: true,
       };
 
-      mockSearchIndexService.searchByName.mockResolvedValue([mockUser.id]);
-      mockUserRepository.find.mockResolvedValue([mockUser]);
+      const mockQueryBuilder = {
+        leftJoinAndSelect: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        skip: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockUser]),
+      };
+
+      mockSearchIndexService.searchByName.mockResolvedValue([]);
+      mockUserRepository.find.mockResolvedValue([]);
+      mockUserRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
       jest
         .spyOn(service as any, 'formatUserSearchResult')
         .mockResolvedValue(userSearchResult);
@@ -284,9 +296,18 @@ describe('UserSearchService', () => {
       const searcherId = 'searcher-id';
       const suggestions = ['testuser', 'testuser2'];
 
+      const mockQueryBuilder = {
+        select: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        take: jest.fn().mockReturnThis(),
+        getMany: jest.fn().mockResolvedValue([mockUser]),
+      };
+
       mockSearchIndexService.searchByUsername.mockResolvedValue([mockUser.id]);
       mockSearchIndexService.searchByName.mockResolvedValue([mockUser.id]);
       mockUserRepository.find.mockResolvedValue([mockUser]);
+      mockUserRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
 
       const result = await service.getSearchSuggestions(query, {
         viewerId: searcherId,
@@ -298,11 +319,14 @@ describe('UserSearchService', () => {
 
   describe('rebuildSearchIndexes', () => {
     it('should rebuild search indexes', async () => {
-      mockSearchIndexService.rebuildIndexes.mockResolvedValue(undefined);
+      mockSearchIndexService.clearAllIndexes.mockResolvedValue(undefined);
+      mockSearchIndexService.batchIndexUsers.mockResolvedValue(undefined);
+      mockUserRepository.find.mockResolvedValue([mockUser]);
 
       await service.rebuildSearchIndexes();
 
-      expect(mockSearchIndexService.rebuildIndexes).toHaveBeenCalled();
+      expect(mockSearchIndexService.clearAllIndexes).toHaveBeenCalled();
+      expect(mockSearchIndexService.batchIndexUsers).toHaveBeenCalledWith([mockUser]);
     });
   });
 });
