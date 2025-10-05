@@ -4,7 +4,12 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User, PrivacySettings, PrivacyLevel, UserSearchIndex } from '../entities';
+import {
+  User,
+  PrivacySettings,
+  PrivacyLevel,
+  UserSearchIndex,
+} from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import { CacheService } from '../cache';
 
@@ -245,7 +250,9 @@ describe('UsersService', () => {
       const updatedUser = { ...mockUser, ...updateUserDto };
       mockUserRepository.findOne.mockResolvedValue(mockUser);
       mockQueryRunner.manager.save.mockResolvedValue(updatedUser);
-      mockQueryRunner.manager.findOne.mockResolvedValue({ userId: mockUser.id });
+      mockQueryRunner.manager.findOne.mockResolvedValue({
+        userId: mockUser.id,
+      });
 
       const result = await service.update(mockUser.id, updateUserDto);
 
