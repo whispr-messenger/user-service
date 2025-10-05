@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseConfig } from './config/database.config';
-import { RedisConfig } from './config/redis.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { CacheModule } from './cache/cache.module';
@@ -17,7 +16,7 @@ import { GroupsModule } from './groups/groups.module';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: ['.env.local', '.env'],
+      envFilePath: ['.env.development', '.env.local', '.env'],
     }),
     TypeOrmModule.forRootAsync({
       useClass: DatabaseConfig,
@@ -29,7 +28,6 @@ import { GroupsModule } from './groups/groups.module';
     BlockedUsersModule,
     UserSearchModule,
     GroupsModule,
-    RedisConfig,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseConfig],
