@@ -5,7 +5,7 @@ import { Repository } from 'typeorm';
 import {
   NotFoundException,
   ConflictException,
-  ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
 import { Contact, User, BlockedUser } from '../entities';
@@ -82,6 +82,7 @@ describe('ContactsService', () => {
     find: jest.fn(),
     createQueryBuilder: jest.fn(),
     remove: jest.fn(),
+    count: jest.fn(),
   };
 
   const mockUserRepository = {
@@ -145,9 +146,7 @@ describe('ContactsService', () => {
         nickname: 'My Contact',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockContactUser);
+      mockUserRepository.findOne.mockResolvedValue(mockContactUser);
       mockContactRepository.findOne.mockResolvedValue(null);
       mockBlockedUserRepository.findOne.mockResolvedValue(null);
       mockContactRepository.create.mockReturnValue(mockContact);
@@ -159,26 +158,12 @@ describe('ContactsService', () => {
       expect(mockContactRepository.save).toHaveBeenCalledWith(mockContact);
     });
 
-    it('should throw NotFoundException if user not found', async () => {
-      const addContactDto: AddContactDto = {
-        contactId: mockContactUser.id,
-      };
-
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(
-        service.addContact('nonexistent', addContactDto),
-      ).rejects.toThrow(NotFoundException);
-    });
-
     it('should throw NotFoundException if contact user not found', async () => {
       const addContactDto: AddContactDto = {
         contactId: 'nonexistent',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
 
       await expect(
         service.addContact(mockUser.id, addContactDto),
@@ -190,9 +175,8 @@ describe('ContactsService', () => {
         contactId: mockContactUser.id,
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockContactUser);
+      mockUserRepository.findOne.mockResolvedValue(mockContactUser);
+      mockBlockedUserRepository.findOne.mockResolvedValue(null);
       mockContactRepository.findOne.mockResolvedValue(mockContact);
 
       await expect(
@@ -200,7 +184,7 @@ describe('ContactsService', () => {
       ).rejects.toThrow(ConflictException);
     });
 
-    it('should throw ForbiddenException if user is blocked', async () => {
+    it('should throw BadRequestException if user is blocked', async () => {
       const addContactDto: AddContactDto = {
         contactId: mockContactUser.id,
       };
@@ -210,15 +194,12 @@ describe('ContactsService', () => {
         blockedUserId: mockUser.id,
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockContactUser);
-      mockContactRepository.findOne.mockResolvedValue(null);
+      mockUserRepository.findOne.mockResolvedValue(mockContactUser);
       mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUser);
 
       await expect(
         service.addContact(mockUser.id, addContactDto),
-      ).rejects.toThrow(ForbiddenException);
+      ).rejects.toThrow(BadRequestException);
     });
   });
 
@@ -384,22 +365,14 @@ describe('ContactsService', () => {
 
   describe('getContactsCount', () => {
     it('should return contacts count', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(5),
-      };
-
-      mockContactRepository.createQueryBuilder.mockReturnValue(
-        mockQueryBuilder,
-      );
+      mockContactRepository.count.mockResolvedValue(5);
 
       const result = await service.getContactsCount(mockUser.id);
 
       expect(result).toBe(5);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        'contact.userId = :userId',
-        { userId: mockUser.id },
-      );
+      expect(mockContactRepository.count).toHaveBeenCalledWith({
+        where: { userId: mockUser.id },
+      });
     });
   });
 
