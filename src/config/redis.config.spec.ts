@@ -1,6 +1,5 @@
 import { ConfigService } from '@nestjs/config';
 import { RedisConfig } from './redis.config';
-import Redis from 'ioredis';
 
 // Mock ioredis
 const mockRedisInstance = {
@@ -8,8 +7,14 @@ const mockRedisInstance = {
 };
 
 jest.mock('ioredis', () => {
-  return jest.fn().mockImplementation(() => mockRedisInstance);
+  return {
+    __esModule: true,
+    default: jest.fn(() => mockRedisInstance),
+  };
 });
+
+// Get reference to mocked constructor
+const Redis = require('ioredis').default;
 
 describe('RedisConfig', () => {
   let configService: ConfigService;
@@ -20,7 +25,7 @@ describe('RedisConfig', () => {
     } as any;
 
     jest.clearAllMocks();
-    (Redis as jest.MockedClass<typeof Redis>).mockClear();
+    (Redis as jest.Mock).mockClear();
     mockRedisInstance.quit.mockClear();
   });
 
