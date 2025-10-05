@@ -2,10 +2,9 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
-  BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, QueryRunner } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User, PrivacySettings, UserSearchIndex } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import * as crypto from 'crypto';
@@ -117,16 +116,7 @@ export class UsersService {
 
   async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     const user = await this.findOne(id);
-
-    // Vérifier si le nom d'utilisateur existe déjà (si modifié)
-    if (updateUserDto.username && updateUserDto.username !== user.username) {
-      const existingUser = await this.userRepository.findOne({
-        where: { username: updateUserDto.username },
-      });
-      if (existingUser) {
-        throw new ConflictException('Username already exists');
-      }
-    }
+    await this.ensureUsernameNotTaken(updateUserDto, user);
 
     const queryRunner =
       this.userRepository.manager.connection.createQueryRunner();
@@ -175,22 +165,36 @@ export class UsersService {
     }
   }
 
+  private async ensureUsernameNotTaken(
+    updateUserDto: UpdateUserDto,
+    user: User,
+  ): Promise<void> {
+    if (updateUserDto.username && updateUserDto.username !== user.username) {
+      const existingUser = await this.userRepository.findOne({
+        where: { username: updateUserDto.username },
+      });
+      if (existingUser) {
+        throw new ConflictException('Username already exists');
+      }
+    }
+  }
+
   async updateLastSeen(id: string): Promise<void> {
     await this.userRepository.update(id, { lastSeen: new Date() });
   }
 
   async deactivate(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.update(id, { isActive: false });
   }
 
   async activate(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.update(id, { isActive: true });
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
+    await this.findOne(id);
     await this.userRepository.softDelete(id);
   }
 

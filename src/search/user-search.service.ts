@@ -1,8 +1,8 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository, ILike } from 'typeorm';
 import { User, PrivacySettings } from '../entities';
-import { SearchIndexService, SearchIndexEntry } from '../cache';
+import { SearchIndexService } from '../cache';
 import { PrivacyService } from '../privacy/privacy.service';
 
 export interface UserSearchResult {

@@ -7,7 +7,6 @@ import {
   HttpStatus,
   ParseIntPipe,
   DefaultValuePipe,
-  ValidationPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
