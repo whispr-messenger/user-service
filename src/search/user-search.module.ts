@@ -8,10 +8,7 @@ import { PrivacyModule } from '../privacy/privacy.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      User,
-      PrivacySettings,
-    ]),
+    TypeOrmModule.forFeature([User, PrivacySettings]),
     CacheModule,
     PrivacyModule,
   ],

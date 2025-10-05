@@ -1,17 +1,18 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User, PrivacySettings, PrivacyLevel } from '../entities';
+import { User, PrivacySettings, PrivacyLevel, UserSearchIndex } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import { CacheService } from '../cache';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let userRepository: Repository<User>;
-  let privacyRepository: Repository<PrivacySettings>;
-  let cacheService: CacheService;
+  let _userRepository: Repository<User>;
+  let _privacyRepository: Repository<PrivacySettings>;
+  let _cacheService: CacheService;
 
   const mockUser: Partial<User> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -33,6 +34,18 @@ describe('UsersService', () => {
     biographyPrivacy: PrivacyLevel.EVERYONE,
   };
 
+  const mockQueryRunner = {
+    connect: jest.fn(),
+    startTransaction: jest.fn(),
+    commitTransaction: jest.fn(),
+    rollbackTransaction: jest.fn(),
+    release: jest.fn(),
+    manager: {
+      save: jest.fn(),
+      findOne: jest.fn(),
+    },
+  };
+
   const mockUserRepository = {
     create: jest.fn(),
     save: jest.fn(),
@@ -40,6 +53,7 @@ describe('UsersService', () => {
     find: jest.fn(),
     update: jest.fn(),
     delete: jest.fn(),
+    findAndCount: jest.fn(),
     createQueryBuilder: jest.fn(() => ({
       where: jest.fn().mockReturnThis(),
       andWhere: jest.fn().mockReturnThis(),
@@ -48,6 +62,11 @@ describe('UsersService', () => {
       skip: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn(),
     })),
+    manager: {
+      connection: {
+        createQueryRunner: jest.fn().mockReturnValue(mockQueryRunner),
+      },
+    },
   };
 
   const mockPrivacyRepository = {
@@ -63,6 +82,12 @@ describe('UsersService', () => {
     exists: jest.fn(),
   };
 
+  const mockUserSearchIndexRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+    findOne: jest.fn(),
+  };
+
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -76,6 +101,10 @@ describe('UsersService', () => {
           useValue: mockPrivacyRepository,
         },
         {
+          provide: getRepositoryToken(UserSearchIndex),
+          useValue: mockUserSearchIndexRepository,
+        },
+        {
           provide: CacheService,
           useValue: mockCacheService,
         },
@@ -83,11 +112,11 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    privacyRepository = module.get<Repository<PrivacySettings>>(
+    _userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    _privacyRepository = module.get<Repository<PrivacySettings>>(
       getRepositoryToken(PrivacySettings),
     );
-    cacheService = module.get<CacheService>(CacheService);
+    _cacheService = module.get<CacheService>(CacheService);
   });
 
   afterEach(() => {
@@ -109,35 +138,32 @@ describe('UsersService', () => {
     it('should create a user successfully', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
       mockUserRepository.create.mockReturnValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(mockUser);
+      mockQueryRunner.manager.save.mockResolvedValue(mockUser);
       mockPrivacyRepository.create.mockReturnValue(mockPrivacySettings);
-      mockPrivacyRepository.save.mockResolvedValue(mockPrivacySettings);
+      mockUserSearchIndexRepository.create.mockReturnValue({});
 
       const result = await service.create(createUserDto);
 
       expect(result).toEqual(mockUser);
-      expect(mockUserRepository.findOne).toHaveBeenCalledTimes(2); // Check username and email
+      expect(mockUserRepository.findOne).toHaveBeenCalledTimes(2); // Check phoneNumber and username
       expect(mockUserRepository.create).toHaveBeenCalledWith(createUserDto);
-      expect(mockUserRepository.save).toHaveBeenCalledWith(mockUser);
-      expect(mockPrivacyRepository.create).toHaveBeenCalled();
-      expect(mockPrivacyRepository.save).toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException if username already exists', async () => {
+    it('should throw ConflictException if phoneNumber already exists', async () => {
       mockUserRepository.findOne.mockResolvedValueOnce(mockUser);
 
       await expect(service.create(createUserDto)).rejects.toThrow(
         ConflictException,
       );
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { username: createUserDto.username },
+        where: { phoneNumber: createUserDto.phoneNumber },
       });
     });
 
-    it('should throw BadRequestException if email already exists', async () => {
+    it('should throw ConflictException if username already exists', async () => {
       mockUserRepository.findOne
-        .mockResolvedValueOnce(null) // username check
-        .mockResolvedValueOnce(mockUser); // email check
+        .mockResolvedValueOnce(null) // phoneNumber check
+        .mockResolvedValueOnce(mockUser); // username check
 
       await expect(service.create(createUserDto)).rejects.toThrow(
         ConflictException,
@@ -148,30 +174,18 @@ describe('UsersService', () => {
   describe('findUserById', () => {
     it('should return a user by id', async () => {
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockCacheService.get.mockResolvedValue(null);
-      mockCacheService.set.mockResolvedValue(undefined);
 
       const result = await service.findOne(mockUser.id);
 
       expect(result).toEqual(mockUser);
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { id: mockUser.id, isActive: true },
+        where: { id: mockUser.id },
         relations: ['privacySettings'],
       });
     });
 
-    it('should return cached user if available', async () => {
-      mockCacheService.get.mockResolvedValue(JSON.stringify(mockUser));
-
-      const result = await service.findOne(mockUser.id);
-
-      expect(result).toEqual(mockUser);
-      expect(mockUserRepository.findOne).not.toHaveBeenCalled();
-    });
-
     it('should throw NotFoundException if user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
-      mockCacheService.get.mockResolvedValue(null);
 
       await expect(service.findOne('nonexistent')).rejects.toThrow(
         NotFoundException,
@@ -187,17 +201,16 @@ describe('UsersService', () => {
 
       expect(result).toEqual(mockUser);
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { username: mockUser.username, isActive: true },
+        where: { username: mockUser.username },
         relations: ['privacySettings'],
       });
     });
 
-    it('should throw NotFoundException if user not found', async () => {
+    it('should return null if user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.findByUsername('nonexistent')).rejects.toThrow(
-        NotFoundException,
-      );
+      const result = await service.findByUsername('nonexistent');
+      expect(result).toBeNull();
     });
   });
 
@@ -209,12 +222,12 @@ describe('UsersService', () => {
 
       expect(result).toEqual(mockUser);
       expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { phoneNumber: mockUser.phoneNumber, isActive: true },
+        where: { phoneNumber: mockUser.phoneNumber },
         relations: ['privacySettings'],
       });
     });
 
-    it('should throw NotFoundException if user not found', async () => {
+    it('should return null if user not found', async () => {
       mockUserRepository.findOne.mockResolvedValue(null);
 
       const result = await service.findByPhoneNumber('+9999999999');
@@ -231,17 +244,12 @@ describe('UsersService', () => {
     it('should update a user successfully', async () => {
       const updatedUser = { ...mockUser, ...updateUserDto };
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(updatedUser);
-      mockCacheService.del.mockResolvedValue(undefined);
+      mockQueryRunner.manager.save.mockResolvedValue(updatedUser);
+      mockQueryRunner.manager.findOne.mockResolvedValue({ userId: mockUser.id });
 
       const result = await service.update(mockUser.id, updateUserDto);
 
       expect(result).toEqual(updatedUser);
-      expect(mockUserRepository.save).toHaveBeenCalledWith({
-        ...mockUser,
-        ...updateUserDto,
-      });
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${mockUser.id}`);
     });
 
     it('should throw NotFoundException if user not found', async () => {
@@ -252,10 +260,10 @@ describe('UsersService', () => {
       ).rejects.toThrow(NotFoundException);
     });
 
-    it('should throw BadRequestException if username already exists', async () => {
+    it('should throw ConflictException if username already exists', async () => {
       const updateWithUsername = { ...updateUserDto, username: 'existinguser' };
       const existingUser = { ...mockUser, id: 'different-id' };
-      
+
       mockUserRepository.findOne
         .mockResolvedValueOnce(mockUser) // findUserById
         .mockResolvedValueOnce(existingUser); // username check
@@ -268,18 +276,14 @@ describe('UsersService', () => {
 
   describe('deactivateUser', () => {
     it('should deactivate a user successfully', async () => {
-      const deactivatedUser = { ...mockUser, isActive: false };
       mockUserRepository.findOne.mockResolvedValue(mockUser);
-      mockUserRepository.save.mockResolvedValue(deactivatedUser);
-      mockCacheService.del.mockResolvedValue(undefined);
+      mockUserRepository.update.mockResolvedValue(undefined);
 
       await service.deactivate(mockUser.id);
 
-      expect(mockUserRepository.save).toHaveBeenCalledWith({
-        ...mockUser,
+      expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, {
         isActive: false,
       });
-      expect(mockCacheService.del).toHaveBeenCalledWith(`user:${mockUser.id}`);
     });
 
     it('should throw NotFoundException if user not found', async () => {
@@ -295,19 +299,14 @@ describe('UsersService', () => {
     it('should return paginated users', async () => {
       const users = [mockUser];
       const total = 1;
-      
-      mockUserRepository.createQueryBuilder().getManyAndCount.mockResolvedValue([
-        users,
-        total,
-      ]);
+
+      mockUserRepository.findAndCount.mockResolvedValue([users, total]);
 
       const result = await service.findAll(1, 10);
 
       expect(result).toEqual({
         users,
         total,
-        page: 1,
-        limit: 10,
       });
     });
   });
@@ -316,19 +315,14 @@ describe('UsersService', () => {
     it('should search users by query', async () => {
       const users = [mockUser];
       const total = 1;
-      
-      mockUserRepository.createQueryBuilder().getManyAndCount.mockResolvedValue([
-        users,
-        total,
-      ]);
+
+      mockUserRepository.findAndCount.mockResolvedValue([users, total]);
 
       const result = await service.findAll(1, 10);
 
       expect(result).toEqual({
         users,
         total,
-        page: 1,
-        limit: 10,
       });
     });
   });

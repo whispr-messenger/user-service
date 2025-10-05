@@ -21,7 +21,7 @@ export class ValidationPipe implements PipeTransform<any> {
         errors: this.formatErrors(errors),
       });
     }
-    return value;
+    return object;
   }
 
   private formatErrors(errors: any[]) {
@@ -31,8 +31,14 @@ export class ValidationPipe implements PipeTransform<any> {
     }));
   }
 
-  private toValidate(metatype: Function): boolean {
-    const types: Function[] = [String, Boolean, Number, Array, Object];
+  private toValidate(metatype: new (...args: any[]) => any): boolean {
+    const types: (new (...args: any[]) => any)[] = [
+      String,
+      Boolean,
+      Number,
+      Array,
+      Object,
+    ];
     return !types.includes(metatype);
   }
 }
