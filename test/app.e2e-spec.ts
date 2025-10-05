@@ -19,10 +19,14 @@ describe('AppController (e2e)', () => {
     await app.close();
   });
 
-  it('/ (GET)', () => {
+  it('/health (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/health')
       .expect(200)
-      .expect('Hello World!');
+      .expect((res) => {
+        expect(res.body).toHaveProperty('status', 'healthy');
+        expect(res.body).toHaveProperty('service', 'user-service');
+        expect(res.body).toHaveProperty('timestamp');
+      });
   });
 });
