@@ -5,12 +5,7 @@ import { PrivacyController } from './privacy.controller';
 import { PrivacySettings, User } from '../entities';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      PrivacySettings,
-      User,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([PrivacySettings, User])],
   controllers: [PrivacyController],
   providers: [PrivacyService],
   exports: [PrivacyService],

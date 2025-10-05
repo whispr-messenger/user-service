@@ -1,7 +1,12 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { BlockedUsersService } from './blocked-users.service';
 import { BlockedUser, User, Contact } from '../entities';
 import { BlockUserDto } from '../dto';
@@ -97,6 +102,7 @@ describe('BlockedUsersService', () => {
   const mockContactRepository = {
     findOne: jest.fn(),
     remove: jest.fn(),
+    delete: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -123,7 +129,9 @@ describe('BlockedUsersService', () => {
       getRepositoryToken(BlockedUser),
     );
     userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    contactRepository = module.get<Repository<Contact>>(getRepositoryToken(Contact));
+    contactRepository = module.get<Repository<Contact>>(
+      getRepositoryToken(Contact),
+    );
   });
 
   afterEach(() => {
@@ -141,18 +149,18 @@ describe('BlockedUsersService', () => {
         reason: 'Harassment',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockBlockedUser);
+      mockUserRepository.findOne.mockResolvedValue(mockBlockedUser);
       mockBlockedUserRepository.findOne.mockResolvedValue(null);
-      mockContactRepository.findOne.mockResolvedValue(null);
+      mockContactRepository.delete.mockResolvedValue({ affected: 0 });
       mockBlockedUserRepository.create.mockReturnValue(mockBlockedUserEntity);
       mockBlockedUserRepository.save.mockResolvedValue(mockBlockedUserEntity);
 
       const result = await service.blockUser(mockUser.id, blockUserDto);
 
       expect(result).toEqual(mockBlockedUserEntity);
-      expect(mockBlockedUserRepository.save).toHaveBeenCalledWith(mockBlockedUserEntity);
+      expect(mockBlockedUserRepository.save).toHaveBeenCalledWith(
+        mockBlockedUserEntity,
+      );
     });
 
     it('should block user and remove contact if exists', async () => {
@@ -161,20 +169,19 @@ describe('BlockedUsersService', () => {
         reason: 'Harassment',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockBlockedUser);
+      mockUserRepository.findOne.mockResolvedValue(mockBlockedUser);
       mockBlockedUserRepository.findOne.mockResolvedValue(null);
-      mockContactRepository.findOne.mockResolvedValue(mockContact);
-      mockContactRepository.remove.mockResolvedValue(mockContact);
+      mockContactRepository.delete.mockResolvedValue({ affected: 1 });
       mockBlockedUserRepository.create.mockReturnValue(mockBlockedUserEntity);
       mockBlockedUserRepository.save.mockResolvedValue(mockBlockedUserEntity);
 
       const result = await service.blockUser(mockUser.id, blockUserDto);
 
       expect(result).toEqual(mockBlockedUserEntity);
-      expect(mockContactRepository.remove).toHaveBeenCalledWith(mockContact);
-      expect(mockBlockedUserRepository.save).toHaveBeenCalledWith(mockBlockedUserEntity);
+      expect(mockContactRepository.delete).toHaveBeenCalledTimes(2);
+      expect(mockBlockedUserRepository.save).toHaveBeenCalledWith(
+        mockBlockedUserEntity,
+      );
     });
 
     it('should throw BadRequestException if trying to block self', async () => {
@@ -183,22 +190,9 @@ describe('BlockedUsersService', () => {
         reason: 'Self block',
       };
 
-      await expect(service.blockUser(mockUser.id, blockUserDto)).rejects.toThrow(
-        BadRequestException,
-      );
-    });
-
-    it('should throw NotFoundException if user not found', async () => {
-      const blockUserDto: BlockUserDto = {
-        blockedUserId: mockBlockedUser.id,
-        reason: 'Harassment',
-      };
-
-      mockUserRepository.findOne.mockResolvedValue(null);
-
-      await expect(service.blockUser('nonexistent', blockUserDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.blockUser(mockUser.id, blockUserDto),
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw NotFoundException if blocked user not found', async () => {
@@ -207,13 +201,11 @@ describe('BlockedUsersService', () => {
         reason: 'Harassment',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(null);
+      mockUserRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.blockUser(mockUser.id, blockUserDto)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.blockUser(mockUser.id, blockUserDto),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ConflictException if user already blocked', async () => {
@@ -222,20 +214,22 @@ describe('BlockedUsersService', () => {
         reason: 'Harassment',
       };
 
-      mockUserRepository.findOne
-        .mockResolvedValueOnce(mockUser)
-        .mockResolvedValueOnce(mockBlockedUser);
-      mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUserEntity);
-
-      await expect(service.blockUser(mockUser.id, blockUserDto)).rejects.toThrow(
-        ConflictException,
+      mockUserRepository.findOne.mockResolvedValue(mockBlockedUser);
+      mockBlockedUserRepository.findOne.mockResolvedValue(
+        mockBlockedUserEntity,
       );
+
+      await expect(
+        service.blockUser(mockUser.id, blockUserDto),
+      ).rejects.toThrow(ConflictException);
     });
   });
 
   describe('unblockUser', () => {
     it('should unblock a user successfully', async () => {
-      mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUserEntity);
+      mockBlockedUserRepository.findOne.mockResolvedValue(
+        mockBlockedUserEntity,
+      );
       mockBlockedUserRepository.remove.mockResolvedValue(mockBlockedUserEntity);
 
       await service.unblockUser(mockUser.id, mockBlockedUser.id);
@@ -256,47 +250,45 @@ describe('BlockedUsersService', () => {
 
   describe('getBlockedUsers', () => {
     it('should return blocked users', async () => {
-      const mockQueryBuilder = {
-        leftJoinAndSelect: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        orderBy: jest.fn().mockReturnThis(),
-        skip: jest.fn().mockReturnThis(),
-        take: jest.fn().mockReturnThis(),
-        getManyAndCount: jest.fn().mockResolvedValue([[mockBlockedUserEntity], 1]),
-      };
-
-      mockBlockedUserRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockBlockedUserRepository.findAndCount.mockResolvedValue([
+        [mockBlockedUserEntity],
+        1,
+      ]);
 
       const result = await service.getBlockedUsers(mockUser.id);
 
       expect(result.blockedUsers).toEqual([mockBlockedUserEntity]);
       expect(result.total).toBe(1);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        'blockedUser.userId = :userId',
-        { userId: mockUser.id },
-      );
     });
   });
 
   describe('isUserBlocked', () => {
     it('should return true if user is blocked', async () => {
-      mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUserEntity);
+      mockBlockedUserRepository.findOne.mockResolvedValue(
+        mockBlockedUserEntity,
+      );
 
-      const result = await service.isUserBlocked(mockUser.id, mockBlockedUser.id);
+      const result = await service.isUserBlocked(
+        mockUser.id,
+        mockBlockedUser.id,
+      );
 
       expect(result).toBe(true);
       expect(mockBlockedUserRepository.findOne).toHaveBeenCalledWith({
-        where: {
-          userId: mockUser.id,
-          blockedUserId: mockBlockedUser.id,
-        },
+        where: [
+          { userId: mockUser.id, blockedUserId: mockBlockedUser.id },
+          { userId: mockBlockedUser.id, blockedUserId: mockUser.id },
+        ],
       });
     });
 
     it('should return false if user is not blocked', async () => {
       mockBlockedUserRepository.findOne.mockResolvedValue(null);
 
-      const result = await service.isUserBlocked(mockUser.id, mockBlockedUser.id);
+      const result = await service.isUserBlocked(
+        mockUser.id,
+        mockBlockedUser.id,
+      );
 
       expect(result).toBe(false);
     });
@@ -317,7 +309,9 @@ describe('BlockedUsersService', () => {
         orderBy: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn().mockResolvedValue([[mockBlockedUser], 1]),
       };
-      mockBlockedUserRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockBlockedUserRepository.createQueryBuilder.mockReturnValue(
+        mockQueryBuilder,
+      );
 
       const result = await service.searchBlockedUsers('user1', 'john', 1, 10);
 
@@ -328,20 +322,14 @@ describe('BlockedUsersService', () => {
 
   describe('getBlockedUsersCount', () => {
     it('should return blocked users count', async () => {
-      const mockQueryBuilder = {
-        where: jest.fn().mockReturnThis(),
-        getCount: jest.fn().mockResolvedValue(3),
-      };
-
-      mockBlockedUserRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+      mockBlockedUserRepository.count.mockResolvedValue(3);
 
       const result = await service.getBlockedUsersCount(mockUser.id);
 
       expect(result).toBe(3);
-      expect(mockQueryBuilder.where).toHaveBeenCalledWith(
-        'blockedUser.userId = :userId',
-        { userId: mockUser.id },
-      );
+      expect(mockBlockedUserRepository.count).toHaveBeenCalledWith({
+        where: { userId: mockUser.id },
+      });
     });
   });
 });

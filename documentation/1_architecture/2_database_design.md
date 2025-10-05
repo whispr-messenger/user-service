@@ -1,19 +1,55 @@
-# Conception de la Base de Données - Service Utilisateur
+# User Service (`user-service`) - Conception de la Base de Données
+
+## 0. Sommaire
+
+- [1. Introduction et Principes de Conception](#1-introduction-et-principes-de-conception)
+  - [1.1 Objectif](#11-objectif)
+  - [1.2 Principes Architecturaux](#12-principes-architecturaux)
+  - [1.3 Technologie](#13-technologie)
+- [2. Schéma PostgreSQL du Service Utilisateur](#2-schéma-postgresql-du-service-utilisateur)
+  - [2.1 Vue d'Ensemble](#21-vue-densemble)
+  - [2.2 Description des Tables](#22-description-des-tables)
+- [3. Données Temporaires dans Redis](#3-données-temporaires-dans-redis)
+  - [3.1 Vue d'Ensemble](#31-vue-densemble)
+  - [3.2 Description des Structures Redis](#32-description-des-structures-redis)
+- [4. Relations avec les Autres Services](#4-relations-avec-les-autres-services)
+  - [4.1 Démarcation des Responsabilités](#41-démarcation-des-responsabilités)
+  - [4.2 Synchronisation des Données](#42-synchronisation-des-données)
+- [5. Considérations de Sécurité](#5-considérations-de-sécurité)
+  - [5.1 Protection des Données Personnelles](#51-protection-des-données-personnelles)
+  - [5.2 Anonymisation et Pseudonymisation](#52-anonymisation-et-pseudonymisation)
+  - [5.3 Audit et Logging](#53-audit-et-logging)
+- [6. Considérations de Performance](#6-considérations-de-performance)
+  - [6.1 Indexation](#61-indexation)
+  - [6.2 Optimisations de Recherche](#62-optimisations-de-recherche)
+  - [6.3 Optimisations Redis](#63-optimisations-redis)
+- [7. Migrations et Évolution du Schéma](#7-migrations-et-évolution-du-schéma)
+  - [7.1 Stratégie de Migration](#71-stratégie-de-migration)
+  - [7.2 Gestion de l'Évolution des Données](#72-gestion-de-lévolution-des-données)
+- [8. Scripts SQL d'Initialisation](#8-scripts-sql-dinitialisation)
+  - [8.1 Création du Schéma PostgreSQL](#81-création-du-schéma-postgresql)
+  - [8.2 Types Personnalisés](#82-types-personnalisés)
+- [9. Communication Inter-Services avec Istio](#9-communication-inter-services-avec-istio)
+  - [9.1 Architecture Service Mesh pour les Données](#91-architecture-service-mesh-pour-les-données)
+  - [9.2 Événements et Synchronisation avec mTLS](#92-événements-et-synchronisation-avec-mtls)
+  - [9.3 Gestion des Références Externes](#93-gestion-des-références-externes)
 
 ## 1. Introduction et Principes de Conception
 
 ### 1.1 Objectif
-Ce document décrit la structure de la base de données du service utilisateur (user-service) de l'application Whispr, en détaillant les modèles de données, les relations, et les considérations de performance.
+Ce document décrit la structure de la base de données du service utilisateur (user-service) de l'application Whispr, détaillant les modèles de données pour la gestion des profils, des contacts, des relations sociales et des paramètres de confidentialité.
 
 ### 1.2 Principes Architecturaux
-- **Séparation des domaines**: Chaque service gère ses propres données dans sa propre base de données
-- **Cohérence avec le domaine métier**: Les structures de données reflètent les concepts du domaine utilisateur
-- **Optimisation pour les requêtes fréquentes**: Indexes et modèles adaptés aux patterns d'accès courants
-- **Protection des données personnelles**: Conception tenant compte des exigences de confidentialité
+- **Séparation des domaines**: Gestion autonome des données utilisateur distinctes de l'authentification
+- **Flexibilité des relations sociales**: Support des différents types de relations entre utilisateurs
+- **Confidentialité par conception**: Contrôle granulaire des paramètres de visibilité
+- **Performance de recherche**: Optimisation pour les opérations de recherche d'utilisateurs et de contacts
+- **Scalabilité sociale**: Architecture supportant la croissance du réseau social
 
 ### 1.3 Technologie
-- **PostgreSQL**: Pour les données persistantes des utilisateurs, contacts et groupes
-- **Redis**: Pour le cache de données fréquemment accédées et les recherches rapides
+- **PostgreSQL**: Pour les données persistantes des profils et relations
+- **Redis**: Pour le cache des profils, index de recherche et données temporaires
+- **Full-Text Search**: Utilisation des capacités PostgreSQL pour la recherche textuelle
 
 ## 2. Schéma PostgreSQL du Service Utilisateur
 
@@ -21,87 +57,67 @@ Ce document décrit la structure de la base de données du service utilisateur (
 
 ```mermaid
 erDiagram
-    USERS ||--o{ CONTACTS : "a comme contact"
-    USERS ||--o{ GROUPS : "crée"
-    USERS ||--o{ GROUP_MEMBERS : "appartient à"
+    USERS ||--o{ CONTACTS : "a comme contacts"
     USERS ||--o{ BLOCKED_USERS : "bloque"
-    USERS ||--|| PRIVACY_SETTINGS : "configure"
-    GROUPS ||--o{ GROUP_MEMBERS : "contient"
+    USERS ||--|| PRIVACY_SETTINGS : "possède"
+    USERS ||--o{ USER_SEARCH_INDEX : "indexé dans"
+    USERS ||--o{ CONTACT_REQUESTS : "envoie/reçoit"
     
     USERS {
         uuid id PK
-        string phoneNumber UK
-        string username UK
         string firstName
         string lastName
+        string username UK
         string biography
         string profilePictureUrl
-        timestamp lastSeen
-        boolean isActive
+        enum profileVisibility
+        timestamp lastSeenAt
         timestamp createdAt
         timestamp updatedAt
+        boolean isActive
     }
-    
-    PRIVACY_SETTINGS {
-        uuid id PK
-        uuid userId FK
-        enum profilePicturePrivacy
-        enum firstNamePrivacy
-        enum lastNamePrivacy
-        enum biographyPrivacy
-        enum lastSeenPrivacy
-        boolean searchByPhone
-        boolean searchByUsername
-        boolean readReceipts
-        timestamp updatedAt
-    }
-    
     CONTACTS {
         uuid id PK
         uuid userId FK
-        uuid contactId FK
-        string nickname
-        boolean isFavorite
+        uuid contactUserId FK
+        string displayName
         timestamp addedAt
         timestamp updatedAt
+        boolean isFavorite
     }
-    
     BLOCKED_USERS {
         uuid id PK
-        uuid userId FK
+        uuid blockerId FK
         uuid blockedUserId FK
-        string reason
         timestamp blockedAt
+        string reason
     }
-    
-    GROUPS {
+    PRIVACY_SETTINGS {
         uuid id PK
-        string name
-        string description
-        string pictureUrl
-        uuid createdBy FK
-        timestamp createdAt
-        timestamp updatedAt
-        boolean isActive
-    }
-    
-    GROUP_MEMBERS {
-        uuid id PK
-        uuid groupId FK
         uuid userId FK
-        enum role
-        timestamp joinedAt
+        enum profilePictureVisibility
+        enum firstNameVisibility
+        enum lastNameVisibility
+        enum biographyVisibility
+        enum lastSeenVisibility
+        boolean searchableByPhone
+        boolean searchableByUsername
         timestamp updatedAt
-        boolean isActive
     }
-    
     USER_SEARCH_INDEX {
-        uuid userId PK, FK
-        string phoneNumberHash
-        string usernameNormalized
-        string firstNameNormalized
-        string lastNameNormalized
-        tsvector searchVector
+        uuid id PK
+        uuid userId FK
+        text searchVector
+        timestamp updatedAt
+    }
+    CONTACT_REQUESTS {
+        uuid id PK
+        uuid senderId FK
+        uuid receiverId FK
+        enum status
+        string message
+        timestamp sentAt
+        timestamp respondedAt
     }
 ```
 
@@ -112,221 +128,234 @@ Stocke les informations de profil des utilisateurs.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
-| id | UUID | Identifiant unique de l'utilisateur | PK, NOT NULL |
-| phoneNumber | VARCHAR(20) | Numéro de téléphone au format E.164 | UNIQUE, NOT NULL |
-| username | VARCHAR(30) | Nom d'utilisateur unique | UNIQUE, NULL |
-| firstName | VARCHAR(50) | Prénom de l'utilisateur | NOT NULL |
-| lastName | VARCHAR(50) | Nom de famille de l'utilisateur | NULL |
-| biography | TEXT | Biographie/description de l'utilisateur | NULL |
-| profilePictureUrl | VARCHAR(255) | URL de l'image de profil | NULL |
-| lastSeen | TIMESTAMP | Dernière connexion de l'utilisateur | NULL |
-| isActive | BOOLEAN | Indique si le compte est actif | NOT NULL, DEFAULT TRUE |
-| createdAt | TIMESTAMP | Date/heure de création du profil | NOT NULL |
-| updatedAt | TIMESTAMP | Date/heure de la dernière mise à jour | NOT NULL |
+| id | UUID | Identifiant unique (même que auth-service) | PK, NOT NULL |
+| firstName | VARCHAR(100) | Prénom de l'utilisateur | NULL |
+| lastName | VARCHAR(100) | Nom de famille de l'utilisateur | NULL |
+| username | VARCHAR(50) | Nom d'utilisateur unique | UNIQUE, NULL |
+| biography | TEXT | Description personnelle (max 500 chars) | NULL |
+| profilePictureUrl | VARCHAR(255) | URL de la photo de profil | NULL |
+| profileVisibility | profile_visibility_enum | Visibilité générale du profil | NOT NULL, DEFAULT 'contacts_only' |
+| lastSeenAt | TIMESTAMP | Dernière activité visible | NULL |
+| createdAt | TIMESTAMP | Date de création du profil | NOT NULL |
+| updatedAt | TIMESTAMP | Dernière mise à jour | NOT NULL |
+| isActive | BOOLEAN | Indique si le profil est actif | NOT NULL, DEFAULT TRUE |
 
 **Indices**:
 - PRIMARY KEY sur `id`
-- UNIQUE sur `phoneNumber`
 - UNIQUE sur `username`
-- INDEX sur `firstName`, `lastName` (pour la recherche)
+- INDEX sur `username` pour les recherches
+- INDEX sur `firstName, lastName` pour les recherches de nom
+- INDEX sur `isActive` pour filtrer les comptes actifs
 
-#### 2.2.2 PRIVACY_SETTINGS
-Stocke les paramètres de confidentialité personnalisés par utilisateur.
-
-| Colonne | Type | Description | Contraintes |
-|---------|------|-------------|-------------|
-| id | UUID | Identifiant unique des paramètres | PK, NOT NULL |
-| userId | UUID | Référence à l'utilisateur | FK (USERS.id), NOT NULL, UNIQUE |
-| profilePicturePrivacy | ENUM | Visibilité de la photo de profil (everyone, contacts, nobody) | NOT NULL, DEFAULT 'everyone' |
-| firstNamePrivacy | ENUM | Visibilité du prénom (everyone, contacts, nobody) | NOT NULL, DEFAULT 'everyone' |
-| lastNamePrivacy | ENUM | Visibilité du nom (everyone, contacts, nobody) | NOT NULL, DEFAULT 'contacts' |
-| biographyPrivacy | ENUM | Visibilité de la biographie (everyone, contacts, nobody) | NOT NULL, DEFAULT 'everyone' |
-| lastSeenPrivacy | ENUM | Visibilité de la dernière connexion (everyone, contacts, nobody) | NOT NULL, DEFAULT 'contacts' |
-| searchByPhone | BOOLEAN | Possibilité d'être trouvé par numéro de téléphone | NOT NULL, DEFAULT TRUE |
-| searchByUsername | BOOLEAN | Possibilité d'être trouvé par nom d'utilisateur | NOT NULL, DEFAULT TRUE |
-| readReceipts | BOOLEAN | Envoyer des accusés de lecture | NOT NULL, DEFAULT TRUE |
-| updatedAt | TIMESTAMP | Date/heure de la dernière mise à jour | NOT NULL |
-
-**Indices**:
-- PRIMARY KEY sur `id`
-- UNIQUE sur `userId`
-
-#### 2.2.3 CONTACTS
-Stocke les relations de contact entre utilisateurs.
+#### 2.2.2 CONTACTS
+Gère les relations de contact entre utilisateurs.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
 | id | UUID | Identifiant unique de la relation | PK, NOT NULL |
-| userId | UUID | Utilisateur possédant ce contact | FK (USERS.id), NOT NULL |
-| contactId | UUID | Utilisateur ajouté comme contact | FK (USERS.id), NOT NULL |
-| nickname | VARCHAR(50) | Surnom personnalisé pour ce contact | NULL |
-| isFavorite | BOOLEAN | Marqué comme favori | NOT NULL, DEFAULT FALSE |
-| addedAt | TIMESTAMP | Date/heure d'ajout du contact | NOT NULL |
-| updatedAt | TIMESTAMP | Date/heure de la dernière mise à jour | NOT NULL |
+| userId | UUID | Utilisateur propriétaire du contact | FK (USERS.id), NOT NULL |
+| contactUserId | UUID | Utilisateur ajouté comme contact | FK (USERS.id), NOT NULL |
+| displayName | VARCHAR(100) | Nom d'affichage personnalisé | NULL |
+| addedAt | TIMESTAMP | Date d'ajout du contact | NOT NULL |
+| updatedAt | TIMESTAMP | Dernière modification | NOT NULL |
+| isFavorite | BOOLEAN | Contact marqué comme favori | NOT NULL, DEFAULT FALSE |
+
+**Contraintes**:
+- UNIQUE sur `(userId, contactUserId)` pour éviter les doublons
+- CHECK pour empêcher l'auto-ajout (`userId != contactUserId`)
 
 **Indices**:
 - PRIMARY KEY sur `id`
-- UNIQUE sur `(userId, contactId)` pour éviter les doublons
-- INDEX sur `userId` pour les requêtes fréquentes
-- INDEX sur `contactId` pour les requêtes inverses
-- INDEX sur `isFavorite` pour filtrer les favoris
+- UNIQUE INDEX sur `(userId, contactUserId)`
+- INDEX sur `userId` pour les requêtes de liste de contacts
+- INDEX sur `contactUserId` pour les requêtes inverses
 
-#### 2.2.4 BLOCKED_USERS
-Stocke les relations de blocage entre utilisateurs.
+#### 2.2.3 BLOCKED_USERS
+Gère les blocages entre utilisateurs.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
 | id | UUID | Identifiant unique du blocage | PK, NOT NULL |
-| userId | UUID | Utilisateur qui a effectué le blocage | FK (USERS.id), NOT NULL |
-| blockedUserId | UUID | Utilisateur qui est bloqué | FK (USERS.id), NOT NULL |
-| reason | TEXT | Raison optionnelle du blocage | NULL |
-| blockedAt | TIMESTAMP | Date/heure du blocage | NOT NULL |
+| blockerId | UUID | Utilisateur qui effectue le blocage | FK (USERS.id), NOT NULL |
+| blockedUserId | UUID | Utilisateur bloqué | FK (USERS.id), NOT NULL |
+| blockedAt | TIMESTAMP | Date du blocage | NOT NULL |
+| reason | VARCHAR(50) | Raison du blocage | NULL |
+
+**Contraintes**:
+- UNIQUE sur `(blockerId, blockedUserId)` pour éviter les doublons
+- CHECK pour empêcher l'auto-blocage (`blockerId != blockedUserId`)
 
 **Indices**:
 - PRIMARY KEY sur `id`
-- UNIQUE sur `(userId, blockedUserId)` pour éviter les doublons
-- INDEX sur `userId` pour les requêtes fréquentes
-- INDEX sur `blockedUserId` pour vérifier rapidement les blocages
+- UNIQUE INDEX sur `(blockerId, blockedUserId)`
+- INDEX sur `blockerId` pour vérifier les blocages sortants
+- INDEX sur `blockedUserId` pour vérifier les blocages entrants
 
-#### 2.2.5 GROUPS
-Stocke les informations sur les groupes de conversation.
+#### 2.2.4 PRIVACY_SETTINGS
+Paramètres de confidentialité par utilisateur.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
-| id | UUID | Identifiant unique du groupe | PK, NOT NULL |
-| name | VARCHAR(100) | Nom du groupe | NOT NULL |
-| description | TEXT | Description du groupe | NULL |
-| pictureUrl | VARCHAR(255) | URL de l'image du groupe | NULL |
-| createdBy | UUID | Créateur du groupe | FK (USERS.id), NOT NULL |
-| createdAt | TIMESTAMP | Date/heure de création du groupe | NOT NULL |
-| updatedAt | TIMESTAMP | Date/heure de la dernière mise à jour | NOT NULL |
-| isActive | BOOLEAN | Indique si le groupe est actif | NOT NULL, DEFAULT TRUE |
+| id | UUID | Identifiant unique des paramètres | PK, NOT NULL |
+| userId | UUID | Utilisateur propriétaire | FK (USERS.id), UNIQUE, NOT NULL |
+| profilePictureVisibility | visibility_enum | Qui peut voir la photo de profil | NOT NULL, DEFAULT 'contacts_only' |
+| firstNameVisibility | visibility_enum | Qui peut voir le prénom | NOT NULL, DEFAULT 'contacts_only' |
+| lastNameVisibility | visibility_enum | Qui peut voir le nom | NOT NULL, DEFAULT 'contacts_only' |
+| biographyVisibility | visibility_enum | Qui peut voir la biographie | NOT NULL, DEFAULT 'contacts_only' |
+| lastSeenVisibility | visibility_enum | Qui peut voir la dernière connexion | NOT NULL, DEFAULT 'contacts_only' |
+| searchableByPhone | BOOLEAN | Trouvable par numéro de téléphone | NOT NULL, DEFAULT TRUE |
+| searchableByUsername | BOOLEAN | Trouvable par nom d'utilisateur | NOT NULL, DEFAULT TRUE |
+| updatedAt | TIMESTAMP | Dernière mise à jour | NOT NULL |
 
 **Indices**:
 - PRIMARY KEY sur `id`
-- INDEX sur `createdBy` pour les requêtes par créateur
-- INDEX sur `createdAt` pour trier par création
-- INDEX sur `name` pour la recherche par nom
+- UNIQUE INDEX sur `userId`
 
-#### 2.2.6 GROUP_MEMBERS
-Stocke les appartenances et rôles des membres dans les groupes.
+#### 2.2.5 USER_SEARCH_INDEX
+Index de recherche optimisé pour les utilisateurs.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
-| id | UUID | Identifiant unique de l'appartenance | PK, NOT NULL |
-| groupId | UUID | Référence au groupe | FK (GROUPS.id), NOT NULL |
-| userId | UUID | Référence à l'utilisateur membre | FK (USERS.id), NOT NULL |
-| role | ENUM | Rôle dans le groupe (admin, moderator, member) | NOT NULL, DEFAULT 'member' |
-| joinedAt | TIMESTAMP | Date/heure d'entrée dans le groupe | NOT NULL |
-| updatedAt | TIMESTAMP | Date/heure de la dernière mise à jour | NOT NULL |
-| isActive | BOOLEAN | Indique si le membre est actif dans le groupe | NOT NULL, DEFAULT TRUE |
+| id | UUID | Identifiant unique | PK, NOT NULL |
+| userId | UUID | Utilisateur indexé | FK (USERS.id), UNIQUE, NOT NULL |
+| searchVector | TSVECTOR | Vecteur de recherche full-text | NOT NULL |
+| updatedAt | TIMESTAMP | Dernière mise à jour de l'index | NOT NULL |
 
 **Indices**:
 - PRIMARY KEY sur `id`
-- UNIQUE sur `(groupId, userId)` pour éviter les doublons
-- INDEX sur `groupId` pour obtenir rapidement les membres d'un groupe
-- INDEX sur `userId` pour obtenir les groupes d'un utilisateur
-- INDEX sur `role` pour filtrer par rôle
+- UNIQUE INDEX sur `userId`
+- GIN INDEX sur `searchVector` pour la recherche full-text
 
-#### 2.2.7 USER_SEARCH_INDEX
-Table optimisée pour la recherche rapide d'utilisateurs.
+#### 2.2.6 CONTACT_REQUESTS
+Gestion des demandes de contact.
 
 | Colonne | Type | Description | Contraintes |
 |---------|------|-------------|-------------|
-| userId | UUID | Référence à l'utilisateur | PK, FK (USERS.id), NOT NULL |
-| phoneNumberHash | VARCHAR(64) | Hash du numéro de téléphone pour recherche sécurisée | NOT NULL |
-| usernameNormalized | VARCHAR(30) | Nom d'utilisateur normalisé (lowercase, sans accents) | NULL |
-| firstNameNormalized | VARCHAR(50) | Prénom normalisé pour recherche insensible à la casse | NOT NULL |
-| lastNameNormalized | VARCHAR(50) | Nom normalisé pour recherche insensible à la casse | NULL |
-| searchVector | TSVECTOR | Vecteur de recherche plein texte | NOT NULL |
+| id | UUID | Identifiant unique de la demande | PK, NOT NULL |
+| senderId | UUID | Utilisateur envoyant la demande | FK (USERS.id), NOT NULL |
+| receiverId | UUID | Utilisateur recevant la demande | FK (USERS.id), NOT NULL |
+| status | contact_request_status_enum | Statut de la demande | NOT NULL, DEFAULT 'pending' |
+| message | TEXT | Message d'accompagnement | NULL |
+| sentAt | TIMESTAMP | Date d'envoi | NOT NULL |
+| respondedAt | TIMESTAMP | Date de réponse | NULL |
+
+**Contraintes**:
+- UNIQUE sur `(senderId, receiverId)` pour éviter les doublons
+- CHECK pour empêcher l'auto-demande (`senderId != receiverId`)
 
 **Indices**:
-- PRIMARY KEY sur `userId`
-- INDEX sur `phoneNumberHash` pour la recherche par numéro
-- INDEX sur `usernameNormalized` pour la recherche par nom d'utilisateur
-- INDEX GIN sur `searchVector` pour la recherche full-text
+- PRIMARY KEY sur `id`
+- UNIQUE INDEX sur `(senderId, receiverId)`
+- INDEX sur `receiverId, status` pour les demandes en attente
+- INDEX sur `sentAt` pour l'ordre chronologique
 
 ## 3. Données Temporaires dans Redis
 
 ### 3.1 Vue d'Ensemble
 
-Redis est utilisé pour le cache et l'accélération des recherches fréquentes :
+Redis est utilisé pour améliorer les performances et gérer les données temporaires :
 
 ```mermaid
 erDiagram
-    USER_PROFILE_CACHE {
-        string key PK
-        string userData
+    USER_PROFILES_CACHE {
+        string userId PK
+        json profileData
+        timestamp lastUpdated
+    }
+    CONTACT_LISTS_CACHE {
+        string userId PK
+        json contactsList
+        timestamp lastUpdated
+    }
+    SEARCH_CACHE {
+        string searchQuery PK
+        json results
         timestamp expiresAt
     }
-    CONTACT_LIST_CACHE {
-        string key PK
-        string contactsList
+    ONLINE_STATUS {
+        string userId PK
+        enum status
+        timestamp lastSeen
+    }
+    CONTACT_SYNC_LOCKS {
+        string userId PK
+        string lockId
         timestamp expiresAt
-    }
-    GROUP_CACHE {
-        string key PK
-        string groupData
-        timestamp expiresAt
-    }
-    USERNAME_INDEX {
-        string username PK
-        uuid userId
-    }
-    PHONE_LOOKUP_INDEX {
-        string phoneHash PK
-        uuid userId
     }
 ```
 
 ### 3.2 Description des Structures Redis
 
-#### 3.2.1 USER_PROFILE_CACHE
-Cache pour les profils utilisateurs fréquemment consultés.
+#### 3.2.1 USER_PROFILES_CACHE
+Cache des profils utilisateur pour un accès rapide.
 
 **Clé**: `user:profile:{userId}`  
 **Type**: Hash  
-**TTL**: 1 heure  
+**TTL**: 30 minutes  
 **Champs**:
-- Données de profil sérialisées
-- Horodatage de dernière mise à jour
-- État des paramètres de confidentialité
+- `firstName`: Prénom
+- `lastName`: Nom de famille
+- `username`: Nom d'utilisateur
+- `biography`: Biographie
+- `profilePictureUrl`: URL de la photo
+- `lastUpdated`: Horodatage de dernière mise à jour
 
-#### 3.2.2 CONTACT_LIST_CACHE
-Cache pour les listes de contacts des utilisateurs.
+#### 3.2.2 CONTACT_LISTS_CACHE
+Cache des listes de contacts pour éviter les requêtes répétées.
 
 **Clé**: `user:contacts:{userId}`  
-**Type**: List ou Sorted Set  
-**TTL**: 30 minutes  
-**Valeurs**:
-- Liste des contacts avec métadonnées essentielles
-- Score pour le tri (si Sorted Set)
+**Type**: List (JSON objects)  
+**TTL**: 15 minutes  
+**Structure**:
+```json
+[
+  {
+    "contactUserId": "uuid",
+    "displayName": "string",
+    "profilePicture": "url",
+    "lastSeen": "timestamp",
+    "isFavorite": boolean
+  }
+]
+```
 
-#### 3.2.3 GROUP_CACHE
-Cache pour les informations sur les groupes actifs.
+#### 3.2.3 SEARCH_CACHE
+Cache des résultats de recherche.
 
-**Clé**: `group:{groupId}`  
+**Clé**: `search:users:{query_hash}`  
+**Type**: List (JSON objects)  
+**TTL**: 10 minutes  
+**Structure**:
+```json
+[
+  {
+    "userId": "uuid",
+    "username": "string",
+    "firstName": "string",
+    "lastName": "string",
+    "profilePicture": "url"
+  }
+]
+```
+
+#### 3.2.4 ONLINE_STATUS
+Statut de connexion en temps réel.
+
+**Clé**: `user:status:{userId}`  
 **Type**: Hash  
-**TTL**: 1 heure  
+**TTL**: 5 minutes (auto-renouvelé)  
 **Champs**:
-- Métadonnées du groupe
-- Liste des membres actifs du groupe (limité aux X premiers membres)
+- `status`: online, away, offline
+- `lastSeen`: Horodatage de dernière activité
+- `deviceId`: Identifiant de l'appareil actif
 
-#### 3.2.4 USERNAME_INDEX
-Index pour la recherche rapide par nom d'utilisateur.
+#### 3.2.5 CONTACT_SYNC_LOCKS
+Verrous pour éviter les modifications concurrentes.
 
-**Clé**: `username:lookup:{normalizedUsername}`  
+**Clé**: `lock:contacts:{userId}`  
 **Type**: String  
-**TTL**: Permanent (invalidé lors des modifications)  
-**Valeur**: UUID de l'utilisateur
-
-#### 3.2.5 PHONE_LOOKUP_INDEX
-Index pour la recherche rapide par numéro de téléphone.
-
-**Clé**: `phone:lookup:{phoneHash}`  
-**Type**: String  
-**TTL**: Permanent (invalidé lors des modifications)  
-**Valeur**: UUID de l'utilisateur
+**TTL**: 30 secondes  
+**Valeur**: Identifiant unique du verrou
 
 ## 4. Relations avec les Autres Services
 
@@ -334,98 +363,94 @@ Index pour la recherche rapide par numéro de téléphone.
 
 ```mermaid
 graph LR
-    subgraph "auth-service (PostgreSQL)"
-        A[USERS_AUTH] --> B[DEVICES]
-        A --> C[Données d'Authentification]
-    end
-    
     subgraph "user-service (PostgreSQL)"
-        D[USERS] --> E[PRIVACY_SETTINGS]
-        D --> F[CONTACTS / BLOCKED_USERS]
-        D --> G[GROUPS / GROUP_MEMBERS]
+        A[USERS] --> B[Profil & Social]
+        A --> C[CONTACTS]
+        A --> D[PRIVACY_SETTINGS]
+        A --> E[BLOCKED_USERS]
     end
     
-    subgraph "messaging-service"
-        H[Conversations]
-        I[Messages]
+    subgraph "auth-service (PostgreSQL)"
+        F[USERS_AUTH] --> G[Authentification]
+        F --> H[Sécurité]
     end
     
     subgraph "media-service"
-        J[Media Storage]
+        I[MEDIA] --> J[Photos de profil]
+        I --> K[Stockage]
     end
     
-    A -.->|Même ID| D
-    D --> J
-    G --> H
+    subgraph "messaging-service"
+        L[CONVERSATIONS] --> M[Groupes]
+        L --> N[Messages privés]
+    end
+    
+    A -.->|Même ID| F
+    A -.->|profilePictureUrl| I
+    C -.->|Autorisations| L
+    E -.->|Restrictions| L
 ```
 
 ### 4.2 Synchronisation des Données
 
-- **auth-service**: Source de vérité pour l'authenticité des utilisateurs et de leurs appareils
-- **user-service**: Source de vérité pour les profils, les paramètres et les relations sociales
-- **media-service**: Stockage physique des images de profil et de groupe
-- **messaging-service**: Utilise les données du user-service pour gérer les conversations
-
-### 4.3 Points d'Intégration
-
-- User-service écoute les événements de création/suppression d'utilisateurs depuis l'auth-service
-- Les URLs des médias sont persistées dans le user-service, mais le contenu est géré par le media-service
-- Les mises à jour de groupe déclenchent des événements pour le messaging-service
+- **Création d'utilisateur**: Déclenchée par un événement du auth-service
+- **Suppression d'utilisateur**: Propagation vers tous les services dépendants
+- **Modification de photo**: Coordination avec le media-service
+- **Blocages**: Impact sur les permissions dans messaging-service
 
 ## 5. Considérations de Sécurité
 
 ### 5.1 Protection des Données Personnelles
 
-- Respect des paramètres de confidentialité lors de l'exposition des données
-- Vérification des blocages avant tout accès aux données utilisateur
-- Filtrage des données selon le niveau d'accès du demandeur
+- **Minimisation des données**: Stockage uniquement des informations nécessaires
+- **Consentement explicite**: Traçabilité des autorisations de visibilité
+- **Droit à l'oubli**: Mécanismes d'effacement des données personnelles
 
-### 5.2 Audit et Logging
+### 5.2 Anonymisation et Pseudonymisation
 
-- Journalisation des modifications sensibles (mises à jour de profile, de paramètres de confidentialité)
-- Timestamps d'audit sur toutes les tables (createdAt, updatedAt)
-- Journalisation des opérations administratives sur les groupes
+- **Données sensibles**: Pas de stockage de données d'authentification
+- **Logs d'audit**: Pseudonymisation des identifiants dans les logs
+- **Recherche publique**: Contrôle strict de la visibilité des profils
 
-### 5.3 Validations et Contraintes
+### 5.3 Audit et Logging
 
-- Validations de format pour les noms d'utilisateur (regex)
-- Longueurs maximales définies pour tous les champs textuels
-- Unicité stricte des noms d'utilisateur (case-insensitive)
+- **Modifications de profil**: Historique des changements sensibles
+- **Actions sociales**: Traçabilité des ajouts/suppressions de contacts
+- **Accès aux données**: Logs des consultations de profils
 
 ## 6. Considérations de Performance
 
 ### 6.1 Indexation
 
-- Index sur toutes les colonnes fréquemment utilisées pour filtrer ou joindre
-- Index composites pour les patterns de requête communs
-- Utilisation de GIN pour la recherche full-text sur les profils
+- **Recherche textuelle**: Index GIN sur les vecteurs de recherche
+- **Relations sociales**: Index composites sur les paires d'utilisateurs
+- **Filtres de confidentialité**: Index sur les paramètres de visibilité
 
-### 6.2 Stratégies de Cache
+### 6.2 Optimisations de Recherche
 
-- Cache de premier niveau dans Redis pour les profils fréquemment consultés
-- Invalidation du cache basée sur les événements de mise à jour
-- Structure optimisée pour les recherches fréquentes (par téléphone, par username)
+- **Full-Text Search**: Utilisation de PostgreSQL ts_vector
+- **Recherche phonétique**: Support des recherches approximatives
+- **Index de popularité**: Classement des résultats par pertinence
 
-### 6.3 Optimisations
+### 6.3 Optimisations Redis
 
-- Pagination de toutes les API retournant des listes (contacts, groupes, membres)
-- Lazy loading des données détaillées (information minimale dans les listes)
-- Requêtes optimisées pour limiter le nombre de jointures
+- **Cache intelligent**: Invalidation sélective des caches
+- **Compression**: Compression des listes de contacts importantes
+- **Partitionnement**: Distribution des données par hash d'utilisateur
 
 ## 7. Migrations et Évolution du Schéma
 
 ### 7.1 Stratégie de Migration
 
-- Migrations incrémentielles avec TypeORM
-- Support pour la compatibilité descendante
-- Transactions pour garantir l'atomicité des migrations
-- Tests automatisés après chaque migration
+- **Migrations progressives**: Ajout de colonnes optionnelles avant remplissage
+- **Compatibilité descendante**: Support des anciennes versions d'API
+- **Rollback capability**: Possibilité de retour en arrière
 
-### 7.2 Gestion des Versions
+### 7.2 Gestion de l'Évolution des Données
 
-- Versionnement explicite du schéma de base de données
-- Migrations réversibles quand c'est possible
-- Documentation des changements de schéma
+- **Nouveaux champs de profil**: Ajout dynamique sans interruption
+- **Évolution des relations**: Migration des structures sociales
+- **Paramètres de confidentialité**: Ajout de nouveaux contrôles
 
 ## 8. Scripts SQL d'Initialisation
 
@@ -435,234 +460,357 @@ graph LR
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 
--- Types ENUM
-CREATE TYPE privacy_level AS ENUM ('everyone', 'contacts', 'nobody');
-CREATE TYPE group_role AS ENUM ('admin', 'moderator', 'member');
+-- Types énumérés
+CREATE TYPE visibility_enum AS ENUM ('public', 'contacts_only', 'private');
+CREATE TYPE profile_visibility_enum AS ENUM ('public', 'contacts_only', 'private');
+CREATE TYPE contact_request_status_enum AS ENUM ('pending', 'accepted', 'declined', 'canceled');
 
 -- Table des utilisateurs
 CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    phone_number VARCHAR(20) NOT NULL UNIQUE,
-    username VARCHAR(30) UNIQUE,
-    first_name VARCHAR(50) NOT NULL,
-    last_name VARCHAR(50),
-    biography TEXT,
+    id UUID PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    username VARCHAR(50) UNIQUE,
+    biography TEXT CHECK (char_length(biography) <= 500),
     profile_picture_url VARCHAR(255),
-    last_seen TIMESTAMP,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    profile_visibility profile_visibility_enum NOT NULL DEFAULT 'contacts_only',
+    last_seen_at TIMESTAMP,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-);
-
--- Table des paramètres de confidentialité
-CREATE TABLE privacy_settings (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
-    profile_picture_privacy privacy_level NOT NULL DEFAULT 'everyone',
-    first_name_privacy privacy_level NOT NULL DEFAULT 'everyone',
-    last_name_privacy privacy_level NOT NULL DEFAULT 'contacts',
-    biography_privacy privacy_level NOT NULL DEFAULT 'everyone',
-    last_seen_privacy privacy_level NOT NULL DEFAULT 'contacts',
-    search_by_phone BOOLEAN NOT NULL DEFAULT TRUE,
-    search_by_username BOOLEAN NOT NULL DEFAULT TRUE,
-    read_receipts BOOLEAN NOT NULL DEFAULT TRUE,
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 
 -- Table des contacts
 CREATE TABLE contacts (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    contact_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    nickname VARCHAR(50),
-    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    contact_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    display_name VARCHAR(100),
     added_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, contact_id)
+    is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    UNIQUE(user_id, contact_user_id),
+    CHECK (user_id != contact_user_id)
 );
 
 -- Table des utilisateurs bloqués
 CREATE TABLE blocked_users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    blocker_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     blocked_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    reason TEXT,
     blocked_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    UNIQUE(user_id, blocked_user_id)
+    reason VARCHAR(50),
+    UNIQUE(blocker_id, blocked_user_id),
+    CHECK (blocker_id != blocked_user_id)
 );
 
--- Table des groupes
-CREATE TABLE groups (
+-- Table des paramètres de confidentialité
+CREATE TABLE privacy_settings (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name VARCHAR(100) NOT NULL,
-    description TEXT,
-    picture_url VARCHAR(255),
-    created_by UUID NOT NULL REFERENCES users(id),
-    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    profile_picture_visibility visibility_enum NOT NULL DEFAULT 'contacts_only',
+    first_name_visibility visibility_enum NOT NULL DEFAULT 'contacts_only',
+    last_name_visibility visibility_enum NOT NULL DEFAULT 'contacts_only',
+    biography_visibility visibility_enum NOT NULL DEFAULT 'contacts_only',
+    last_seen_visibility visibility_enum NOT NULL DEFAULT 'contacts_only',
+    searchable_by_phone BOOLEAN NOT NULL DEFAULT TRUE,
+    searchable_by_username BOOLEAN NOT NULL DEFAULT TRUE,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Table des membres de groupe
-CREATE TABLE group_members (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    group_id UUID NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    role group_role NOT NULL DEFAULT 'member',
-    joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    UNIQUE(group_id, user_id)
-);
-
--- Table d'index pour la recherche utilisateur
+-- Table de l'index de recherche
 CREATE TABLE user_search_index (
-    user_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-    phone_number_hash VARCHAR(64) NOT NULL,
-    username_normalized VARCHAR(30),
-    first_name_normalized VARCHAR(50) NOT NULL,
-    last_name_normalized VARCHAR(50),
-    search_vector TSVECTOR NOT NULL
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+    search_vector TSVECTOR NOT NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Indexes
-CREATE INDEX idx_users_phone_number ON users(phone_number);
+-- Table des demandes de contact
+CREATE TABLE contact_requests (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status contact_request_status_enum NOT NULL DEFAULT 'pending',
+    message TEXT,
+    sent_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    responded_at TIMESTAMP,
+    UNIQUE(sender_id, receiver_id),
+    CHECK (sender_id != receiver_id)
+);
+
+-- Création des index
 CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_users_first_name ON users(first_name);
-CREATE INDEX idx_users_last_name ON users(last_name);
+CREATE INDEX idx_users_first_last_name ON users(first_name, last_name);
 CREATE INDEX idx_users_is_active ON users(is_active);
+CREATE INDEX idx_users_created_at ON users(created_at);
 
 CREATE INDEX idx_contacts_user_id ON contacts(user_id);
-CREATE INDEX idx_contacts_contact_id ON contacts(contact_id);
+CREATE INDEX idx_contacts_contact_user_id ON contacts(contact_user_id);
 CREATE INDEX idx_contacts_is_favorite ON contacts(is_favorite);
-CREATE INDEX idx_contacts_added_at ON contacts(added_at);
 
-CREATE INDEX idx_blocked_users_user_id ON blocked_users(user_id);
+CREATE INDEX idx_blocked_users_blocker_id ON blocked_users(blocker_id);
 CREATE INDEX idx_blocked_users_blocked_user_id ON blocked_users(blocked_user_id);
-CREATE INDEX idx_blocked_users_blocked_at ON blocked_users(blocked_at);
 
-CREATE INDEX idx_groups_name ON groups(name);
-CREATE INDEX idx_groups_created_by ON groups(created_by);
-CREATE INDEX idx_groups_created_at ON groups(created_at);
-CREATE INDEX idx_groups_is_active ON groups(is_active);
+CREATE INDEX idx_privacy_settings_user_id ON privacy_settings(user_id);
 
-CREATE INDEX idx_group_members_group_id ON group_members(group_id);
-CREATE INDEX idx_group_members_user_id ON group_members(user_id);
-CREATE INDEX idx_group_members_role ON group_members(role);
-CREATE INDEX idx_group_members_is_active ON group_members(is_active);
+CREATE INDEX idx_contact_requests_receiver_status ON contact_requests(receiver_id, status);
+CREATE INDEX idx_contact_requests_sent_at ON contact_requests(sent_at);
 
-CREATE INDEX idx_user_search_phone_hash ON user_search_index(phone_number_hash);
-CREATE INDEX idx_user_search_username ON user_search_index(username_normalized);
-CREATE INDEX idx_user_search_fulltext ON user_search_index USING GIN(search_vector);
+-- Index GIN pour la recherche full-text
+CREATE INDEX idx_user_search_vector ON user_search_index USING gin(search_vector);
 
--- Triggers
-CREATE OR REPLACE FUNCTION update_timestamp()
-RETURNS TRIGGER AS $$
-BEGIN
-   NEW.updated_at = NOW();
-   RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Index trigram pour la recherche approximative
+CREATE INDEX idx_users_username_trgm ON users USING gin(username gin_trgm_ops);
+CREATE INDEX idx_users_first_name_trgm ON users USING gin(first_name gin_trgm_ops);
+CREATE INDEX idx_users_last_name_trgm ON users USING gin(last_name gin_trgm_ops);
+```
 
-CREATE TRIGGER update_users_timestamp
-BEFORE UPDATE ON users
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
+### 8.2 Types Personnalisés
 
-CREATE TRIGGER update_privacy_settings_timestamp
-BEFORE UPDATE ON privacy_settings
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
-
-CREATE TRIGGER update_contacts_timestamp
-BEFORE UPDATE ON contacts
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
-
-CREATE TRIGGER update_groups_timestamp
-BEFORE UPDATE ON groups
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
-
-CREATE TRIGGER update_group_members_timestamp
-BEFORE UPDATE ON group_members
-FOR EACH ROW EXECUTE PROCEDURE update_timestamp();
-
--- Fonction de mise à jour de l'index de recherche
+```sql
+-- Fonction pour mettre à jour l'index de recherche
 CREATE OR REPLACE FUNCTION update_user_search_index()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF TG_OP = 'INSERT' OR TG_OP = 'UPDATE' THEN
-    INSERT INTO user_search_index (
-      user_id,
-      phone_number_hash,
-      username_normalized,
-      first_name_normalized,
-      last_name_normalized,
-      search_vector
-    ) VALUES (
-      NEW.id,
-      encode(sha256(NEW.phone_number::bytea), 'hex'),
-      LOWER(NEW.username),
-      LOWER(NEW.first_name),
-      LOWER(NEW.last_name),
-      setweight(to_tsvector('simple', COALESCE(NEW.username, '')), 'A') ||
-      setweight(to_tsvector('simple', NEW.first_name), 'B') ||
-      setweight(to_tsvector('simple', COALESCE(NEW.last_name, '')), 'C')
+    INSERT INTO user_search_index (user_id, search_vector, updated_at)
+    VALUES (
+        NEW.id,
+        to_tsvector('french', 
+            COALESCE(NEW.first_name, '') || ' ' ||
+            COALESCE(NEW.last_name, '') || ' ' ||
+            COALESCE(NEW.username, '') || ' ' ||
+            COALESCE(NEW.biography, '')
+        ),
+        NOW()
     )
     ON CONFLICT (user_id) DO UPDATE SET
-      phone_number_hash = encode(sha256(NEW.phone_number::bytea), 'hex'),
-      username_normalized = LOWER(NEW.username),
-      first_name_normalized = LOWER(NEW.first_name),
-      last_name_normalized = LOWER(NEW.last_name),
-      search_vector = setweight(to_tsvector('simple', COALESCE(NEW.username, '')), 'A') ||
-                      setweight(to_tsvector('simple', NEW.first_name), 'B') ||
-                      setweight(to_tsvector('simple', COALESCE(NEW.last_name, '')), 'C');
-  END IF;
-  RETURN NULL;
+        search_vector = to_tsvector('french',
+            COALESCE(NEW.first_name, '') || ' ' ||
+            COALESCE(NEW.last_name, '') || ' ' ||
+            COALESCE(NEW.username, '') || ' ' ||
+            COALESCE(NEW.biography, '')
+        ),
+        updated_at = NOW();
+    
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER user_search_index_update
-AFTER INSERT OR UPDATE ON users
-FOR EACH ROW EXECUTE PROCEDURE update_user_search_index();
+-- Trigger pour la mise à jour automatique de l'index
+CREATE TRIGGER trigger_update_user_search_index
+    AFTER INSERT OR UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_user_search_index();
+
+-- Fonction pour créer les paramètres de confidentialité par défaut
+CREATE OR REPLACE FUNCTION create_default_privacy_settings()
+RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO privacy_settings (user_id, updated_at)
+    VALUES (NEW.id, NOW());
+    
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger pour la création automatique des paramètres de confidentialité
+CREATE TRIGGER trigger_create_default_privacy_settings
+    AFTER INSERT ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION create_default_privacy_settings();
 ```
 
-### 8.2 Création de la Structure Redis
+## 9. Communication Inter-Services avec Istio
 
+### 9.1 Architecture Service Mesh pour les Données
+
+Le user-service communique sécurisement avec les autres services via Istio Service Mesh :
+
+```mermaid
+graph LR
+    subgraph "user-service"
+        A[PostgreSQL User] --> B[User Logic]
+        B --> C[Envoy Sidecar]
+    end
+    
+    subgraph "auth-service"
+        D[Envoy Sidecar] --> E[Auth Logic]
+        E --> F[PostgreSQL Auth]
+    end
+    
+    subgraph "media-service"
+        G[Envoy Sidecar] --> H[Media Logic]
+        H --> I[Storage GCS]
+    end
+    
+    subgraph "messaging-service"
+        J[Envoy Sidecar] --> K[Messaging Logic]
+        K --> L[PostgreSQL Messages]
+    end
+    
+    C -.->|mTLS gRPC| D
+    C -.->|mTLS gRPC| G
+    C -.->|mTLS gRPC| J
+    
+    subgraph "Istio Control Plane"
+        M[Certificate Authority]
+        N[Service Discovery]
+    end
+    
+    M -.->|Auto Certs| C
+    M -.->|Auto Certs| D
+    M -.->|Auto Certs| G
+    M -.->|Auto Certs| J
 ```
-# Commandes Redis pour initialiser les structures (exemple)
 
-# Création des index
-FT.CREATE idx:username ON HASH PREFIX 1 username:lookup: SCHEMA username TEXT SORTABLE
+### 9.2 Événements et Synchronisation avec mTLS
 
-FT.CREATE idx:phone ON HASH PREFIX 1 phone:lookup: SCHEMA phoneHash TEXT SORTABLE
+#### 9.2.1 Communications Sécurisées
+- **mTLS automatique** : Chiffrement et authentification automatiques des communications gRPC
+- **Service Identity** : Identité cryptographique unique via SPIFFE/SPIRE
+- **Certificate Rotation** : Rotation automatique des certificats par Istio CA
+- **Zero Trust Network** : Aucune communication non chiffrée entre services
 
-# Définition des TTL par défaut
-CONFIG SET user:profile:* 3600
-CONFIG SET user:contacts:* 1800
-CONFIG SET group:* 3600
+#### 9.2.2 Patterns de Communication de Données
+
+**Synchronisation avec auth-service** :
+```yaml
+# AuthorizationPolicy pour recevoir les événements d'authentification
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: auth-to-user-sync
+  namespace: whispr
+spec:
+  selector:
+    matchLabels:
+      app: user-service
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/whispr/sa/auth-service"]
+  - to:
+    - operation:
+        methods: ["POST", "PUT"]
+        paths: ["/user.UserService/SyncUserData", "/user.UserService/UpdateUserStatus"]
 ```
 
-## 9. Gestion des Accès et Sécurité
-
-### 9.1 Utilisateur de Base de Données et Permissions
-
-```sql
--- Création de l'utilisateur dédié
-CREATE USER user_service WITH PASSWORD 'secure_password_here';
-
--- Octroi des permissions adéquates
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO user_service;
-GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO user_service;
-
--- Restrictions d'accès
-REVOKE TRUNCATE, REFERENCES ON ALL TABLES IN SCHEMA public FROM user_service;
+**Communication avec media-service** :
+```yaml
+# AuthorizationPolicy pour la gestion des médias de profil
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: user-to-media-profile
+  namespace: whispr
+spec:
+  selector:
+    matchLabels:
+      app: media-service
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/whispr/sa/user-service"]
+  - to:
+    - operation:
+        methods: ["POST", "PUT", "DELETE"]
+        paths: ["/media.MediaService/UploadProfilePicture", "/media.MediaService/DeleteProfilePicture"]
 ```
 
-### 9.2 Paramètres de Sécurité PostgreSQL
+**Integration avec messaging-service** :
+```yaml
+# AuthorizationPolicy pour la validation des contacts
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: user-to-messaging-validation
+  namespace: whispr
+spec:
+  selector:
+    matchLabels:
+      app: messaging-service
+  rules:
+  - from:
+    - source:
+        principals: ["cluster.local/ns/whispr/sa/user-service"]
+  - to:
+    - operation:
+        methods: ["POST"]
+        paths: ["/messaging.ValidationService/ValidateContact", "/messaging.ValidationService/CheckBlocking"]
+```
 
+### 9.3 Gestion des Références Externes
+
+#### 9.3.1 Patterns de Consistance Distribuée
+
+**Event Sourcing pour les changements de profil** :
+```mermaid
+sequenceDiagram
+    participant Client
+    participant UserService
+    participant EventStore
+    participant MediaService
+    participant AuthService
+    
+    Client->>UserService: UpdateProfile (new picture)
+    UserService->>EventStore: ProfileUpdateRequested
+    UserService->>MediaService: UploadProfilePicture (mTLS)
+    MediaService-->>UserService: PictureURL
+    UserService->>EventStore: ProfilePictureUpdated
+    UserService->>AuthService: NotifyProfileChange (mTLS)
+    UserService-->>Client: ProfileUpdated
 ```
-# Extrait de postgresql.conf pour la sécurité
-ssl = on
-ssl_cert_file = 'server.crt'
-ssl_key_file = 'server.key'
-ssl_ciphers = 'HIGH:MEDIUM:+3DES:!aNULL'
-ssl_prefer_server_ciphers = on
+
+**Saga Pattern pour la suppression d'utilisateur** :
+```mermaid
+sequenceDiagram
+    participant UserService
+    participant MediaService
+    participant MessagingService
+    participant AuthService
+    
+    Note over UserService: User deletion requested
+    UserService->>UserService: Mark user as deleted
+    UserService->>MediaService: DeleteUserMedia (mTLS)
+    UserService->>MessagingService: RemoveUserFromConversations (mTLS)
+    UserService->>AuthService: DeactivateUserAuth (mTLS)
+    
+    alt Compensation if failure
+        UserService->>UserService: Restore user status
+        UserService->>MediaService: RestoreUserMedia (mTLS)
+        UserService->>MessagingService: RestoreUserInConversations (mTLS)
+    end
 ```
+
+#### 9.3.2 Gestion des Références Distribuées
+
+**Validation des contacts avec blocages** :
+- **Consistency Check** : Vérification des blocages avant ajout de contact
+- **Cross-Service Validation** : Validation des permissions avec messaging-service
+- **Eventual Consistency** : Propagation asynchrone des changements de blocage
+
+**Synchronisation des photos de profil** :
+- **URL References** : Stockage des URLs générées par media-service
+- **Cache Invalidation** : Invalidation des caches lors des changements
+- **Fallback Strategy** : Images par défaut en cas d'indisponibilité
+
+#### 9.3.3 Monitoring et Observabilité
+
+**Métriques de cohérence des données** :
+- **Cross-Service Data Consistency** : Suivi de la cohérence des références
+- **Profile Sync Success Rate** : Taux de succès des synchronisations de profil
+- **Contact Validation Latency** : Latence des validations de contact
+- **Media Reference Integrity** : Intégrité des références vers media-service
+
+**Alertes de santé des relations** :
+- **Orphaned Profile Pictures** : Photos de profil sans référence valide
+- **Inconsistent Contact States** : États incohérents entre services
+- **Failed Cross-Service Calls** : Échecs de communication inter-services
+- **Data Drift Detection** : Détection de dérive des données distribuées
+
+**Distributed Tracing pour les opérations sociales** :
+- **Contact Addition Flow** : Traçage complet de l'ajout de contact
+- **Profile Update Propagation** : Suivi de la propagation des mises à jour
+- **Blocking Impact Analysis** : Analyse de l'impact des blocages
+- **Search Performance Tracking** : Performance des recherches distribuées

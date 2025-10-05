@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
 import { PrivacySettings, User, PrivacyLevel } from '../entities';
 import { UpdatePrivacySettingsDto } from '../dto';
@@ -132,9 +133,15 @@ describe('PrivacyService', () => {
       // Note: Current implementation doesn't check user authorization
       // This test would need to be updated when authorization is added
       mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-      mockPrivacyRepository.save.mockResolvedValue({ ...mockPrivacySettings, ...updateDto });
-      
-      const result = await service.updatePrivacySettings(mockUser.id, updateDto);
+      mockPrivacyRepository.save.mockResolvedValue({
+        ...mockPrivacySettings,
+        ...updateDto,
+      });
+
+      const result = await service.updatePrivacySettings(
+        mockUser.id,
+        updateDto,
+      );
       expect(result).toBeDefined();
     });
   });
@@ -222,6 +229,4 @@ describe('PrivacyService', () => {
       expect(result).toBe(true);
     });
   });
-
-
 });
