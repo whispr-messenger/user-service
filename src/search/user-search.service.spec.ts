@@ -326,7 +326,9 @@ describe('UserSearchService', () => {
       await service.rebuildSearchIndexes();
 
       expect(mockSearchIndexService.clearAllIndexes).toHaveBeenCalled();
-      expect(mockSearchIndexService.batchIndexUsers).toHaveBeenCalledWith([mockUser]);
+      expect(mockSearchIndexService.batchIndexUsers).toHaveBeenCalledWith([
+        mockUser,
+      ]);
     });
   });
 });
