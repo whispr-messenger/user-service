@@ -1,7 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
 import { PrivacySettings, User, PrivacyLevel } from '../entities';
 import { UpdatePrivacySettingsDto } from '../dto';

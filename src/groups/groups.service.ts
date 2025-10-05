@@ -219,10 +219,7 @@ export class GroupsService {
         throw new BadRequestException('User is already a member of this group');
       }
 
-      // Get adder user
-      const adder = await this.userRepository.findOne({
-        where: { id: addedById },
-      });
+      // adder user not required in this implementation
 
       // Add member
       const newMember = this.groupMemberRepository.create({

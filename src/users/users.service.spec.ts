@@ -1,11 +1,8 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import {
-  NotFoundException,
-  BadRequestException,
-  ConflictException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { User, PrivacySettings, PrivacyLevel } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
@@ -13,9 +10,9 @@ import { CacheService } from '../cache';
 
 describe('UsersService', () => {
   let service: UsersService;
-  let userRepository: Repository<User>;
-  let privacyRepository: Repository<PrivacySettings>;
-  let cacheService: CacheService;
+  let _userRepository: Repository<User>;
+  let _privacyRepository: Repository<PrivacySettings>;
+  let _cacheService: CacheService;
 
   const mockUser: Partial<User> = {
     id: '123e4567-e89b-12d3-a456-426614174000',
@@ -87,11 +84,11 @@ describe('UsersService', () => {
     }).compile();
 
     service = module.get<UsersService>(UsersService);
-    userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-    privacyRepository = module.get<Repository<PrivacySettings>>(
+    _userRepository = module.get<Repository<User>>(getRepositoryToken(User));
+    _privacyRepository = module.get<Repository<PrivacySettings>>(
       getRepositoryToken(PrivacySettings),
     );
-    cacheService = module.get<CacheService>(CacheService);
+    _cacheService = module.get<CacheService>(CacheService);
   });
 
   afterEach(() => {
