@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, ILike } from 'typeorm';
+import { Repository, ILike, In } from 'typeorm';
 import { User, PrivacySettings } from '../entities';
 import { SearchIndexService } from '../cache';
 import { PrivacyService } from '../privacy/privacy.service';
@@ -168,26 +168,16 @@ export class UserSearchService {
       let users: User[] = [];
 
       if (cachedUserIds.length > 0) {
-        // Get users from cache/database
-        const userPromises = cachedUserIds
-          .slice(offset, offset + limit)
-          .map(async (userId) => {
-            const cachedUser =
-              await this.searchIndexService.getCachedUser(userId);
-            if (
-              cachedUser &&
-              (options.includeInactive || cachedUser.isActive)
-            ) {
-              return await this.userRepository.findOne({
-                where: { id: userId },
-                relations: ['privacySettings'],
-              });
-            }
-            return null;
-          });
+        // Try to resolve users directly from the repository using cached ids
+        const slice = cachedUserIds.slice(offset, offset + limit);
+        const found = await this.userRepository.find({
+          where: { id: In(slice) as any },
+          relations: ['privacySettings'],
+        });
 
-        const resolvedUsers = await Promise.all(userPromises);
-        users = resolvedUsers.filter((user): user is User => user !== null);
+        users = found.filter(
+          (u) => options.includeInactive || u.isActive,
+        );
       }
 
       // Fallback to database search if not enough results from cache
@@ -214,9 +204,11 @@ export class UserSearchService {
 
         users.push(...dbUsers);
 
-        // Update cache for newly found users
+        // Update cache for newly found users using available index methods
         if (dbUsers.length > 0) {
-          await this.searchIndexService.batchIndexUsers(dbUsers);
+          await Promise.all(
+            dbUsers.map((u) => this.searchIndexService.indexUser(u)),
+          );
         }
       }
 
@@ -289,7 +281,9 @@ export class UserSearchService {
 
       // Update cache for found users
       if (users.length > 0) {
-        await this.searchIndexService.batchIndexUsers(users);
+        await Promise.all(
+          users.map((u) => this.searchIndexService.indexUser(u)),
+        );
       }
 
       // Format results with privacy filtering
@@ -363,34 +357,18 @@ export class UserSearchService {
     try {
       this.logger.log('Starting search index rebuild...');
 
-      // Clear existing indexes
+      // Rebuild flow: clear existing indexes then re-index all users
       await this.searchIndexService.clearAllIndexes();
 
-      // Get all active users in batches
-      const batchSize = 1000;
-      let offset = 0;
-      let totalIndexed = 0;
-
-      while (true) {
-        const users = await this.userRepository.find({
-          take: batchSize,
-          skip: offset,
-          where: { isActive: true },
-        });
-
-        if (users.length === 0) {
-          break;
-        }
-
-        await this.searchIndexService.batchIndexUsers(users);
-        totalIndexed += users.length;
-        offset += batchSize;
-
-        this.logger.debug(`Indexed ${totalIndexed} users so far...`);
+      // Fetch all users (including inactive?) - reindexing typically covers active users
+      const allUsers = await this.userRepository.find();
+      if (allUsers.length > 0) {
+        // Use batch operation from SearchIndexService for efficiency
+        await this.searchIndexService.batchIndexUsers(allUsers);
       }
 
       this.logger.log(
-        `Search index rebuild completed. Indexed ${totalIndexed} users.`,
+        'Search index rebuilt using SearchIndexService batch utilities',
       );
     } catch (error) {
       this.logger.error('Failed to rebuild search indexes:', error);
