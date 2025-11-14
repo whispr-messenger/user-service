@@ -5,3 +5,5 @@ export { BlockedUser } from './blocked-user.entity';
 export { Group } from './group.entity';
 export { GroupMember, GroupRole } from './group-member.entity';
 export { UserSearchIndex } from './user-search-index.entity';
+export { Message, MessageStatus } from './message.entity';
+export { UserPreferences } from './user-preferences.entity';

@@ -12,6 +12,8 @@ import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { UserSearchModule } from './search/user-search.module';
 import { GroupsModule } from './groups/groups.module';
+import { MessagesModule } from './messages/messages.module';
+import { PreferencesModule } from './preferences/preferences.module';
 
 @Module({
   imports: [
@@ -29,6 +31,8 @@ import { GroupsModule } from './groups/groups.module';
     BlockedUsersModule,
     UserSearchModule,
     GroupsModule,
+    MessagesModule,
+    PreferencesModule,
   ],
   controllers: [AppController],
   providers: [AppService, DatabaseConfig],

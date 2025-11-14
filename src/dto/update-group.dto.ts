@@ -25,7 +25,7 @@ export class UpdateGroupDto {
 
   @ApiPropertyOptional({
     description: 'Group picture URL',
-    example: 'https://example.com/new-group-picture.jpg',
+    example: 'https://avatars.githubusercontent.com/u/92697916?v=4',
   })
   @IsOptional()
   @IsUrl()

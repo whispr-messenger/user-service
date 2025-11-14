@@ -51,7 +51,7 @@ export class CreateUserDto {
 
   @ApiPropertyOptional({
     description: 'Profile picture URL',
-    example: 'https://example.com/profile.jpg',
+    example: 'https://avatars.githubusercontent.com/u/92697916?v=4',
   })
   @IsOptional()
   @IsUrl()

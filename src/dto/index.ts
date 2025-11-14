@@ -7,3 +7,5 @@ export { BlockUserDto } from './block-user.dto';
 export { CreateGroupDto } from './create-group.dto';
 export { UpdateGroupDto } from './update-group.dto';
 export { AddGroupMemberDto } from './add-group-member.dto';
+export { SendMessageDto } from './send-message.dto';
+export { UpdatePreferencesDto } from './update-preferences.dto';

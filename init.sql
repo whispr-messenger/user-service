@@ -90,3 +90,22 @@ CREATE INDEX IF NOT EXISTS "idx_group_member_user" ON "group_member"("userId");
 INSERT INTO "user" ("username", "email", "firstName", "lastName") 
 VALUES ('admin', 'admin@whisper.com', 'Admin', 'User')
 ON CONFLICT ("username") DO NOTHING;
+
+-- Messages table for direct user-to-user chat
+CREATE TABLE IF NOT EXISTS "message" (
+    "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+    "senderId" uuid NOT NULL,
+    "recipientId" uuid NOT NULL,
+    "content" text NOT NULL,
+    "status" varchar(20) DEFAULT 'sent',
+    "isDeleted" boolean DEFAULT false,
+    "readAt" timestamp,
+    "createdAt" timestamp DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" timestamp DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY ("senderId") REFERENCES "user"("id") ON DELETE CASCADE,
+    FOREIGN KEY ("recipientId") REFERENCES "user"("id") ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS "idx_message_sender" ON "message"("senderId");
+CREATE INDEX IF NOT EXISTS "idx_message_recipient" ON "message"("recipientId");
+CREATE INDEX IF NOT EXISTS "idx_message_created_at" ON "message"("createdAt");

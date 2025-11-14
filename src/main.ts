@@ -13,6 +13,19 @@ async function bootstrap() {
   app.use(helmet());
   app.use(compression());
 
+  // Enable CORS for web frontend (Expo web at localhost:19006)
+  app.enableCors({
+    origin: [
+      'http://localhost:19006',
+      'http://127.0.0.1:19006',
+      'http://localhost:19007',
+      'http://127.0.0.1:19007',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: false,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
