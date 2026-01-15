@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build outputs
+dist/
+build/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+!README.md
+
+# Tests
+test/
+coverage/
+*.spec.ts
+*.test.ts
+jest.config.js
+test-report.html
+
+# Environment files (will be provided at runtime)
+.env
+.env.*
+!.env.example
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+azure-pipelines.yml
+
+# Docker
+docker/dev/.env
+docker/dev/compose.yml
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Keep dev docker files needed for build
+!docker/dev/Dockerfile
+!docker/dev/entrypoint.sh
+!docker/dev/requirements.txt
+
+# Keep production docker files
+!docker/prod/check-env.js
+!docker/prod/entrypoint.js
+!docker/prod/entrypoint.sh
+
+# Kubernetes
+k8s/
+
+# Scripts
+scripts/
+
+# Misc
+.DS_Store
+*.bak
+*.tmp
