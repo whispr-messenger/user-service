@@ -1,5 +1,6 @@
 -- Création de la base de données users_service si elle n'existe pas
-CREATE DATABASE IF NOT EXISTS users_service;
+SELECT 'CREATE DATABASE users_service'
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'users_service')\gexec
 
 -- Utilisation de la base de données
 \c users_service;
