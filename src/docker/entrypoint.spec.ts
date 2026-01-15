@@ -47,7 +47,7 @@ describe('Entrypoint', () => {
 
 			// Assert
 			expect(mockRunEnvChecks).toHaveBeenCalledTimes(1);
-			expect(consoleLogSpy).toHaveBeenCalledWith('Starting Auth Service...\n');
+			expect(consoleLogSpy).toHaveBeenCalledWith('Starting User Service...\n');
 			expect(processExitSpy).not.toHaveBeenCalled();
 		});
 
