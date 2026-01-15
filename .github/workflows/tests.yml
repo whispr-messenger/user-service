@@ -71,10 +71,10 @@ jobs:
 
       - name: Start Docker Compose services
         run: |
-          docker compose -f docker/docker-compose.dev.yml up -d postgres-dev redis-dev
+          docker compose -f docker/dev/compose.yml up -d postgres-dev redis-dev
           # Wait for services to be healthy
-          timeout 60 bash -c 'until docker compose -f docker/docker-compose.dev.yml exec postgres-dev pg_isready -U whisper_user -d whisper_users_dev; do sleep 2; done'
-          timeout 60 bash -c 'until docker compose -f docker/docker-compose.dev.yml exec redis-dev redis-cli -a redis_password ping; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f docker/dev/compose.yml exec postgres-dev pg_isready -U whisper_user -d whisper_users_dev; do sleep 2; done'
+          timeout 60 bash -c 'until docker compose -f docker/dev/compose.yml exec redis-dev redis-cli -a redis_password ping; do sleep 2; done'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -137,7 +137,7 @@ jobs:
 
       - name: Stop Docker Compose services
         if: always()
-        run: docker compose -f docker/docker-compose.dev.yml down -v
+        run: docker compose -f docker/dev/compose.yml down -v
 
       ####################################################################################################
       # SonarQube Analysis (conditional on should_deploy and secrets availability)
