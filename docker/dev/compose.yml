@@ -1,5 +1,5 @@
 ###################################################################################################
-# DOCKER COMPOSE FILE FOR WHISPR USER SERVICE DEVELOPMENT ENVIRONMENT                             #
+# Docker Compose File for Whispr User Service Development Environment                             #
 ###################################################################################################
 # - This file sets up the development environment with PostgreSQL, Redis, and the User service.   #
 # - This configuration depends on a .env file in the same directory for environment variables     #
