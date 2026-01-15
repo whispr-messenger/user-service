@@ -70,7 +70,7 @@ describe('check-env', () => {
 			runEnvChecks();
 
 			expect(consoleLogSpy).toHaveBeenCalledWith('==================================================');
-			expect(consoleLogSpy).toHaveBeenCalledWith('  Whispr Auth Service - Environment Check');
+			expect(consoleLogSpy).toHaveBeenCalledWith('  Whispr User Service - Environment Check');
 		});
 
 		it('should check all required variables', () => {
