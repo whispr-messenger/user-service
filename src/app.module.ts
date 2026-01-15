@@ -4,13 +4,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CacheModule } from './cache/cache.module';
 import { UsersModule } from './users/users.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { UserSearchModule } from './search/user-search.module';
 import { GroupsModule } from './groups/groups.module';
+import { CacheModule } from '@nestjs/cache-manager';
+import { cacheModuleAsyncOptions } from './cache.config';
 
 @Module({
   imports: [
@@ -21,7 +22,7 @@ import { GroupsModule } from './groups/groups.module';
     TypeOrmModule.forRootAsync({
       useClass: DatabaseConfig,
     }),
-    CacheModule,
+    CacheModule.registerAsync(cacheModuleAsyncOptions),
     UsersModule,
     PrivacyModule,
     ContactsModule,
