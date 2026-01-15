@@ -2,7 +2,7 @@ FROM node:22-bookworm-slim
 
 COPY ./docker/dev/requirements.txt .
 
-RUN apt-get update && apt-get install -y $(cat requirements.txt) \
+RUN apt-get update && apt-get install -y --no-install-recommends $(cat requirements.txt) \
     && rm -rf /var/lib/apt/lists/*
 
 EXPOSE 3000 9229
