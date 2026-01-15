@@ -1,0 +1,90 @@
+###################################################################################################
+# DOCKER COMPOSE FILE FOR WHISPR user SERVICE PRODUCTION ENVIRONMENT                             #
+###################################################################################################
+# - This file sets up the production environment with PostgreSQL, Redis, and the user service.   #
+# - This configuration depends on a .env file in the same directory for environment variables     #
+#   Ensure to create a .env file with the necessary variables before running this setup.          #
+###################################################################################################
+
+name: whispr-user
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispr-user-postgres-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - whispr-network-prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: whispr-user-redis-prod
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - redis_data:/data
+      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+    networks:
+      - whispr-network-prod
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+
+
+  user-service:
+    build:
+      context: ../../
+      dockerfile: ./docker/prod/Dockerfile
+      target: production
+    # image:  ghcr.io/whispr-messenger/user-service/user-service:sha-f2f060f
+    container_name: whispr-user-api-prod
+    restart: unless-stopped
+    ports:
+      - "3001:${HTTP_PORT}"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+    networks:
+      - whispr-network-prod
+    volumes:
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${HTTP_PORT}/user/v1/health/ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  whispr-network-prod:
+    driver: bridge
