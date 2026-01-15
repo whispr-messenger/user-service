@@ -64,7 +64,7 @@ services:
     working_dir: /workspace
     # command: sleep infinity  # Keep container running for dev
     ports:
-      - "3001:${HTTP_PORT}"   # NestJS
+      - "${HTTP_PORT}:${HTTP_PORT}"   # NestJS
       - "9229:9229"   # Debugger
     networks:
       - whispr-network
