@@ -17,13 +17,13 @@ RUN npm prune --production
 
 FROM gcr.io/distroless/nodejs22-debian12 AS production
 
-LABEL maintainer="Whisper Team" \
+LABEL maintainer="Whispr Team" \
     service="users-service" \
     version="1.0.0" \
     environment="production" \
     cloud.provider="gcp" \
-    org.opencontainers.image.source="https://github.com/whisper/user-service" \
-    org.opencontainers.image.description="Whisper Authentication Service" \
+    org.opencontainers.image.source="https://github.com/whispr-messenger/user-service" \
+    org.opencontainers.image.description="Whispr User Service" \
     org.opencontainers.image.licenses="MIT" \
     security.scan="enabled" \
     optimization.level="production" \
