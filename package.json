@@ -5,6 +5,10 @@
 	"author": "Whispr Team",
 	"private": true,
 	"license": "UNLICENSED",
+	"engines": {
+		"node": ">=22.0.0",
+		"npm": ">=10.0.0"
+	},
 	"scripts": {
 		"build": "nest build",
 		"format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
