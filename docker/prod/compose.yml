@@ -1,12 +1,12 @@
 ###################################################################################################
-# DOCKER COMPOSE FILE FOR WHISPR user SERVICE PRODUCTION ENVIRONMENT                             #
+# DOCKER COMPOSE FILE FOR WHISPR USER SERVICE PRODUCTION ENVIRONMENT                             #
 ###################################################################################################
 # - This file sets up the production environment with PostgreSQL, Redis, and the user service.   #
 # - This configuration depends on a .env file in the same directory for environment variables     #
 #   Ensure to create a .env file with the necessary variables before running this setup.          #
 ###################################################################################################
 
-name: whispr-user
+name: whispr-user-prod
 
 services:
   postgres:
@@ -40,7 +40,8 @@ services:
     networks:
       - whispr-network-prod
     healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      # test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 5
@@ -55,6 +56,7 @@ services:
       context: ../../
       dockerfile: ./docker/prod/Dockerfile
       target: production
+    # Uncomment to test the image built by the CI pipeline
     # image:  ghcr.io/whispr-messenger/user-service/user-service:sha-f2f060f
     container_name: whispr-user-api-prod
     restart: unless-stopped
