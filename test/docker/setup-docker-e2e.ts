@@ -13,7 +13,6 @@ process.env.DB_NAME = 'testing';
 process.env.DB_SYNCHRONIZE = 'true';
 process.env.DB_LOGGING = 'false';
 
-
 // Redis configuration - connects to Docker redis service
 process.env.REDIS_HOST = 'localhost';
 process.env.REDIS_PORT = '6379';
