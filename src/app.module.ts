@@ -14,20 +14,20 @@ import { HealthModule } from './health/health.module';
 // import { GroupsModule } from './groups/groups.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: ['.env.development', '.env.local', '.env'],
-    }),
-    TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
-    CacheModule.registerAsync(cacheModuleAsyncOptions),
-    HealthModule,
-    // UsersModule,
-    // PrivacyModule,
-    // ContactsModule,
-    // BlockedUsersModule,
-    // UserSearchModule,
-    // GroupsModule,
-  ],
+	imports: [
+		ConfigModule.forRoot({
+			isGlobal: true,
+			envFilePath: ['.env.development', '.env.local', '.env'],
+		}),
+		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
+		CacheModule.registerAsync(cacheModuleAsyncOptions),
+		HealthModule,
+		// UsersModule,
+		// PrivacyModule,
+		// ContactsModule,
+		// BlockedUsersModule,
+		// UserSearchModule,
+		// GroupsModule,
+	],
 })
-export class AppModule { }
+export class AppModule {}

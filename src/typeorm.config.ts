@@ -61,9 +61,7 @@ function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
 /**
  * Factory function to create TypeORM configuration based on environment
  */
-async function typeOrmModuleOptionsFactory(
-	configService: ConfigService
-): Promise<TypeOrmModuleOptions> {
+async function typeOrmModuleOptionsFactory(configService: ConfigService): Promise<TypeOrmModuleOptions> {
 	const databaseUrl = configService.get('DB_URL');
 	const databaseConfig = databaseUrl ? parseDatabaseUrl(databaseUrl) : getEnvDatabaseConfig(configService);
 
