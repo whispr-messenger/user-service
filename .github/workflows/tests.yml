@@ -24,12 +24,40 @@ permissions:
   pull-requests: write
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '22'
 
 jobs:
   test-and-quality:
     name: 🔍 Code Analysis & Testing
     runs-on: ubuntu-latest
+
+    ####################################################################################################
+    # Services
+    ####################################################################################################
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: test
+          POSTGRES_USER: test
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
 
     steps:
       ####################################################################################################
@@ -41,41 +69,6 @@ jobs:
           ref: ${{ inputs.ref || github.event.client_payload.ref }}
           fetch-depth: 0
 
-      - name: Create .env.development file
-        run: |
-          cat > docker/dev/.env << 'EOF'
-          # Application
-          PORT=3000
-          NODE_ENV=test
-
-          # Database
-          DATABASE_HOST=postgres-test
-          DATABASE_PORT=5432
-          DATABASE_USERNAME=whisper_user
-          DATABASE_PASSWORD=whisper_password
-          DATABASE_NAME=whisper_users_test
-          DATABASE_SYNCHRONIZE=true
-          DATABASE_LOGGING=false
-          DATABASE_SSL=false
-
-          # Redis
-          REDIS_HOST=redis-test
-          REDIS_PORT=6379
-          REDIS_PASSWORD=redis_password
-          REDIS_DB=0
-
-          # JWT
-          JWT_SECRET=test-jwt-secret
-          JWT_EXPIRES_IN=24h
-          EOF
-
-      - name: Start Docker Compose services
-        run: |
-          docker compose -f docker/dev/compose.yml up -d postgres-dev redis-dev
-          # Wait for services to be healthy
-          timeout 60 bash -c 'until docker compose -f docker/dev/compose.yml exec postgres-dev pg_isready -U whisper_user -d whisper_users_dev; do sleep 2; done'
-          timeout 60 bash -c 'until docker compose -f docker/dev/compose.yml exec redis-dev redis-cli -a redis_password ping; do sleep 2; done'
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -84,16 +77,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run DB migrations
-        run: npm run migration:run
-        env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5433
-          DATABASE_USERNAME: whisper_user
-          DATABASE_PASSWORD: whisper_password
-          DATABASE_NAME: whisper_users_dev
-          DATABASE_SSL: false
 
       ####################################################################################################
       # Linting and Formatting
@@ -110,34 +93,14 @@ jobs:
       - name: Run unit tests
         run: npm run test:cov
         env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5433
-          DATABASE_USERNAME: whisper_user
-          DATABASE_PASSWORD: whisper_password
-          DATABASE_NAME: whisper_users_dev
-          DATABASE_SSL: false
-          REDIS_HOST: localhost
-          REDIS_PORT: 6380
-          REDIS_PASSWORD: redis_password
-          REDIS_DB: 0
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
 
       - name: Run e2e tests
         run: npm run test:e2e
         env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5433
-          DATABASE_USERNAME: whisper_user
-          DATABASE_PASSWORD: whisper_password
-          DATABASE_NAME: whisper_users_dev
-          DATABASE_SSL: false
-          REDIS_HOST: localhost
-          REDIS_PORT: 6380
-          REDIS_PASSWORD: redis_password
-          REDIS_DB: 0
-
-      - name: Stop Docker Compose services
-        if: always()
-        run: docker compose -f docker/dev/compose.yml down -v
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379
 
       ####################################################################################################
       # SonarQube Analysis (conditional on should_deploy and secrets availability)
