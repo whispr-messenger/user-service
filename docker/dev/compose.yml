@@ -1,0 +1,92 @@
+###################################################################################################
+# Docker Compose File for Whispr User Service Development Environment                             #
+###################################################################################################
+# - This file sets up the development environment with PostgreSQL, Redis, and the User service.   #
+# - This configuration depends on a .env file in the same directory for environment variables     #
+#   Ensure to create a .env file with the necessary variables before running this setup.          #
+###################################################################################################
+
+name: whispr-user
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispr-user-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    expose:
+      - ${POSTGRES_PORT}
+    networks:
+      - whispr-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: whispr-user-redis
+    volumes:
+      - redis_data:/data
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    expose:
+      - ${REDIS_PORT}
+    networks:
+      - whispr-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+
+  user-service:
+    build:
+      context: ../..
+      dockerfile: docker/dev/Dockerfile
+    container_name: whispr-user-api
+    env_file: .env
+    volumes:
+      - ../..:/workspace:cached
+      - node_modules_volume:/workspace/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    # command: sleep infinity  # Keep container running for dev
+    ports:
+      - "${HTTP_PORT}:${HTTP_PORT}"   # NestJS
+      - "9229:9229"   # Debugger
+    networks:
+      - whispr-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/user/v1/health/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  node_modules_volume:
+  postgres_data:
+  redis_data:
+
+networks:
+  whispr-network:
+    driver: bridge
