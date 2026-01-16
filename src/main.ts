@@ -1,43 +1,33 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger, VersioningType } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
-import helmet from 'helmet';
-import * as compression from 'compression';
 import { AppModule } from './app.module';
+import { createSwaggerDocumentation } from './swagger';
+import { LoggingInterceptor } from './interceptors';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
+	const app = await NestFactory.create<NestExpressApplication>(AppModule);
+	const configService = app.get(ConfigService);
+	const logger = new Logger('Bootstrap');
+	const port = configService.get<number>('HTTP_PORT', 3002);
+	const globalPrefix = 'user';
 
-  app.use(helmet());
-  app.use(compression());
+	app.setGlobalPrefix(globalPrefix);
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-    }),
-  );
+	app.enableVersioning({
+		type: VersioningType.URI,
+		defaultVersion: '1',
+		prefix: 'v',
+	});
 
-  app.setGlobalPrefix('api/v1');
+	createSwaggerDocumentation(app, port, configService, globalPrefix);
 
-  const config = new DocumentBuilder()
-    .setTitle('User Service API')
-    .setDescription('User management service for Whispr application')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+	app.useGlobalInterceptors(new LoggingInterceptor());
 
-  const port = configService.get<number>('PORT', 3000);
-  await app.listen(port);
-  console.log(`User service is running on port ${port}`);
+	await app.listen(port);
+
+	logger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
 bootstrap();
