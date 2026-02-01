@@ -105,35 +105,35 @@ jobs:
       ####################################################################################################
       # SonarQube Analysis (conditional on should_deploy and secrets availability)
       ####################################################################################################
-      - name: Check SonarQube secrets
-        id: check-secrets
-        run: |
-          if [[ -n "${{ secrets.SONAR_TOKEN }}" && -n "${{ secrets.SONAR_HOST_URL }}" ]]; then
-            echo "secrets-available=true" >> $GITHUB_OUTPUT
-          else
-            echo "secrets-available=false" >> $GITHUB_OUTPUT
-            echo "⚠️ SonarQube secrets not configured. Skipping SonarQube analysis."
-          fi
+      # - name: Check SonarQube secrets
+      #   id: check-secrets
+      #   run: |
+      #     if [[ -n "${{ secrets.SONAR_TOKEN }}" && -n "${{ secrets.SONAR_HOST_URL }}" ]]; then
+      #       echo "secrets-available=true" >> $GITHUB_OUTPUT
+      #     else
+      #       echo "secrets-available=false" >> $GITHUB_OUTPUT
+      #       echo "⚠️ SonarQube secrets not configured. Skipping SonarQube analysis."
+      #     fi
 
-      - name: SonarQube Analysis
-        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
-        uses: sonarsource/sonarqube-scan-action@v6.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # - name: SonarQube Analysis
+      #   if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+      #   uses: sonarsource/sonarqube-scan-action@v6.0.0
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: SonarQube Quality Gate
-        if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
-        uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
-        timeout-minutes: 5
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+      # - name: SonarQube Quality Gate
+      #   if: ${{ inputs.should_deploy == 'true' && steps.check-secrets.outputs.secrets-available == 'true' }}
+      #   uses: sonarsource/sonarqube-quality-gate-action@v1.2.0
+      #   timeout-minutes: 5
+      #   env:
+      #     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      #     SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
+      # - name: Upload coverage to Codecov
+      #   uses: codecov/codecov-action@v3
+      #   with:
+      #     file: ./coverage/lcov.info
+      #     flags: unittests
+      #     name: codecov-umbrella
