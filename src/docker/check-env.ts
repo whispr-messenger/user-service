@@ -43,15 +43,11 @@ export default function runEnvChecks(): void {
 	checkRequired('NODE_ENV');
 
 	// Database
-	checkRequired('DB_HOST');
-	checkRequired('DB_PORT');
-	checkRequired('DB_USERNAME');
-	checkRequired('DB_PASSWORD');
-	checkRequired('DB_NAME');
-
-	// JWT
-	checkRequired('JWT_PRIVATE_KEY');
-	checkRequired('JWT_PUBLIC_KEY');
+	checkRequired('DATABASE_HOST');
+	checkRequired('DATABASE_PORT');
+	checkRequired('DATABASE_USERNAME');
+	checkRequired('DATABASE_PASSWORD');
+	checkRequired('DATABASE_NAME');
 
 	// Redis
 	checkRequired('REDIS_HOST');
@@ -61,28 +57,18 @@ export default function runEnvChecks(): void {
 	checkRequired('HTTP_PORT');
 	checkRequired('GRPC_PORT');
 
-	// gRPC services
-	checkRequired('USER_SERVICE_GRPC_URL');
-	checkRequired('MEDIA_SERVICE_GRPC_URL');
-
-	// Twilio
-	checkRequired('TWILIO_ACCOUNT_SID');
-	checkRequired('TWILIO_AUTH_TOKEN');
-	checkRequired('TWILIO_FROM_NUMBER');
-
 	console.log('\nChecking OPTIONAL environment variables...');
 
-	checkOptional('DB_URL', '(constructed from individual DB vars)');
-	checkOptional('DB_LOGGING', 'false');
-	checkOptional('DB_MIGRATIONS_RUN', 'false');
-	checkOptional('DB_SYNCHRONIZE', 'false');
+	checkOptional('DATABASE_URL', '(constructed from individual DATABASE vars)');
+	checkOptional('DATABASE_LOGGING', 'false');
+	checkOptional('DATABASE_MIGRATIONS_RUN', 'false');
+	checkOptional('DATABASE_SYNCHRONIZE', 'false');
 	checkOptional('REDIS_PASSWORD', '(no password)');
 	checkOptional('NODE_OPTIONS', '(default Node settings)');
 	checkOptional('PORT', '(defaults to HTTP_PORT)');
 	checkOptional('LOG_LEVEL', 'info');
 	checkOptional('METRICS_ENABLED', 'true');
 	checkOptional('HEALTH_CHECK_TIMEOUT', '5000');
-	checkOptional('DEMO_MODE', 'false');
 
 	console.log('\n==================================================');
 
