@@ -57,7 +57,7 @@ describe('cacheModuleOptionsFactory', () => {
 
         // I will write the test assuming I will export it.
 
-        const result = cacheModuleOptionsFactory(configService);
+        cacheModuleOptionsFactory(configService);
 
         // Verify KeyvRedis was instantiated
         expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379');
