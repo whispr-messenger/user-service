@@ -24,6 +24,8 @@ jobs:
 
     permissions:
       contents: write
+      packages: read
+      pull-requests: write
 
     steps:
       - name: Generate GitHub App Token
@@ -33,11 +35,19 @@ jobs:
           app_id: ${{ secrets.ACTIONS_CD }}
           private_key: ${{ secrets.ACTIONS_CD_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: Checkout user-service
         uses: actions/checkout@v4
         with:
+          path: user-service
           ref: main
           token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install yq
         run: |
@@ -46,6 +56,7 @@ jobs:
 
       - name: Validate and determine commit SHA
         id: validate_commit
+        working-directory: user-service
         run: |
           # Determine the commit SHA based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -88,6 +99,41 @@ jobs:
           # Store COMMIT_SHA as output for use in subsequent steps
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
 
+      - name: Verify image exists in registry
+        run: |
+          COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
+          SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          IMAGE_TAG="sha-${SHORT_SHA}"
+          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          FULL_IMAGE=$(echo "${FULL_IMAGE}" | tr '[:upper:]' '[:lower:]')
+          
+          echo "Verifying image existence: ${FULL_IMAGE}"
+          # We use docker manifest inspect which is available in modern docker versions
+          if ! docker manifest inspect "${FULL_IMAGE}" > /dev/null 2>&1; then
+            echo "❌ Error: Docker image ${FULL_IMAGE} not found in registry."
+            echo "The CI pipeline might have failed to build or push the image for this commit."
+            exit 1
+          fi
+          echo "✅ Image found in registry"
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: whispr-messenger/infrastructure
+          path: infrastructure
+          ref: main
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Validate deployment manifest path
+        run: |
+          MANIFEST_PATH="infrastructure/argocd/k8s/whispr/user-service/deployment.yaml"
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "❌ Error: Deployment manifest not found at $MANIFEST_PATH"
+            echo "Please verify the path in the infrastructure repository."
+            exit 1
+          fi
+          echo "✅ Deployment manifest found at $MANIFEST_PATH"
+
       - name: Update image tag in deployment
         id: update_image
         run: |
@@ -98,7 +144,6 @@ jobs:
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
           
           # Use the short SHA tag format that matches the CI docker workflow
-          # The docker.yml workflow creates tags with "type=sha,format=short" which produces: sha-<short_sha>
           IMAGE_TAG="sha-${SHORT_SHA}"
 
           # Build the full image reference with lowercase (OCI requirement)
@@ -110,40 +155,80 @@ jobs:
           echo "Image tag: $IMAGE_TAG"
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
-          # Update the deployment manifest using yq
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" k8s/deployment.yaml
+          # Update the deployment manifest in the infrastructure repository
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/argocd/k8s/whispr/user-service/deployment.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' k8s/deployment.yaml
+          yq '.spec.template.spec.containers[0].image' infrastructure/argocd/k8s/whispr/user-service/deployment.yaml
 
       - name: Commit and push changes
+        id: commit_push
+        working-directory: infrastructure
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
           # Check if there are changes to commit
-          if git diff --quiet k8s/deployment.yaml; then
+          if git diff --quiet argocd/k8s/whispr/user-service/deployment.yaml; then
             echo "No changes to commit"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
             exit 0
           fi
+          echo "has_changes=true" >> $GITHUB_OUTPUT
 
           # Use the validated commit SHA determined in the previous step
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
+          SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          
+          # Create a new branch with a generic, reusable name
+          BRANCH_NAME="deploy-user-service-${SHORT_SHA}"
+          echo "branch_name=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "Creating and pushing to branch: ${BRANCH_NAME}"
+          
+          # Check if remote branch already exists
+          if git ls-remote --heads origin "${BRANCH_NAME}" | grep -q "${BRANCH_NAME}"; then
+            echo "Branch ${BRANCH_NAME} already exists on remote. Updating it."
+            git fetch origin "${BRANCH_NAME}"
+            git checkout "${BRANCH_NAME}"
+            git merge main --no-edit
+          else
+            git checkout -b "${BRANCH_NAME}"
+          fi
           
           # Build commit message based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            COMMIT_MSG="🔧 chore(deploy): update deployment image to latest build
-
-          Updated by CD workflow (manual trigger) for commit: ${COMMIT_SHA}"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA} (manual trigger)"
           else
-            COMMIT_MSG="🔧 chore(deploy): update deployment image to latest build
-
-          Updated by CD workflow for commit: ${COMMIT_SHA}"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
           fi
 
-          git add k8s/deployment.yaml
+          git add argocd/k8s/whispr/user-service/deployment.yaml
           git commit -m "${COMMIT_MSG}"
 
-          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/${{ github.repository }}.git main
+          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git "${BRANCH_NAME}"
+
+      - name: Create Pull Request in infrastructure repository
+        if: steps.commit_push.outputs.has_changes == 'true'
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+        run: |
+          COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
+          SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          BRANCH_NAME="${{ steps.commit_push.outputs.branch_name }}"
+          
+          echo "Checking for existing PRs for branch ${BRANCH_NAME}..."
+          EXISTING_PR=$(gh pr list -R whispr-messenger/infrastructure --head "${BRANCH_NAME}" --json number --jq '.[0].number')
+          
+          if [ -n "$EXISTING_PR" ]; then
+            echo "PR #${EXISTING_PR} already exists for this branch. No need to create a new one."
+          else
+            echo "Creating new PR for branch ${BRANCH_NAME}..."
+            gh pr create \
+              -R whispr-messenger/infrastructure \
+              --title "🚀 deploy(user-service): update image to ${SHORT_SHA}" \
+              --body "Automatically generated by user-service CD pipeline. Target image: \`sha-${SHORT_SHA}\`." \
+              --head "${BRANCH_NAME}" \
+              --base main
+          fi
