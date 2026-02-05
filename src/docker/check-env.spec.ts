@@ -75,7 +75,9 @@ describe('runEnvChecks', () => {
 
 			// Verify success message with color
 			expect(consoleLogSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.green}✓ All required environment variables are set!${colors.reset}`)
+				expect.stringContaining(
+					`${colors.green}✓ All required environment variables are set!${colors.reset}`
+				)
 			);
 		});
 
@@ -136,7 +138,9 @@ describe('runEnvChecks', () => {
 
 			// Should report 3 missing
 			expect(consoleErrorSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.red}ERROR: 3 required environment variable(s) missing!${colors.reset}`)
+				expect.stringContaining(
+					`${colors.red}ERROR: 3 required environment variable(s) missing!${colors.reset}`
+				)
 			);
 		});
 	});
@@ -148,14 +152,14 @@ describe('runEnvChecks', () => {
 
 			// Verify one of the optional vars (e.g. DATABASE_LOGGING)
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.yellow}⚠${colors.reset} DATABASE_LOGGING is NOT set (will use default: false)`)
+				expect.stringContaining(
+					`${colors.yellow}⚠${colors.reset} DATABASE_LOGGING is NOT set (will use default: false)`
+				)
 			);
 
 			// Should report total count of optional vars not set
 			// There are about 10 optional checks in the script
-			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.yellow}WARNING:`)
-			);
+			expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining(`${colors.yellow}WARNING:`));
 		});
 
 		it('should log success when optional variable is set', () => {
@@ -180,7 +184,9 @@ describe('runEnvChecks', () => {
 			runEnvChecks();
 
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.yellow}⚠${colors.reset} LOG_LEVEL is NOT set (will use default: info)`)
+				expect.stringContaining(
+					`${colors.yellow}⚠${colors.reset} LOG_LEVEL is NOT set (will use default: info)`
+				)
 			);
 		});
 	});
@@ -192,8 +198,12 @@ describe('runEnvChecks', () => {
 
 			expect(consoleLogSpy).toHaveBeenCalledWith('==================================================');
 			expect(consoleLogSpy).toHaveBeenCalledWith('  Whispr User Service - Environment Check');
-			expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Checking REQUIRED environment variables...'));
-			expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Checking OPTIONAL environment variables...'));
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Checking REQUIRED environment variables...')
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Checking OPTIONAL environment variables...')
+			);
 		});
 	});
 });

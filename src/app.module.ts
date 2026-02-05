@@ -30,4 +30,4 @@ import { HealthModule } from './health/health.module';
 		// GroupsModule,
 	],
 })
-export class AppModule { }
+export class AppModule {}
