@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { typeOrmModuleAsyncOptions } from './typeorm.config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { cacheModuleAsyncOptions } from './cache.config';
-import { typeOrmModuleAsyncOptions } from './typeorm.config';
 import { HealthModule } from './health/health.module';
 
 // import { UsersModule } from './users/users.module';
