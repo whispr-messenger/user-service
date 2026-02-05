@@ -5,6 +5,7 @@ import Redis from 'ioredis';
 // Mock ioredis
 const mockRedisInstance = {
 	quit: jest.fn().mockResolvedValue(undefined),
+	on: jest.fn().mockReturnThis(),
 };
 
 jest.mock('ioredis', () => {
