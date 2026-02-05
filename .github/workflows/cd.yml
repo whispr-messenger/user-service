@@ -24,6 +24,7 @@ jobs:
 
     permissions:
       contents: write
+      packages: read
 
     steps:
       - name: Generate GitHub App Token
@@ -38,6 +39,13 @@ jobs:
         with:
           ref: main
           token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install yq
         run: |
@@ -87,6 +95,23 @@ jobs:
 
           # Store COMMIT_SHA as output for use in subsequent steps
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+
+      - name: Verify image exists in registry
+        run: |
+          COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
+          SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          IMAGE_TAG="sha-${SHORT_SHA}"
+          FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
+          FULL_IMAGE=$(echo "${FULL_IMAGE}" | tr '[:upper:]' '[:lower:]')
+          
+          echo "Verifying image existence: ${FULL_IMAGE}"
+          # We use docker manifest inspect which is available in modern docker versions
+          if ! docker manifest inspect "${FULL_IMAGE}" > /dev/null 2>&1; then
+            echo "❌ Error: Docker image ${FULL_IMAGE} not found in registry."
+            echo "The CI pipeline might have failed to build or push the image for this commit."
+            exit 1
+          fi
+          echo "✅ Image found in registry"
 
       - name: Checkout infrastructure repository
         uses: actions/checkout@v4
