@@ -40,8 +40,8 @@ describe('cacheModuleOptionsFactory', () => {
     });
 
     it('should create KeyvRedis instance with correct URL and attach error listener', () => {
-        // Spy on Logger.error
-        const loggerSpy = jest.spyOn(Logger, 'error').mockImplementation();
+        const loggerErrorSpy = jest.fn();
+        jest.spyOn(Logger.prototype, 'error').mockImplementation(loggerErrorSpy);
 
         // Call the factory function
         // Note: We need to export the function or test it via the module options if it wasn't exported.
@@ -70,6 +70,6 @@ describe('cacheModuleOptionsFactory', () => {
         const testError = new Error('Test connection error');
         errorHandler(testError);
 
-        expect(loggerSpy).toHaveBeenCalledWith('Redis connection error', testError, 'CacheModule');
+        expect(loggerErrorSpy).toHaveBeenCalledWith('Redis connection error', testError);
     });
 });
