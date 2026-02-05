@@ -8,8 +8,6 @@ function cacheModuleOptionsFactory(configService: ConfigService): CacheOptions {
 	const redis_port = configService.get('REDIS_PORT', 6379);
 	const redis_url = `redis://${redis_host}:${redis_port}`;
 
-
-
 	const keyvRedis = new KeyvRedis(redis_url);
 	keyvRedis.on('error', (err) => {
 		Logger.error('Redis connection error', err, 'CacheModule');
