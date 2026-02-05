@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import KeyvRedis from '@keyv/redis';
 
-function cacheModuleOptionsFactory(configService: ConfigService): CacheOptions {
+export function cacheModuleOptionsFactory(configService: ConfigService): CacheOptions {
 	const redis_host = configService.get('REDIS_HOST', 'redis');
 	const redis_port = configService.get('REDIS_PORT', 6379);
 	const redis_url = `redis://${redis_host}:${redis_port}`;
