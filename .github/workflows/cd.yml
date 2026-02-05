@@ -33,7 +33,7 @@ jobs:
           app_id: ${{ secrets.ACTIONS_CD }}
           private_key: ${{ secrets.ACTIONS_CD_PRIVATE_KEY }}
 
-      - name: Checkout code
+      - name: Checkout user-service
         uses: actions/checkout@v4
         with:
           ref: main
@@ -88,6 +88,13 @@ jobs:
           # Store COMMIT_SHA as output for use in subsequent steps
           echo "commit_sha=${COMMIT_SHA}" >> $GITHUB_OUTPUT
 
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: whispr-messenger/infrastructure
+          ref: main
+          token: ${{ steps.generate_token.outputs.token }}
+
       - name: Update image tag in deployment
         id: update_image
         run: |
@@ -98,7 +105,6 @@ jobs:
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
           
           # Use the short SHA tag format that matches the CI docker workflow
-          # The docker.yml workflow creates tags with "type=sha,format=short" which produces: sha-<short_sha>
           IMAGE_TAG="sha-${SHORT_SHA}"
 
           # Build the full image reference with lowercase (OCI requirement)
@@ -110,13 +116,13 @@ jobs:
           echo "Image tag: $IMAGE_TAG"
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
-          # Update the deployment manifest using yq
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" k8s/deployment.yaml
+          # Update the deployment manifest in the infrastructure repository
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" argocd/k8s/whispr/user-service/deployment.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' k8s/deployment.yaml
+          yq '.spec.template.spec.containers[0].image' argocd/k8s/whispr/user-service/deployment.yaml
 
       - name: Commit and push changes
         run: |
@@ -124,26 +130,28 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # Check if there are changes to commit
-          if git diff --quiet k8s/deployment.yaml; then
+          if git diff --quiet argocd/k8s/whispr/user-service/deployment.yaml; then
             echo "No changes to commit"
             exit 0
           fi
 
           # Use the validated commit SHA determined in the previous step
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
+          SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          
+          # Create a new branch with the requested prefix
+          BRANCH_NAME="WHISPR-259-deploy-user-service-${SHORT_SHA}"
+          echo "Creating and pushing to branch: ${BRANCH_NAME}"
+          git checkout -b "${BRANCH_NAME}"
           
           # Build commit message based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            COMMIT_MSG="🔧 chore(deploy): update deployment image to latest build
-
-          Updated by CD workflow (manual trigger) for commit: ${COMMIT_SHA}"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA} (manual trigger)"
           else
-            COMMIT_MSG="🔧 chore(deploy): update deployment image to latest build
-
-          Updated by CD workflow for commit: ${COMMIT_SHA}"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
           fi
 
-          git add k8s/deployment.yaml
+          git add argocd/k8s/whispr/user-service/deployment.yaml
           git commit -m "${COMMIT_MSG}"
 
-          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/${{ github.repository }}.git main
+          git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git "${BRANCH_NAME}"
