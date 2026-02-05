@@ -95,6 +95,16 @@ jobs:
           ref: main
           token: ${{ steps.generate_token.outputs.token }}
 
+      - name: Validate deployment manifest path
+        run: |
+          MANIFEST_PATH="argocd/k8s/whispr/user-service/deployment.yaml"
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "❌ Error: Deployment manifest not found at $MANIFEST_PATH"
+            echo "Please verify the path in the infrastructure repository."
+            exit 1
+          fi
+          echo "✅ Deployment manifest found at $MANIFEST_PATH"
+
       - name: Update image tag in deployment
         id: update_image
         run: |
@@ -139,8 +149,8 @@ jobs:
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
           
-          # Create a new branch with the requested prefix
-          BRANCH_NAME="WHISPR-259-deploy-user-service-${SHORT_SHA}"
+          # Create a new branch with a generic, reusable name
+          BRANCH_NAME="deploy-user-service-${SHORT_SHA}"
           echo "Creating and pushing to branch: ${BRANCH_NAME}"
           git checkout -b "${BRANCH_NAME}"
           
