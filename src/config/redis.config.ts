@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 
 @Injectable()
 export class RedisConfig {
 	private readonly client: Redis;
+	private readonly logger = new Logger(RedisConfig.name);
 
 	constructor(private readonly configService: ConfigService) {
 		this.client = new Redis({
@@ -14,6 +15,10 @@ export class RedisConfig {
 			db: this.configService.get<number>('REDIS_DB', 0),
 			maxRetriesPerRequest: 3,
 			lazyConnect: true,
+		});
+
+		this.client.on('error', (err) => {
+			this.logger.error('Redis connection error', err);
 		});
 	}
 
