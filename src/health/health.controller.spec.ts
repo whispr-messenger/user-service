@@ -2,13 +2,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { HealthController } from './health.controller';
 import { DataSource } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ServiceUnavailableException, Logger } from '@nestjs/common';
 import { cacheHealth } from '../cache.config';
 
 describe('HealthController', () => {
 	let controller: HealthController;
 	let dataSource: DataSource;
 	let cacheManager: any;
+
+	beforeAll(() => {
+		jest.spyOn(Logger.prototype, 'log').mockImplementation(() => { });
+		jest.spyOn(Logger.prototype, 'error').mockImplementation(() => { });
+		jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => { });
+		jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => { });
+		jest.spyOn(Logger.prototype, 'verbose').mockImplementation(() => { });
+	});
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
