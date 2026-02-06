@@ -74,7 +74,7 @@ describe('cacheModuleOptionsFactory', () => {
 		} as unknown as ConfigService;
 
 		expect(() => cacheModuleOptionsFactory(mockConfigService)).toThrow(
-			'REDIS_USERNAME and REDIS_PASSWORD must be provided in production',
+			'REDIS_USERNAME and REDIS_PASSWORD must be provided in production'
 		);
 	});
 

@@ -37,7 +37,7 @@ export function cacheModuleOptionsFactory(configService: ConfigService): CacheOp
 	});
 
 	// Wait for the internal client to be ready (KeyvRedis wraps it)
-	// KeyvRedis doesn't expose the 'connect' event directly as easily, 
+	// KeyvRedis doesn't expose the 'connect' event directly as easily,
 	// but errors during operations will trigger the error event above.
 	// We can assume healthy until an error occurs, or try to hook into the client.
 

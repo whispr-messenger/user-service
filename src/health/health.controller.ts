@@ -12,7 +12,7 @@ export class HealthController {
 	constructor(
 		private readonly dataSource: DataSource,
 		@Inject(CACHE_MANAGER) private readonly cacheManager: Cache
-	) { }
+	) {}
 
 	private logger = new Logger(HealthController.name);
 
