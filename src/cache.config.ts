@@ -3,6 +3,11 @@ import { Logger } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import KeyvRedis from '@keyv/redis';
 
+export const cacheHealth = {
+	isHealthy: true,
+	lastError: null as Error | null,
+};
+
 export function cacheModuleOptionsFactory(configService: ConfigService): CacheOptions {
 	const redis_host = configService.get('REDIS_HOST', 'redis');
 	const redis_port = configService.get('REDIS_PORT', 6379);
@@ -24,9 +29,17 @@ export function cacheModuleOptionsFactory(configService: ConfigService): CacheOp
 	const logger = new Logger('CacheConfig');
 
 	const keyvRedis = new KeyvRedis(redis_url);
+
 	keyvRedis.on('error', (err) => {
 		logger.error('Redis connection error', err);
+		cacheHealth.isHealthy = false;
+		cacheHealth.lastError = err;
 	});
+
+	// Wait for the internal client to be ready (KeyvRedis wraps it)
+	// KeyvRedis doesn't expose the 'connect' event directly as easily, 
+	// but errors during operations will trigger the error event above.
+	// We can assume healthy until an error occurs, or try to hook into the client.
 
 	return {
 		stores: [keyvRedis],
