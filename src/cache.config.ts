@@ -9,14 +9,17 @@ export function cacheModuleOptionsFactory(configService: ConfigService): CacheOp
 	const redis_username = configService.get('REDIS_USERNAME');
 	const redis_password = configService.get('REDIS_PASSWORD');
 	const redis_db = configService.get('REDIS_DB', 0);
+	const node_env = configService.get('NODE_ENV', 'development');
 
-	let redis_url = 'redis://';
-	if (redis_username && redis_password) {
-		redis_url += `${redis_username}:${redis_password}@`;
-	} else if (redis_password) {
-		redis_url += `:${redis_password}@`;
+	if (node_env === 'production' && (!redis_username || !redis_password)) {
+		throw new Error('REDIS_USERNAME and REDIS_PASSWORD must be provided in production');
 	}
-	redis_url += `${redis_host}:${redis_port}/${redis_db}`;
+
+	const url = new URL(`redis://${redis_host}:${redis_port}/${redis_db}`);
+	if (redis_username) url.username = redis_username;
+	if (redis_password) url.password = redis_password;
+
+	const redis_url = url.toString();
 
 	const logger = new Logger('CacheConfig');
 
