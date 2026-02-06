@@ -6,9 +6,9 @@ process.env.NODE_ENV = 'test';
 // Database configuration - connects to Docker postgres service
 process.env.DB_TYPE = 'postgres';
 process.env.DB_HOST = 'localhost';
-process.env.DB_PORT = '5432';
-process.env.DB_USERNAME = 'whispr_user';
-process.env.DB_PASSWORD = 'whispr_user_password';
+process.env.DB_PORT = '5433';
+process.env.DB_USERNAME = 'dev_user';
+process.env.DB_PASSWORD = 'dev_password';
 process.env.DB_NAME = 'testing';
 process.env.DB_SYNCHRONIZE = 'true';
 process.env.DB_LOGGING = 'false';

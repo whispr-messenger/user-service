@@ -1,18 +1,21 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
-import { NotFoundException, ForbiddenException, ConflictException } from '@nestjs/common';
+import { DataSource } from 'typeorm';
+import { NotFoundException, ForbiddenException, ConflictException, Logger } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { Group, GroupMember, User, GroupRole } from '../entities';
 import { CreateGroupDto, UpdateGroupDto, AddGroupMemberDto } from '../dto';
 
 describe('GroupsService', () => {
 	let service: GroupsService;
-	let groupRepository: Repository<Group>;
-	let groupMemberRepository: Repository<GroupMember>;
-	let userRepository: Repository<User>;
-	let dataSource: DataSource;
+
+	beforeAll(() => {
+		jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+		jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+		jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+		jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => {});
+		jest.spyOn(Logger.prototype, 'verbose').mockImplementation(() => {});
+	});
 
 	const mockUser: User = {
 		id: '123e4567-e89b-12d3-a456-426614174000',
@@ -124,10 +127,6 @@ describe('GroupsService', () => {
 		}).compile();
 
 		service = module.get<GroupsService>(GroupsService);
-		groupRepository = module.get<Repository<Group>>(getRepositoryToken(Group));
-		groupMemberRepository = module.get<Repository<GroupMember>>(getRepositoryToken(GroupMember));
-		userRepository = module.get<Repository<User>>(getRepositoryToken(User));
-		dataSource = module.get<DataSource>(DataSource);
 
 		mockDataSource.createQueryRunner.mockReturnValue(mockQueryRunner);
 	});

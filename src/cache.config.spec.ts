@@ -60,7 +60,61 @@ describe('cacheModuleOptionsFactory', () => {
 		cacheModuleOptionsFactory(configService);
 
 		// Verify KeyvRedis was instantiated
-		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379');
+		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
+	});
+
+	it('should throw error if username or password is missing in production', () => {
+		const mockConfigService = {
+			get: jest.fn((key: string, defaultValue?: any) => {
+				if (key === 'NODE_ENV') return 'production';
+				if (key === 'REDIS_HOST') return 'localhost';
+				if (key === 'REDIS_PORT') return 6379;
+				return defaultValue;
+			}),
+		} as unknown as ConfigService;
+
+		expect(() => cacheModuleOptionsFactory(mockConfigService)).toThrow(
+			'REDIS_USERNAME and REDIS_PASSWORD must be provided in production'
+		);
+	});
+
+	it('should work in production if username and password are provided', () => {
+		const mockConfigService = {
+			get: jest.fn((key: string, defaultValue?: any) => {
+				if (key === 'NODE_ENV') return 'production';
+				if (key === 'REDIS_HOST') return 'localhost';
+				if (key === 'REDIS_PORT') return 6379;
+				if (key === 'REDIS_USERNAME') return 'user';
+				if (key === 'REDIS_PASSWORD') return 'pass';
+				return defaultValue;
+			}),
+		} as unknown as ConfigService;
+
+		cacheModuleOptionsFactory(mockConfigService);
+		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://user:pass@localhost:6379/0');
+	});
+
+	it('should ignore empty username and password in development', () => {
+		const mockConfigService = {
+			get: jest.fn((key: string, defaultValue?: any) => {
+				if (key === 'REDIS_HOST') return 'localhost';
+				if (key === 'REDIS_PORT') return 6379;
+				if (key === 'REDIS_USERNAME') return ''; // Empty string
+				if (key === 'REDIS_PASSWORD') return ''; // Empty string
+				return defaultValue;
+			}),
+		} as unknown as ConfigService;
+
+		cacheModuleOptionsFactory(mockConfigService);
+		// Should NOT contain empty auth like redis://:@localhost:6379/0
+		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
+	});
+
+	it('should attach error listener to keyv instance', () => {
+		const loggerErrorSpy = jest.fn();
+		jest.spyOn(Logger.prototype, 'error').mockImplementation(loggerErrorSpy);
+
+		cacheModuleOptionsFactory(configService);
 
 		// Verify error listener was attached
 		expect(mockOn).toHaveBeenCalledWith('error', expect.any(Function));
