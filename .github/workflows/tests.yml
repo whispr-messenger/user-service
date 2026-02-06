@@ -93,8 +93,13 @@ jobs:
       - name: Run unit tests
         run: npm run test:cov
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
-          REDIS_URL: redis://localhost:6379
+          DATABASE_HOST: localhost
+          DATABASE_PORT: 5432
+          DATABASE_USERNAME: test
+          DATABASE_PASSWORD: test
+          DATABASE_NAME: test_db
+          REDIS_HOST: localhost
+          REDIS_PORT: 6379
 
       - name: Run e2e tests
         run: npm run test:e2e
