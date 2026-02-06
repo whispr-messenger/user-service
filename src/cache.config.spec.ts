@@ -60,7 +60,7 @@ describe('cacheModuleOptionsFactory', () => {
 		cacheModuleOptionsFactory(configService);
 
 		// Verify KeyvRedis was instantiated
-		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379');
+		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
 
 		// Verify error listener was attached
 		expect(mockOn).toHaveBeenCalledWith('error', expect.any(Function));
