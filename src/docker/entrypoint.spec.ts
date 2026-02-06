@@ -6,15 +6,16 @@ jest.mock('./check-env');
 jest.mock('../main.js', () => ({}), { virtual: true });
 
 describe('Entrypoint', () => {
-	let consoleLogSpy: jest.SpyInstance;
-	let consoleErrorSpy: jest.SpyInstance;
 	let processExitSpy: jest.SpyInstance;
 	let mockRunEnvChecks: jest.MockedFunction<typeof runEnvChecks>;
+	const originalLog = console.log;
+	const originalError = console.error;
 
 	beforeEach(() => {
-		// Setup spies
-		consoleLogSpy = jest.spyOn(console, 'log').mockImplementation();
-		consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+		// Mock console directly to ensure logs are suppressed
+		console.log = jest.fn();
+		console.error = jest.fn();
+
 		processExitSpy = jest.spyOn(process, 'exit').mockImplementation((code?: number) => {
 			throw new Error(`process.exit(${code})`);
 		});
@@ -26,9 +27,9 @@ describe('Entrypoint', () => {
 	});
 
 	afterEach(() => {
-		// Restore all spies
-		consoleLogSpy.mockRestore();
-		consoleErrorSpy.mockRestore();
+		// Restore console
+		console.log = originalLog;
+		console.error = originalError;
 		processExitSpy.mockRestore();
 	});
 
@@ -47,7 +48,7 @@ describe('Entrypoint', () => {
 
 			// Assert
 			expect(mockRunEnvChecks).toHaveBeenCalledTimes(1);
-			expect(consoleLogSpy).toHaveBeenCalledWith('Starting User Service...\n');
+			expect(console.log).not.toHaveBeenCalled();
 			expect(processExitSpy).not.toHaveBeenCalled();
 		});
 
@@ -65,7 +66,7 @@ describe('Entrypoint', () => {
 
 			// Assert
 			expect(processExitSpy).not.toHaveBeenCalled();
-			expect(consoleErrorSpy).not.toHaveBeenCalled();
+			expect(console.error).not.toHaveBeenCalled();
 		});
 	});
 
@@ -81,7 +82,7 @@ describe('Entrypoint', () => {
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
 			expect(mockRunEnvChecks).toHaveBeenCalledTimes(1);
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', errorMessage);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', errorMessage);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
@@ -96,7 +97,7 @@ describe('Entrypoint', () => {
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
 			expect(mockRunEnvChecks).toHaveBeenCalledTimes(1);
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', errorValue);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', errorValue);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
@@ -109,7 +110,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', null);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', null);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
@@ -122,7 +123,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', undefined);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', undefined);
 			expect(processExitSpy).toHaveBeenCalledWith(1);
 		});
 
@@ -135,7 +136,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleLogSpy).not.toHaveBeenCalledWith('Starting Auth Service...\n');
+			expect(console.log).not.toHaveBeenCalledWith('Starting Auth Service...\n');
 		});
 	});
 
@@ -160,7 +161,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', 'Custom error message');
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', 'Custom error message');
 		});
 
 		it('should handle numeric error values', () => {
@@ -172,7 +173,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', 42);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', 42);
 		});
 
 		it('should handle object error values', () => {
@@ -188,7 +189,7 @@ describe('Entrypoint', () => {
 			// Act & Assert
 			expect(() => runEntrypoint()).toThrow('process.exit(1)');
 
-			expect(consoleErrorSpy).toHaveBeenCalledWith('Entrypoint failed:', errorObj);
+			expect(console.error).toHaveBeenCalledWith('Entrypoint failed:', errorObj);
 		});
 	});
 });

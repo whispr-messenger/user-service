@@ -40,4 +40,4 @@ shell:
     docker compose -f docker/dev/compose.yml exec -it user-service bash
 
 test:
-    docker compose -f docker/dev/compose.yml exec -it user-service npm run test
+    docker compose -f docker/dev/compose.yml exec -it -e NODE_ENV=test user-service npm run test

@@ -11,6 +11,7 @@ export class RedisConfig {
 		this.client = new Redis({
 			host: this.configService.get<string>('REDIS_HOST', 'localhost'),
 			port: this.configService.get<number>('REDIS_PORT', 6379),
+			username: this.configService.get<string>('REDIS_USERNAME'),
 			password: this.configService.get<string>('REDIS_PASSWORD'),
 			db: this.configService.get<number>('REDIS_DB', 0),
 			maxRetriesPerRequest: 3,
