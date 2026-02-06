@@ -21,8 +21,10 @@ export function cacheModuleOptionsFactory(configService: ConfigService): CacheOp
 	}
 
 	const url = new URL(`redis://${redis_host}:${redis_port}/${redis_db}`);
-	if (redis_username && redis_username.length > 0) url.username = redis_username;
-	if (redis_password && redis_password.length > 0) url.password = redis_password;
+	if (redis_username && redis_username.length > 0 && node_env === 'production')
+		url.username = redis_username;
+	if (redis_password && redis_password.length > 0 && node_env === 'production')
+		url.password = redis_password;
 
 	const redis_url = url.toString();
 
