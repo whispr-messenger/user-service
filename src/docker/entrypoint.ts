@@ -5,7 +5,9 @@ export function runEntrypoint() {
 		// Run environment checks. Will throw on missing required vars
 		runEnvChecks();
 
-		console.log('Starting User Service...\n');
+		if (process.env.NODE_ENV !== 'test') {
+			console.log('Starting User Service...\n');
+		}
 
 		// Import main.js which will automatically call bootstrap()
 		// At runtime this will be dist/docker/entrypoint.js importing dist/main.js
