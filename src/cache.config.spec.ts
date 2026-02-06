@@ -94,6 +94,22 @@ describe('cacheModuleOptionsFactory', () => {
 		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://user:pass@localhost:6379/0');
 	});
 
+	it('should ignore empty username and password in development', () => {
+		const mockConfigService = {
+			get: jest.fn((key: string, defaultValue?: any) => {
+				if (key === 'REDIS_HOST') return 'localhost';
+				if (key === 'REDIS_PORT') return 6379;
+				if (key === 'REDIS_USERNAME') return ''; // Empty string
+				if (key === 'REDIS_PASSWORD') return ''; // Empty string
+				return defaultValue;
+			}),
+		} as unknown as ConfigService;
+
+		cacheModuleOptionsFactory(mockConfigService);
+		// Should NOT contain empty auth like redis://:@localhost:6379/0
+		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
+	});
+
 	it('should attach error listener to keyv instance', () => {
 		const loggerErrorSpy = jest.fn();
 		jest.spyOn(Logger.prototype, 'error').mockImplementation(loggerErrorSpy);
