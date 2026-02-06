@@ -3,6 +3,8 @@ import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { cacheHealth } from '../cache.config';
+import { ServiceUnavailableException } from '@nestjs/common';
 
 @ApiTags('Health')
 @Controller('health')
@@ -10,7 +12,7 @@ export class HealthController {
 	constructor(
 		private readonly dataSource: DataSource,
 		@Inject(CACHE_MANAGER) private readonly cacheManager: Cache
-	) {}
+	) { }
 
 	private logger = new Logger(HealthController.name);
 
@@ -52,17 +54,18 @@ export class HealthController {
 
 		// Check cache connection
 		try {
-			this.logger.debug('Checking cache connection');
-			await this.cacheManager.set('health-check', 'ok', 1000);
-			await this.cacheManager.get('health-check');
+			await this.checkCacheHealth();
 			health.services.cache = 'healthy';
-			this.logger.debug('Cache check passed');
 		} catch (error) {
 			if (process.env.NODE_ENV !== 'test') {
 				this.logger.error('Cache check failed:', error.message);
 			}
 			health.services.cache = 'unhealthy';
 			health.status = 'error';
+		}
+
+		if (health.status !== 'ok') {
+			throw new ServiceUnavailableException(health);
 		}
 
 		this.logger.debug('Health check completed:', health);
@@ -78,11 +81,36 @@ export class HealthController {
 	@ApiResponse({ status: 503, description: 'Service is not ready' })
 	async readiness() {
 		try {
+			// Check database
 			await this.dataSource.query('SELECT 1');
-			await this.cacheManager.set('readiness-check', 'ok', 1000);
+
+			// Check cache
+			await this.checkCacheHealth();
+
 			return { status: 'ready' };
 		} catch (error) {
-			return { status: 'not ready', error: error.message };
+			this.logger.error('Readiness check failed:', error.message);
+			throw new ServiceUnavailableException({
+				status: 'not ready',
+				error: error.message,
+			});
+		}
+	}
+
+	private async checkCacheHealth() {
+		this.logger.debug('Checking cache connection');
+
+		// Check internal health tracker
+		if (!cacheHealth.isHealthy) {
+			throw cacheHealth.lastError || new Error('Redis connection is unhealthy');
+		}
+
+		// Verify functional cache operations
+		await this.cacheManager.set('health-check', 'ok', 1000);
+		const result = await this.cacheManager.get('health-check');
+
+		if (result !== 'ok') {
+			throw new Error('Cache operation failed: unexpected result');
 		}
 	}
 
