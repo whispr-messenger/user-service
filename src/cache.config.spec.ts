@@ -26,8 +26,7 @@ describe('cacheModuleOptionsFactory', () => {
 					provide: ConfigService,
 					useValue: {
 						get: jest.fn((key: string, defaultValue?: any) => {
-							if (key === 'REDIS_HOST') return 'localhost';
-							if (key === 'REDIS_PORT') return 6379;
+							if (key === 'REDIS_URL') return 'redis://localhost:6379/0';
 							return defaultValue;
 						}),
 					},
@@ -43,49 +42,16 @@ describe('cacheModuleOptionsFactory', () => {
 		const loggerErrorSpy = jest.fn();
 		jest.spyOn(Logger.prototype, 'error').mockImplementation(loggerErrorSpy);
 
-		// Call the factory function
-		// Note: We need to export the function or test it via the module options if it wasn't exported.
-		// Looking at cache.config.ts, cacheModuleOptionsFactory is local but used in cacheModuleAsyncOptions.useFactory
-		// We might need to export it or access it differently.
-		// Let's assume for now we can import it or reproduce the logic calling it.
-		// Actually, looking at the file content in previous turns, cacheModuleOptionsFactory IS NOT exported.
-		// I will need to export it to test it directly, or allow the modification.
-		// Let's modify the file to export it first if needed, but wait, checking file content...
-		// Step 33 view_file output showing:
-		// 5: function cacheModuleOptionsFactory(configService: ConfigService): CacheOptions {
-		// It is NOT exported.
-
-		// I will write the test assuming I will export it.
-
 		cacheModuleOptionsFactory(configService);
 
 		// Verify KeyvRedis was instantiated
 		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
 	});
 
-	it('should throw error if username or password is missing in production', () => {
+	it('should use REDIS_URL with credentials when provided', () => {
 		const mockConfigService = {
 			get: jest.fn((key: string, defaultValue?: any) => {
-				if (key === 'NODE_ENV') return 'production';
-				if (key === 'REDIS_HOST') return 'localhost';
-				if (key === 'REDIS_PORT') return 6379;
-				return defaultValue;
-			}),
-		} as unknown as ConfigService;
-
-		expect(() => cacheModuleOptionsFactory(mockConfigService)).toThrow(
-			'REDIS_USERNAME and REDIS_PASSWORD must be provided in production'
-		);
-	});
-
-	it('should work in production if username and password are provided', () => {
-		const mockConfigService = {
-			get: jest.fn((key: string, defaultValue?: any) => {
-				if (key === 'NODE_ENV') return 'production';
-				if (key === 'REDIS_HOST') return 'localhost';
-				if (key === 'REDIS_PORT') return 6379;
-				if (key === 'REDIS_USERNAME') return 'user';
-				if (key === 'REDIS_PASSWORD') return 'pass';
+				if (key === 'REDIS_URL') return 'redis://user:pass@localhost:6379/0';
 				return defaultValue;
 			}),
 		} as unknown as ConfigService;
@@ -94,19 +60,14 @@ describe('cacheModuleOptionsFactory', () => {
 		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://user:pass@localhost:6379/0');
 	});
 
-	it('should ignore empty username and password in development', () => {
+	it('should use default REDIS_URL when not provided', () => {
 		const mockConfigService = {
 			get: jest.fn((key: string, defaultValue?: any) => {
-				if (key === 'REDIS_HOST') return 'localhost';
-				if (key === 'REDIS_PORT') return 6379;
-				if (key === 'REDIS_USERNAME') return ''; // Empty string
-				if (key === 'REDIS_PASSWORD') return ''; // Empty string
 				return defaultValue;
 			}),
 		} as unknown as ConfigService;
 
 		cacheModuleOptionsFactory(mockConfigService);
-		// Should NOT contain empty auth like redis://:@localhost:6379/0
 		expect(MockKeyvRedis).toHaveBeenCalledWith('redis://localhost:6379/0');
 	});
 
