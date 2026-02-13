@@ -17,7 +17,11 @@ export class ContactsService {
 		private readonly contactRequestRepository: Repository<ContactRequest>
 	) {}
 
-	async sendContactRequest(senderId: string, receiverId: string, message?: string): Promise<ContactRequest> {
+	async sendContactRequest(
+		senderId: string,
+		receiverId: string,
+		message?: string
+	): Promise<ContactRequest> {
 		if (senderId === receiverId) {
 			throw new BadRequestException('Cannot send contact request to yourself');
 		}
@@ -68,7 +72,10 @@ export class ContactsService {
 	}
 
 	async getPendingRequests(userId: string, type: 'sent' | 'received'): Promise<ContactRequest[]> {
-		const where = type === 'sent' ? { senderId: userId, status: ContactRequestStatus.PENDING } : { receiverId: userId, status: ContactRequestStatus.PENDING };
+		const where =
+			type === 'sent'
+				? { senderId: userId, status: ContactRequestStatus.PENDING }
+				: { receiverId: userId, status: ContactRequestStatus.PENDING };
 		const relations = type === 'sent' ? ['receiver'] : ['sender'];
 
 		return this.contactRequestRepository.find({
@@ -78,7 +85,11 @@ export class ContactsService {
 		});
 	}
 
-	async respondToContactRequest(requestId: string, userId: string, status: ContactRequestStatus): Promise<ContactRequest> {
+	async respondToContactRequest(
+		requestId: string,
+		userId: string,
+		status: ContactRequestStatus
+	): Promise<ContactRequest> {
 		if (status === ContactRequestStatus.PENDING) {
 			throw new BadRequestException('Invalid status: cannot set to PENDING');
 		}
@@ -116,10 +127,7 @@ export class ContactsService {
 		const contact1 = this.contactRepository.create({ userId: userId1, contactId: userId2 });
 		const contact2 = this.contactRepository.create({ userId: userId2, contactId: userId1 });
 
-		await Promise.all([
-			this.contactRepository.save(contact1),
-			this.contactRepository.save(contact2),
-		]);
+		await Promise.all([this.contactRepository.save(contact1), this.contactRepository.save(contact2)]);
 	}
 
 	async addContact(userId: string, addContactDto: AddContactDto): Promise<Contact> {

@@ -235,7 +235,9 @@ describe('ContactsService', () => {
 			mockContactRepository.findOne.mockResolvedValue(null);
 			mockContactRequestRepository.findOne.mockResolvedValue(mockContactRequest);
 
-			await expect(service.sendContactRequest(mockUser.id, mockContactUser.id)).rejects.toThrow(ConflictException);
+			await expect(service.sendContactRequest(mockUser.id, mockContactUser.id)).rejects.toThrow(
+				ConflictException
+			);
 		});
 	});
 
