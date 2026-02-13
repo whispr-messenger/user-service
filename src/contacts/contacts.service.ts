@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Contact, User, BlockedUser } from '../entities';
+import { Contact, User, BlockedUser, ContactRequest, ContactRequestStatus } from '../entities';
 import { AddContactDto, UpdateContactDto } from '../dto';
 
 @Injectable()
@@ -12,8 +12,115 @@ export class ContactsService {
 		@InjectRepository(User)
 		private readonly userRepository: Repository<User>,
 		@InjectRepository(BlockedUser)
-		private readonly blockedUserRepository: Repository<BlockedUser>
+		private readonly blockedUserRepository: Repository<BlockedUser>,
+		@InjectRepository(ContactRequest)
+		private readonly contactRequestRepository: Repository<ContactRequest>
 	) {}
+
+	async sendContactRequest(senderId: string, receiverId: string, message?: string): Promise<ContactRequest> {
+		if (senderId === receiverId) {
+			throw new BadRequestException('Cannot send contact request to yourself');
+		}
+
+		// Check if user exists
+		const receiver = await this.userRepository.findOne({ where: { id: receiverId } });
+		if (!receiver) {
+			throw new NotFoundException('User not found');
+		}
+
+		// Check if blocked
+		const isBlocked = await this.blockedUserRepository.findOne({
+			where: [
+				{ userId: senderId, blockedUserId: receiverId },
+				{ userId: receiverId, blockedUserId: senderId },
+			],
+		});
+		if (isBlocked) {
+			throw new BadRequestException('Cannot send contact request: blocked relationship');
+		}
+
+		// Check if already contacts
+		const isContact = await this.areUsersContacts(senderId, receiverId);
+		if (isContact) {
+			throw new ConflictException('Users are already contacts');
+		}
+
+		// Check if request already exists
+		const existingRequest = await this.contactRequestRepository.findOne({
+			where: [
+				{ senderId, receiverId, status: ContactRequestStatus.PENDING },
+				{ senderId: receiverId, receiverId: senderId, status: ContactRequestStatus.PENDING },
+			],
+		});
+
+		if (existingRequest) {
+			throw new ConflictException('Pending contact request already exists');
+		}
+
+		const request = this.contactRequestRepository.create({
+			senderId,
+			receiverId,
+			message,
+			status: ContactRequestStatus.PENDING,
+		});
+
+		return this.contactRequestRepository.save(request);
+	}
+
+	async getPendingRequests(userId: string, type: 'sent' | 'received'): Promise<ContactRequest[]> {
+		const where = type === 'sent' ? { senderId: userId, status: ContactRequestStatus.PENDING } : { receiverId: userId, status: ContactRequestStatus.PENDING };
+		const relations = type === 'sent' ? ['receiver'] : ['sender'];
+
+		return this.contactRequestRepository.find({
+			where,
+			relations,
+			order: { sentAt: 'DESC' },
+		});
+	}
+
+	async respondToContactRequest(requestId: string, userId: string, status: ContactRequestStatus): Promise<ContactRequest> {
+		if (status === ContactRequestStatus.PENDING) {
+			throw new BadRequestException('Invalid status: cannot set to PENDING');
+		}
+
+		const request = await this.contactRequestRepository.findOne({
+			where: { id: requestId },
+		});
+
+		if (!request) {
+			throw new NotFoundException('Contact request not found');
+		}
+
+		if (request.receiverId !== userId) {
+			throw new BadRequestException('You can only respond to requests sent to you');
+		}
+
+		if (request.status !== ContactRequestStatus.PENDING) {
+			throw new BadRequestException('Request is not pending');
+		}
+
+		request.status = status;
+		request.respondedAt = new Date();
+
+		const savedRequest = await this.contactRequestRepository.save(request);
+
+		if (status === ContactRequestStatus.ACCEPTED) {
+			// Create mutual contacts
+			await this.createMutualContacts(request.senderId, request.receiverId);
+		}
+
+		return savedRequest;
+	}
+
+	private async createMutualContacts(userId1: string, userId2: string): Promise<void> {
+		const contact1 = this.contactRepository.create({ userId: userId1, contactId: userId2 });
+		const contact2 = this.contactRepository.create({ userId: userId2, contactId: userId1 });
+
+		await Promise.all([
+			this.contactRepository.save(contact1),
+			this.contactRepository.save(contact2),
+		]);
+	}
 
 	async addContact(userId: string, addContactDto: AddContactDto): Promise<Contact> {
 		// Vérifier que l'utilisateur ne s'ajoute pas lui-même
