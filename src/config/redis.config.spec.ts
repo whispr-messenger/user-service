@@ -29,47 +29,42 @@ describe('RedisConfig', () => {
 	});
 
 	describe('constructor', () => {
-		it('should create Redis client with default configuration', () => {
+		it('should create Redis client with default REDIS_URL', () => {
 			jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
-				const config = {
-					REDIS_HOST: undefined,
-					REDIS_PORT: undefined,
-					REDIS_PASSWORD: undefined,
-					REDIS_DB: undefined,
-				};
-				return config[key] || defaultValue;
+				return defaultValue;
 			});
 
 			new RedisConfig(configService);
 
-			expect(Redis).toHaveBeenCalledWith({
-				host: 'localhost',
-				port: 6379,
-				password: undefined,
-				db: 0,
+			expect(Redis).toHaveBeenCalledWith('redis://localhost:6379/0', {
 				maxRetriesPerRequest: 3,
 				lazyConnect: true,
 			});
 		});
 
-		it('should create Redis client with custom configuration', () => {
+		it('should create Redis client with custom REDIS_URL', () => {
 			jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
-				const config = {
-					REDIS_HOST: 'redis.example.com',
-					REDIS_PORT: 6380,
-					REDIS_PASSWORD: 'secret123',
-					REDIS_DB: 2,
-				};
-				return config[key] || defaultValue;
+				if (key === 'REDIS_URL') return 'redis://user:secret123@redis.example.com:6380/2';
+				return defaultValue;
 			});
 
 			new RedisConfig(configService);
 
-			expect(Redis).toHaveBeenCalledWith({
-				host: 'redis.example.com',
-				port: 6380,
-				password: 'secret123',
-				db: 2,
+			expect(Redis).toHaveBeenCalledWith('redis://user:secret123@redis.example.com:6380/2', {
+				maxRetriesPerRequest: 3,
+				lazyConnect: true,
+			});
+		});
+
+		it('should create Redis client with REDIS_URL without credentials', () => {
+			jest.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: any) => {
+				if (key === 'REDIS_URL') return 'redis://redis:6379/0';
+				return defaultValue;
+			});
+
+			new RedisConfig(configService);
+
+			expect(Redis).toHaveBeenCalledWith('redis://redis:6379/0', {
 				maxRetriesPerRequest: 3,
 				lazyConnect: true,
 			});

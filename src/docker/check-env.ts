@@ -50,8 +50,7 @@ export default function runEnvChecks(): void {
 	checkRequired('DATABASE_NAME');
 
 	// Redis
-	checkRequired('REDIS_HOST');
-	checkRequired('REDIS_PORT');
+	checkRequired('REDIS_URL');
 
 	// Ports
 	checkRequired('HTTP_PORT');
@@ -63,7 +62,6 @@ export default function runEnvChecks(): void {
 	checkOptional('DATABASE_LOGGING', 'false');
 	checkOptional('DATABASE_MIGRATIONS_RUN', 'false');
 	checkOptional('DATABASE_SYNCHRONIZE', 'false');
-	checkOptional('REDIS_PASSWORD', '(no password)');
 	checkOptional('NODE_OPTIONS', '(default Node settings)');
 	checkOptional('PORT', '(defaults to HTTP_PORT)');
 	checkOptional('LOG_LEVEL', 'info');

@@ -12,8 +12,7 @@ describe('runEnvChecks', () => {
 		'DATABASE_USERNAME',
 		'DATABASE_PASSWORD',
 		'DATABASE_NAME',
-		'REDIS_HOST',
-		'REDIS_PORT',
+		'REDIS_URL',
 		'HTTP_PORT',
 		'GRPC_PORT',
 	];
@@ -62,8 +61,7 @@ describe('runEnvChecks', () => {
 		process.env.DATABASE_USERNAME = 'user';
 		process.env.DATABASE_PASSWORD = 'password';
 		process.env.DATABASE_NAME = 'user_service';
-		process.env.REDIS_HOST = 'localhost';
-		process.env.REDIS_PORT = '6379';
+		process.env.REDIS_URL = 'redis://localhost:6379/0';
 		process.env.HTTP_PORT = '3000';
 		process.env.GRPC_PORT = '50051';
 	};

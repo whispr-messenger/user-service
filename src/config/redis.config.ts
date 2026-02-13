@@ -8,12 +8,9 @@ export class RedisConfig {
 	private readonly logger = new Logger(RedisConfig.name);
 
 	constructor(private readonly configService: ConfigService) {
-		this.client = new Redis({
-			host: this.configService.get<string>('REDIS_HOST', 'localhost'),
-			port: this.configService.get<number>('REDIS_PORT', 6379),
-			username: this.configService.get<string>('REDIS_USERNAME'),
-			password: this.configService.get<string>('REDIS_PASSWORD'),
-			db: this.configService.get<number>('REDIS_DB', 0),
+		const redisUrl = this.configService.get<string>('REDIS_URL', 'redis://localhost:6379/0');
+
+		this.client = new Redis(redisUrl, {
 			maxRetriesPerRequest: 3,
 			lazyConnect: true,
 		});
