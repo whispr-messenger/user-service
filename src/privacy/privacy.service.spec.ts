@@ -4,8 +4,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
-import { PrivacySettings, User, PrivacyLevel } from '../entities';
+import { PrivacySettings, User, PrivacyLevel, Contact, BlockedUser } from '../entities';
 import { UpdatePrivacySettingsDto } from '../dto';
+import { CacheService } from '../cache/cache.service';
 
 describe('PrivacyService', () => {
 	let service: PrivacyService;
@@ -44,6 +45,22 @@ describe('PrivacyService', () => {
 		findOne: jest.fn(),
 	};
 
+	const mockContactRepository = {
+		findOne: jest.fn(),
+	};
+
+	const mockBlockedUserRepository = {
+		findOne: jest.fn(),
+	};
+
+	const mockCacheService = {
+		get: jest.fn(),
+		set: jest.fn(),
+		del: jest.fn(),
+		keys: jest.fn(() => []),
+		delMany: jest.fn(),
+	};
+
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -55,6 +72,18 @@ describe('PrivacyService', () => {
 				{
 					provide: getRepositoryToken(User),
 					useValue: mockUserRepository,
+				},
+				{
+					provide: getRepositoryToken(Contact),
+					useValue: mockContactRepository,
+				},
+				{
+					provide: getRepositoryToken(BlockedUser),
+					useValue: mockBlockedUserRepository,
+				},
+				{
+					provide: CacheService,
+					useValue: mockCacheService,
 				},
 			],
 		}).compile();
@@ -147,17 +176,7 @@ describe('PrivacyService', () => {
 
 			const result = await service.filterUserData(mockUser.id, mockUser as User);
 
-			expect(result).toEqual({
-				id: mockUser.id,
-				username: mockUser.username,
-				firstName: mockUser.firstName,
-				lastName: mockUser.lastName,
-				biography: mockUser.biography,
-				profilePictureUrl: mockUser.profilePictureUrl,
-				lastSeen: mockUser.lastSeen,
-				isActive: mockUser.isActive,
-				createdAt: mockUser.createdAt,
-			});
+			expect(result).toEqual(mockUser);
 		});
 
 		it('should respect privacy settings for other users', async () => {
