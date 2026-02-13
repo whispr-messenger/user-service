@@ -4,9 +4,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User, PrivacySettings, PrivacyLevel, UserSearchIndex } from '../entities';
+import { User, PrivacySettings, PrivacyLevel, UserSearchIndex, Contact, BlockedUser } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import { CacheService } from '../cache';
+import { PrivacyService } from '../privacy/privacy.service';
 
 describe('UsersService', () => {
 	let service: UsersService;
@@ -80,12 +81,38 @@ describe('UsersService', () => {
 		get: jest.fn(),
 		del: jest.fn(),
 		exists: jest.fn(),
+		keys: jest.fn(() => []),
+		delMany: jest.fn(),
 	};
 
 	const mockUserSearchIndexRepository = {
 		create: jest.fn(),
 		save: jest.fn(),
 		findOne: jest.fn(),
+	};
+
+	const mockContactRepository = {
+		findOne: jest.fn(),
+		find: jest.fn(),
+	};
+
+	const mockBlockedUserRepository = {
+		findOne: jest.fn(),
+		find: jest.fn(),
+	};
+
+	const mockPrivacyService = {
+		getPrivacySettings: jest.fn(),
+		updatePrivacySettings: jest.fn(),
+		canViewProfilePicture: jest.fn(),
+		canViewFirstName: jest.fn(),
+		canViewLastName: jest.fn(),
+		canViewBiography: jest.fn(),
+		canViewLastSeen: jest.fn(),
+		canSearchByPhone: jest.fn(),
+		canSearchByUsername: jest.fn(),
+		shouldSendReadReceipts: jest.fn(),
+		filterUserData: jest.fn(),
 	};
 
 	beforeEach(async () => {
@@ -103,6 +130,18 @@ describe('UsersService', () => {
 				{
 					provide: getRepositoryToken(UserSearchIndex),
 					useValue: mockUserSearchIndexRepository,
+				},
+				{
+					provide: getRepositoryToken(Contact),
+					useValue: mockContactRepository,
+				},
+				{
+					provide: getRepositoryToken(BlockedUser),
+					useValue: mockBlockedUserRepository,
+				},
+				{
+					provide: PrivacyService,
+					useValue: mockPrivacyService,
 				},
 				{
 					provide: CacheService,

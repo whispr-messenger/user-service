@@ -92,6 +92,11 @@ export class PrivacyService {
 	}
 
 	async filterUserData(viewerId: string, targetUser: User): Promise<Partial<User>> {
+		// 0. Self view
+		if (viewerId === targetUser.id) {
+			return targetUser;
+		}
+
 		// 1. Check Block
 		if (await this.isBlocked(viewerId, targetUser.id)) {
 			// If blocked, return minimal info or empty object
