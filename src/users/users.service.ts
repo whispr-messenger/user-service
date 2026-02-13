@@ -1,8 +1,10 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User, PrivacySettings, UserSearchIndex } from '../entities';
+import { Repository, In } from 'typeorm';
+import { User, PrivacySettings, UserSearchIndex, Contact, BlockedUser } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
+import { CacheService } from '../cache/cache.service';
+import { PrivacyService } from '../privacy/privacy.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -13,7 +15,13 @@ export class UsersService {
 		@InjectRepository(PrivacySettings)
 		private readonly privacySettingsRepository: Repository<PrivacySettings>,
 		@InjectRepository(UserSearchIndex)
-		private readonly userSearchIndexRepository: Repository<UserSearchIndex>
+		private readonly userSearchIndexRepository: Repository<UserSearchIndex>,
+		@InjectRepository(Contact)
+		private readonly contactRepository: Repository<Contact>,
+		@InjectRepository(BlockedUser)
+		private readonly blockedUserRepository: Repository<BlockedUser>,
+		private readonly cacheService: CacheService,
+		private readonly privacyService: PrivacyService
 	) {}
 
 	async create(createUserDto: CreateUserDto): Promise<User> {
@@ -80,6 +88,11 @@ export class UsersService {
 	}
 
 	async findOne(id: string): Promise<User> {
+		const cachedUser = await this.cacheService.get<User>(`user:${id}`);
+		if (cachedUser) {
+			return this.userRepository.create(cachedUser);
+		}
+
 		const user = await this.userRepository.findOne({
 			where: { id },
 			relations: ['privacySettings'],
@@ -89,6 +102,7 @@ export class UsersService {
 			throw new NotFoundException('User not found');
 		}
 
+		await this.cacheService.set(`user:${id}`, user, 3600);
 		return user;
 	}
 
@@ -118,6 +132,13 @@ export class UsersService {
 			// Mettre à jour l'utilisateur
 			Object.assign(user, updateUserDto);
 			const updatedUser = await queryRunner.manager.save(user);
+
+			// Invalidate cache
+			await this.cacheService.del(`user:${id}`);
+			const profileKeys = await this.cacheService.keys(`profile:${id}:*`);
+			if (profileKeys.length > 0) {
+				await this.cacheService.delMany(profileKeys);
+			}
 
 			// Mettre à jour l'index de recherche si nécessaire
 			if (updateUserDto.username || updateUserDto.firstName || updateUserDto.lastName) {
@@ -177,6 +198,74 @@ export class UsersService {
 	async remove(id: string): Promise<void> {
 		await this.findOne(id);
 		await this.userRepository.softDelete(id);
+		await this.cacheService.del(`user:${id}`);
+	}
+
+	async getMe(id: string): Promise<User> {
+		return this.findOne(id);
+	}
+
+	async getProfile(targetUserId: string, requesterUserId: string): Promise<Partial<User>> {
+		const cacheKey = `profile:${targetUserId}:${requesterUserId}`;
+		const cachedProfile = await this.cacheService.get<Partial<User>>(cacheKey);
+
+		if (cachedProfile) {
+			return cachedProfile;
+		}
+
+		// Get user (findOne already handles user caching and not found exception)
+		const user = await this.findOne(targetUserId);
+
+		// Use PrivacyService to filter data
+		const profile = await this.privacyService.filterUserData(requesterUserId, user);
+
+		await this.cacheService.set(cacheKey, profile, 3600); // 1 hour TTL
+		return profile;
+	}
+
+	async searchUsers(
+		query: string,
+		requesterUserId: string,
+		page: number = 1,
+		limit: number = 20
+	): Promise<{ users: Partial<User>[]; total: number }> {
+		const normalizedQuery = query.toLowerCase();
+		const phoneHash = this.hashPhoneNumber(query);
+
+		const qb = this.userSearchIndexRepository.createQueryBuilder('index').select('index.userId');
+
+		qb.where('index.usernameNormalized LIKE :likeQuery', { likeQuery: `%${normalizedQuery}%` })
+			.orWhere('index.firstNameNormalized LIKE :likeQuery', { likeQuery: `%${normalizedQuery}%` })
+			.orWhere('index.lastNameNormalized LIKE :likeQuery', { likeQuery: `%${normalizedQuery}%` })
+			.orWhere('index.phoneNumberHash = :phoneHash', { phoneHash });
+
+		const [indices, total] = await qb
+			.skip((page - 1) * limit)
+			.take(limit)
+			.getManyAndCount();
+
+		if (indices.length === 0) {
+			return { users: [], total: 0 };
+		}
+
+		const userIds = indices.map((i) => i.userId);
+
+		const users = await this.userRepository.find({
+			where: { id: In(userIds) },
+			relations: ['privacySettings'],
+		});
+
+		// Filter results based on privacy
+		const filteredUsers: Partial<User>[] = [];
+		for (const user of users) {
+			const profile = await this.privacyService.filterUserData(requesterUserId, user);
+			// Only include if at least username is visible (i.e. not blocked)
+			if (profile.username) {
+				filteredUsers.push(profile);
+			}
+		}
+
+		return { users: filteredUsers, total };
 	}
 
 	private hashPhoneNumber(phoneNumber: string): string {
