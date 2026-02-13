@@ -85,27 +85,21 @@ describe('LoggingInterceptor', () => {
 			const error = { status: 404, message: 'Not Found' };
 			(next.handle as jest.Mock).mockReturnValue(throwError(() => error));
 
-			try {
-				await lastValueFrom(interceptor.intercept(context, next));
-			} catch (e) {
-				expect(loggerSpy).toHaveBeenCalledWith(
-					expect.stringContaining('Incoming Request: GET /test')
-				);
-				expect(errorLoggerSpy).toHaveBeenCalledWith(
-					expect.stringContaining('Request Error: GET /test - Status: 404')
-				);
-			}
+			await expect(lastValueFrom(interceptor.intercept(context, next))).rejects.toEqual(error);
+
+			expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Incoming Request: GET /test'));
+			expect(errorLoggerSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Request Error: GET /test - Status: 404')
+			);
 		});
 
 		it('should log error with default status 500 on failure without status', async () => {
 			const error = { message: 'Internal Server Error' };
 			(next.handle as jest.Mock).mockReturnValue(throwError(() => error));
 
-			try {
-				await lastValueFrom(interceptor.intercept(context, next));
-			} catch (e) {
-				expect(errorLoggerSpy).toHaveBeenCalledWith(expect.stringContaining('Status: 500'));
-			}
+			await expect(lastValueFrom(interceptor.intercept(context, next))).rejects.toEqual(error);
+
+			expect(errorLoggerSpy).toHaveBeenCalledWith(expect.stringContaining('Status: 500'));
 		});
 	});
 });
