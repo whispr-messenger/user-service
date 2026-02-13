@@ -14,14 +14,114 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { ContactsService } from './contacts.service';
-import { AddContactDto, UpdateContactDto } from '../dto';
-import { Contact } from '../entities';
+import { AddContactDto, UpdateContactDto, CreateContactRequestDto, RespondToContactRequestDto } from '../dto';
+import { Contact, ContactRequest } from '../entities';
 
 @ApiTags('contacts')
 @ApiBearerAuth()
 @Controller('contacts')
 export class ContactsController {
 	constructor(private readonly contactsService: ContactsService) {}
+
+	@Post(':userId/requests')
+	@ApiOperation({ summary: 'Send a contact request' })
+	@ApiParam({
+		name: 'userId',
+		type: 'string',
+		format: 'uuid',
+		description: 'Sender User ID',
+	})
+	@ApiResponse({
+		status: HttpStatus.CREATED,
+		description: 'Contact request sent successfully',
+		type: ContactRequest,
+	})
+	@ApiResponse({
+		status: HttpStatus.CONFLICT,
+		description: 'Request already exists or users are already contacts',
+	})
+	@ApiResponse({
+		status: HttpStatus.NOT_FOUND,
+		description: 'User not found',
+	})
+	@ApiResponse({
+		status: HttpStatus.BAD_REQUEST,
+		description: 'Invalid request or blocked user',
+	})
+	async sendContactRequest(
+		@Param('userId', ParseUUIDPipe) userId: string,
+		@Body() createContactRequestDto: CreateContactRequestDto
+	): Promise<ContactRequest> {
+		return this.contactsService.sendContactRequest(
+			userId,
+			createContactRequestDto.receiverId,
+			createContactRequestDto.message
+		);
+	}
+
+	@Get(':userId/requests')
+	@ApiOperation({ summary: 'Get pending contact requests' })
+	@ApiParam({
+		name: 'userId',
+		type: 'string',
+		format: 'uuid',
+		description: 'User ID',
+	})
+	@ApiQuery({
+		name: 'type',
+		enum: ['sent', 'received'],
+		description: 'Type of requests to retrieve (sent or received)',
+	})
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Pending requests retrieved successfully',
+		type: [ContactRequest],
+	})
+	async getPendingRequests(
+		@Param('userId', ParseUUIDPipe) userId: string,
+		@Query('type') type: 'sent' | 'received'
+	): Promise<ContactRequest[]> {
+		return this.contactsService.getPendingRequests(userId, type);
+	}
+
+	@Patch(':userId/requests/:requestId')
+	@ApiOperation({ summary: 'Respond to a contact request' })
+	@ApiParam({
+		name: 'userId',
+		type: 'string',
+		format: 'uuid',
+		description: 'User ID (Receiver)',
+	})
+	@ApiParam({
+		name: 'requestId',
+		type: 'string',
+		format: 'uuid',
+		description: 'Request ID',
+	})
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Request responded successfully',
+		type: ContactRequest,
+	})
+	@ApiResponse({
+		status: HttpStatus.NOT_FOUND,
+		description: 'Request not found',
+	})
+	@ApiResponse({
+		status: HttpStatus.BAD_REQUEST,
+		description: 'Invalid request status or user',
+	})
+	async respondToContactRequest(
+		@Param('userId', ParseUUIDPipe) userId: string,
+		@Param('requestId', ParseUUIDPipe) requestId: string,
+		@Body() respondToContactRequestDto: RespondToContactRequestDto
+	): Promise<ContactRequest> {
+		return this.contactsService.respondToContactRequest(
+			requestId,
+			userId,
+			respondToContactRequestDto.status
+		);
+	}
 
 	@Post(':userId')
 	@ApiOperation({ summary: 'Add a new contact' })
