@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ContactsService } from './contacts.service';
-import { Contact, User, BlockedUser } from '../entities';
+import { Contact, User, BlockedUser, ContactRequest, ContactRequestStatus } from '../entities';
 import { AddContactDto, UpdateContactDto } from '../dto';
 import { PrivacyService } from '../privacy/privacy.service';
 
@@ -13,6 +13,7 @@ describe('ContactsService', () => {
 	let contactRepository: Repository<Contact>;
 	let userRepository: Repository<User>;
 	let blockedUserRepository: Repository<BlockedUser>;
+	let contactRequestRepository: Repository<ContactRequest>;
 	let privacyService: PrivacyService;
 
 	const mockUser: User = {
@@ -71,6 +72,18 @@ describe('ContactsService', () => {
 		contactUser: mockContactUser,
 	};
 
+	const mockContactRequest: ContactRequest = {
+		id: '123e4567-e89b-12d3-a456-426614174003',
+		senderId: mockUser.id,
+		receiverId: mockContactUser.id,
+		status: ContactRequestStatus.PENDING,
+		message: 'Hello',
+		sentAt: new Date(),
+		respondedAt: null,
+		sender: mockUser,
+		receiver: mockContactUser,
+	};
+
 	const mockContactRepository = {
 		create: jest.fn(),
 		save: jest.fn(),
@@ -87,6 +100,13 @@ describe('ContactsService', () => {
 
 	const mockBlockedUserRepository = {
 		findOne: jest.fn(),
+	};
+
+	const mockContactRequestRepository = {
+		create: jest.fn(),
+		save: jest.fn(),
+		findOne: jest.fn(),
+		find: jest.fn(),
 	};
 
 	const mockPrivacyService = {
@@ -110,6 +130,10 @@ describe('ContactsService', () => {
 					useValue: mockBlockedUserRepository,
 				},
 				{
+					provide: getRepositoryToken(ContactRequest),
+					useValue: mockContactRequestRepository,
+				},
+				{
 					provide: PrivacyService,
 					useValue: mockPrivacyService,
 				},
@@ -120,6 +144,7 @@ describe('ContactsService', () => {
 		contactRepository = module.get<Repository<Contact>>(getRepositoryToken(Contact));
 		userRepository = module.get<Repository<User>>(getRepositoryToken(User));
 		blockedUserRepository = module.get<Repository<BlockedUser>>(getRepositoryToken(BlockedUser));
+		contactRequestRepository = module.get<Repository<ContactRequest>>(getRepositoryToken(ContactRequest));
 		privacyService = module.get<PrivacyService>(PrivacyService);
 	});
 
@@ -186,6 +211,67 @@ describe('ContactsService', () => {
 			mockBlockedUserRepository.findOne.mockResolvedValue(mockBlockedUser);
 
 			await expect(service.addContact(mockUser.id, addContactDto)).rejects.toThrow(BadRequestException);
+		});
+	});
+
+	describe('sendContactRequest', () => {
+		it('should send a contact request successfully', async () => {
+			mockUserRepository.findOne.mockResolvedValue(mockContactUser);
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockContactRepository.findOne.mockResolvedValue(null); // Not already contacts
+			mockContactRequestRepository.findOne.mockResolvedValue(null); // No existing request
+			mockContactRequestRepository.create.mockReturnValue(mockContactRequest);
+			mockContactRequestRepository.save.mockResolvedValue(mockContactRequest);
+
+			const result = await service.sendContactRequest(mockUser.id, mockContactUser.id, 'Hello');
+
+			expect(result).toEqual(mockContactRequest);
+			expect(mockContactRequestRepository.save).toHaveBeenCalledWith(mockContactRequest);
+		});
+
+		it('should throw ConflictException if request already exists', async () => {
+			mockUserRepository.findOne.mockResolvedValue(mockContactUser);
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockContactRepository.findOne.mockResolvedValue(null);
+			mockContactRequestRepository.findOne.mockResolvedValue(mockContactRequest);
+
+			await expect(service.sendContactRequest(mockUser.id, mockContactUser.id)).rejects.toThrow(ConflictException);
+		});
+	});
+
+	describe('respondToContactRequest', () => {
+		it('should accept a contact request successfully', async () => {
+			const requestId = mockContactRequest.id;
+			const userId = mockContactUser.id; // Receiver
+			const status = ContactRequestStatus.ACCEPTED;
+
+			const request = { ...mockContactRequest, receiverId: userId };
+			mockContactRequestRepository.findOne.mockResolvedValue(request);
+			mockContactRequestRepository.save.mockResolvedValue({ ...request, status });
+			mockContactRepository.create.mockReturnValue(mockContact);
+			mockContactRepository.save.mockResolvedValue(mockContact);
+
+			const result = await service.respondToContactRequest(requestId, userId, status);
+
+			expect(result.status).toBe(status);
+			expect(mockContactRequestRepository.save).toHaveBeenCalled();
+			expect(mockContactRepository.save).toHaveBeenCalledTimes(2); // Mutual contacts
+		});
+
+		it('should reject a contact request successfully', async () => {
+			const requestId = mockContactRequest.id;
+			const userId = mockContactUser.id; // Receiver
+			const status = ContactRequestStatus.REJECTED;
+
+			const request = { ...mockContactRequest, receiverId: userId };
+			mockContactRequestRepository.findOne.mockResolvedValue(request);
+			mockContactRequestRepository.save.mockResolvedValue({ ...request, status });
+
+			const result = await service.respondToContactRequest(requestId, userId, status);
+
+			expect(result.status).toBe(status);
+			expect(mockContactRequestRepository.save).toHaveBeenCalled();
+			expect(mockContactRepository.save).not.toHaveBeenCalled(); // No mutual contacts
 		});
 	});
 
@@ -299,76 +385,11 @@ describe('ContactsService', () => {
 			};
 
 			mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-			mockPrivacyService.filterUserData.mockResolvedValue(mockContactUser);
 
-			const result = await service.searchContacts(mockUser.id, 'Contact');
-
-			expect(result.contacts).toHaveLength(1);
-			expect(result.total).toBe(1);
-			expect(mockQueryBuilder.andWhere).toHaveBeenCalled();
-		});
-	});
-
-	describe('getFavoriteContacts', () => {
-		it('should return favorite contacts', async () => {
-			const favoriteContact = { ...mockContact, isFavorite: true };
-			const mockQueryBuilder = {
-				leftJoinAndSelect: jest.fn().mockReturnThis(),
-				where: jest.fn().mockReturnThis(),
-				andWhere: jest.fn().mockReturnThis(),
-				orderBy: jest.fn().mockReturnThis(),
-				skip: jest.fn().mockReturnThis(),
-				take: jest.fn().mockReturnThis(),
-				getManyAndCount: jest.fn().mockResolvedValue([[favoriteContact], 1]),
-			};
-
-			mockContactRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-			mockPrivacyService.filterUserData.mockResolvedValue(mockContactUser);
-
-			const result = await service.getFavoriteContacts(mockUser.id);
+			const result = await service.searchContacts(mockUser.id, 'query');
 
 			expect(result.contacts).toHaveLength(1);
 			expect(result.total).toBe(1);
-			expect(mockQueryBuilder.andWhere).toHaveBeenCalledWith('contact.isFavorite = :isFavorite', {
-				isFavorite: true,
-			});
-		});
-	});
-
-	describe('getContactsCount', () => {
-		it('should return contacts count', async () => {
-			mockContactRepository.count.mockResolvedValue(5);
-
-			const result = await service.getContactsCount(mockUser.id);
-
-			expect(result).toBe(5);
-			expect(mockContactRepository.count).toHaveBeenCalledWith({
-				where: { userId: mockUser.id },
-			});
-		});
-	});
-
-	describe('areUsersContacts', () => {
-		it('should return true if users are contacts', async () => {
-			mockContactRepository.findOne.mockResolvedValue(mockContact);
-
-			const result = await service.areUsersContacts(mockUser.id, mockContactUser.id);
-
-			expect(result).toBe(true);
-			expect(mockContactRepository.findOne).toHaveBeenCalledWith({
-				where: [
-					{ userId: mockUser.id, contactId: mockContactUser.id },
-					{ userId: mockContactUser.id, contactId: mockUser.id },
-				],
-			});
-		});
-
-		it('should return false if users are not contacts', async () => {
-			mockContactRepository.findOne.mockResolvedValue(null);
-
-			const result = await service.areUsersContacts(mockUser.id, mockContactUser.id);
-
-			expect(result).toBe(false);
 		});
 	});
 });

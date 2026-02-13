@@ -4,23 +4,30 @@ import {
 	Post,
 	Body,
 	Patch,
+	Put,
 	Param,
 	Delete,
 	Query,
 	ParseUUIDPipe,
 	ParseIntPipe,
 	HttpStatus,
+	Req,
+	UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiQuery, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from './users.service';
-import { CreateUserDto, UpdateUserDto } from '../dto';
-import { User } from '../entities';
+import { PrivacyService } from '../privacy/privacy.service';
+import { CreateUserDto, UpdateUserDto, UpdatePrivacySettingsDto } from '../dto';
+import { User, PrivacySettings } from '../entities';
 
 @ApiTags('users')
 @ApiBearerAuth()
 @Controller('users')
 export class UsersController {
-	constructor(private readonly usersService: UsersService) {}
+	constructor(
+		private readonly usersService: UsersService,
+		private readonly privacyService: PrivacyService
+	) {}
 
 	@Post()
 	@ApiOperation({ summary: 'Create a new user' })
@@ -39,6 +46,60 @@ export class UsersController {
 	})
 	async create(@Body() createUserDto: CreateUserDto): Promise<User> {
 		return this.usersService.create(createUserDto);
+	}
+
+	@Get('me')
+	@ApiOperation({ summary: 'Get current user profile' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'User profile retrieved successfully',
+		type: User,
+	})
+	async getMe(@Req() req): Promise<User> {
+		const userId = req.user?.id || req.headers['x-user-id'];
+		if (!userId) {
+			throw new UnauthorizedException(
+				'User not authenticated. Provide x-user-id header or valid token.'
+			);
+		}
+		return this.usersService.getMe(userId);
+	}
+
+	@Get('me/privacy')
+	@ApiOperation({ summary: 'Get current user privacy settings' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Privacy settings retrieved successfully',
+		type: PrivacySettings,
+	})
+	async getMyPrivacySettings(@Req() req): Promise<PrivacySettings> {
+		const userId = req.user?.id || req.headers['x-user-id'];
+		if (!userId) {
+			throw new UnauthorizedException(
+				'User not authenticated. Provide x-user-id header or valid token.'
+			);
+		}
+		return this.privacyService.getPrivacySettings(userId);
+	}
+
+	@Put('me/privacy')
+	@ApiOperation({ summary: 'Update current user privacy settings' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Privacy settings updated successfully',
+		type: PrivacySettings,
+	})
+	async updateMyPrivacySettings(
+		@Req() req,
+		@Body() updatePrivacySettingsDto: UpdatePrivacySettingsDto
+	): Promise<PrivacySettings> {
+		const userId = req.user?.id || req.headers['x-user-id'];
+		if (!userId) {
+			throw new UnauthorizedException(
+				'User not authenticated. Provide x-user-id header or valid token.'
+			);
+		}
+		return this.privacyService.updatePrivacySettings(userId, updatePrivacySettingsDto);
 	}
 
 	@Get()
@@ -66,6 +127,45 @@ export class UsersController {
 		return this.usersService.findAll(page, limit);
 	}
 
+	@Get('search')
+	@ApiOperation({ summary: 'Search users' })
+	@ApiQuery({
+		name: 'q',
+		required: true,
+		type: String,
+		description: 'Search query (username, name, or phone number)',
+	})
+	@ApiQuery({
+		name: 'page',
+		required: false,
+		type: Number,
+		description: 'Page number (default: 1)',
+	})
+	@ApiQuery({
+		name: 'limit',
+		required: false,
+		type: Number,
+		description: 'Items per page (default: 20)',
+	})
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Search results',
+	})
+	async search(
+		@Query('q') query: string,
+		@Req() req,
+		@Query('page', new ParseIntPipe({ optional: true })) page: number = 1,
+		@Query('limit', new ParseIntPipe({ optional: true })) limit: number = 20
+	): Promise<{ users: Partial<User>[]; total: number }> {
+		const userId = req.user?.id || req.headers['x-user-id'];
+		if (!userId) {
+			throw new UnauthorizedException(
+				'User not authenticated. Provide x-user-id header or valid token.'
+			);
+		}
+		return this.usersService.searchUsers(query, userId, page, limit);
+	}
+
 	@Get(':id')
 	@ApiOperation({ summary: 'Get user by ID' })
 	@ApiParam({
@@ -83,8 +183,13 @@ export class UsersController {
 		status: HttpStatus.NOT_FOUND,
 		description: 'User not found',
 	})
-	async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
-		return this.usersService.findOne(id);
+	async findOne(@Param('id', ParseUUIDPipe) id: string, @Req() req): Promise<Partial<User>> {
+		const requesterId = req.user?.id || req.headers['x-user-id'];
+		if (!requesterId) {
+			// Treat as anonymous if allowed, or throw
+			return this.usersService.getProfile(id, 'anonymous');
+		}
+		return this.usersService.getProfile(id, requesterId);
 	}
 
 	@Get('phone/:phoneNumber')
@@ -150,8 +255,18 @@ export class UsersController {
 	})
 	async update(
 		@Param('id', ParseUUIDPipe) id: string,
-		@Body() updateUserDto: UpdateUserDto
+		@Body() updateUserDto: UpdateUserDto,
+		@Req() req
 	): Promise<User> {
+		const userId = req.user?.id || req.headers['x-user-id'];
+		if (!userId) {
+			throw new UnauthorizedException(
+				'User not authenticated. Provide x-user-id header or valid token.'
+			);
+		}
+		if (userId !== id) {
+			throw new UnauthorizedException('You can only update your own profile');
+		}
 		return this.usersService.update(id, updateUserDto);
 	}
 
