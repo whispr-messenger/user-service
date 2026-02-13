@@ -4,8 +4,9 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException } from '@nestjs/common';
 import { PrivacyService } from './privacy.service';
-import { PrivacySettings, User, PrivacyLevel } from '../entities';
+import { PrivacySettings, User, PrivacyLevel, Contact, BlockedUser } from '../entities';
 import { UpdatePrivacySettingsDto } from '../dto';
+import { CacheService } from '../cache/cache.service';
 
 describe('PrivacyService', () => {
 	let service: PrivacyService;
@@ -21,18 +22,7 @@ describe('PrivacyService', () => {
 		isActive: true,
 	};
 
-	const mockPrivacySettings: Partial<PrivacySettings> = {
-		id: '123e4567-e89b-12d3-a456-426614174001',
-		userId: mockUser.id,
-		profilePicturePrivacy: PrivacyLevel.EVERYONE,
-		firstNamePrivacy: PrivacyLevel.EVERYONE,
-		lastNamePrivacy: PrivacyLevel.CONTACTS,
-		biographyPrivacy: PrivacyLevel.EVERYONE,
-		lastSeenPrivacy: PrivacyLevel.EVERYONE,
-		searchByPhone: true,
-		searchByUsername: true,
-		readReceipts: true,
-	};
+	let mockPrivacySettings: Partial<PrivacySettings>;
 
 	const mockPrivacyRepository = {
 		findOne: jest.fn(),
@@ -44,7 +34,36 @@ describe('PrivacyService', () => {
 		findOne: jest.fn(),
 	};
 
+	const mockContactRepository = {
+		findOne: jest.fn(),
+	};
+
+	const mockBlockedUserRepository = {
+		findOne: jest.fn(),
+	};
+
+	const mockCacheService = {
+		get: jest.fn(),
+		set: jest.fn(),
+		del: jest.fn(),
+		keys: jest.fn(() => []),
+		delMany: jest.fn(),
+	};
+
 	beforeEach(async () => {
+		mockPrivacySettings = {
+			id: '123e4567-e89b-12d3-a456-426614174001',
+			userId: mockUser.id,
+			profilePicturePrivacy: PrivacyLevel.EVERYONE,
+			firstNamePrivacy: PrivacyLevel.EVERYONE,
+			lastNamePrivacy: PrivacyLevel.CONTACTS,
+			biographyPrivacy: PrivacyLevel.EVERYONE,
+			lastSeenPrivacy: PrivacyLevel.EVERYONE,
+			searchByPhone: true,
+			searchByUsername: true,
+			readReceipts: true,
+		};
+
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
 				PrivacyService,
@@ -55,6 +74,18 @@ describe('PrivacyService', () => {
 				{
 					provide: getRepositoryToken(User),
 					useValue: mockUserRepository,
+				},
+				{
+					provide: getRepositoryToken(Contact),
+					useValue: mockContactRepository,
+				},
+				{
+					provide: getRepositoryToken(BlockedUser),
+					useValue: mockBlockedUserRepository,
+				},
+				{
+					provide: CacheService,
+					useValue: mockCacheService,
 				},
 			],
 		}).compile();
@@ -73,7 +104,18 @@ describe('PrivacyService', () => {
 	});
 
 	describe('getPrivacySettings', () => {
-		it('should return privacy settings for a user', async () => {
+		it('should return cached privacy settings if available', async () => {
+			mockCacheService.get.mockResolvedValue(mockPrivacySettings);
+
+			const result = await service.getPrivacySettings(mockUser.id);
+
+			expect(result).toEqual(mockPrivacySettings);
+			expect(mockCacheService.get).toHaveBeenCalledWith(`privacy:${mockUser.id}`);
+			expect(mockPrivacyRepository.findOne).not.toHaveBeenCalled();
+		});
+
+		it('should return privacy settings for a user from db if not in cache', async () => {
+			mockCacheService.get.mockResolvedValue(null);
 			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
 
 			const result = await service.getPrivacySettings(mockUser.id);
@@ -83,9 +125,15 @@ describe('PrivacyService', () => {
 				where: { userId: mockUser.id },
 				relations: ['user'],
 			});
+			expect(mockCacheService.set).toHaveBeenCalledWith(
+				`privacy:${mockUser.id}`,
+				mockPrivacySettings,
+				3600
+			);
 		});
 
 		it('should throw NotFoundException if privacy settings not found', async () => {
+			mockCacheService.get.mockResolvedValue(null);
 			mockPrivacyRepository.findOne.mockResolvedValue(null);
 
 			await expect(service.getPrivacySettings('nonexistent')).rejects.toThrow(NotFoundException);
@@ -100,6 +148,7 @@ describe('PrivacyService', () => {
 
 		it('should update privacy settings successfully', async () => {
 			const updatedSettings = { ...mockPrivacySettings, ...updateDto };
+			mockCacheService.get.mockResolvedValue(mockPrivacySettings);
 			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
 			mockPrivacyRepository.save.mockResolvedValue(updatedSettings);
 
@@ -110,29 +159,16 @@ describe('PrivacyService', () => {
 				...mockPrivacySettings,
 				...updateDto,
 			});
+			expect(mockCacheService.del).toHaveBeenCalledWith(`privacy:${mockUser.id}`);
 		});
 
 		it('should throw NotFoundException if privacy settings not found', async () => {
+			mockCacheService.get.mockResolvedValue(null);
 			mockPrivacyRepository.findOne.mockResolvedValue(null);
 
 			await expect(service.updatePrivacySettings('nonexistent', updateDto)).rejects.toThrow(
 				NotFoundException
 			);
-		});
-
-		it('should throw ForbiddenException if user tries to update another user settings', async () => {
-			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-
-			// Note: Current implementation doesn't check user authorization
-			// This test would need to be updated when authorization is added
-			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-			mockPrivacyRepository.save.mockResolvedValue({
-				...mockPrivacySettings,
-				...updateDto,
-			});
-
-			const result = await service.updatePrivacySettings(mockUser.id, updateDto);
-			expect(result).toBeDefined();
 		});
 	});
 
@@ -142,32 +178,72 @@ describe('PrivacyService', () => {
 			username: 'viewer',
 		};
 
-		it('should return filtered user data based on privacy settings', async () => {
-			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-
+		it('should return full user data if viewer is the user themselves', async () => {
 			const result = await service.filterUserData(mockUser.id, mockUser as User);
-
-			expect(result).toEqual({
-				id: mockUser.id,
-				username: mockUser.username,
-				firstName: mockUser.firstName,
-				lastName: mockUser.lastName,
-				biography: mockUser.biography,
-				profilePictureUrl: mockUser.profilePictureUrl,
-				lastSeen: mockUser.lastSeen,
-				isActive: mockUser.isActive,
-				createdAt: mockUser.createdAt,
-			});
+			expect(result).toEqual(mockUser);
 		});
 
-		it('should respect privacy settings for other users', async () => {
+		it('should return minimal info if blocked', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue({ id: 'block-id' });
+
+			const result = await service.filterUserData(viewerUser.id, mockUser as User);
+
+			expect(result).toEqual({ id: mockUser.id });
+			expect(mockBlockedUserRepository.findOne).toHaveBeenCalled();
+		});
+
+		it('should return filtered user data based on privacy settings (public)', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue(mockPrivacySettings);
+			mockContactRepository.findOne.mockResolvedValue(null); // Not contacts
+
+			const result = await service.filterUserData(viewerUser.id, mockUser as User);
+
+			// mockPrivacySettings has firstName/lastSeen/etc as EVERYONE
+			expect(result.firstName).toBe(mockUser.firstName);
+			expect(result.username).toBe(mockUser.username);
+
+			// lastName is CONTACTS in mockPrivacySettings, so should be undefined since not contacts
+			expect(result.lastName).toBeUndefined();
+		});
+
+		it('should return data if privacy level is CONTACTS and users are contacts', async () => {
+			const contactSettings = {
+				...mockPrivacySettings,
+				firstNamePrivacy: PrivacyLevel.CONTACTS,
+			};
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue(contactSettings);
+			mockContactRepository.findOne.mockResolvedValue({ id: 'contact-id' }); // Are contacts
+
+			const result = await service.filterUserData(viewerUser.id, mockUser as User);
+
+			expect(result.firstName).toBe(mockUser.firstName);
+		});
+
+		it('should not return data if privacy level is CONTACTS and users are NOT contacts', async () => {
+			const contactSettings = {
+				...mockPrivacySettings,
+				firstNamePrivacy: PrivacyLevel.CONTACTS,
+			};
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue(contactSettings);
+			mockContactRepository.findOne.mockResolvedValue(null); // Not contacts
+
+			const result = await service.filterUserData(viewerUser.id, mockUser as User);
+
+			expect(result.firstName).toBeUndefined();
+		});
+
+		it('should respect privacy settings for NOBODY', async () => {
 			const restrictiveSettings = {
 				...mockPrivacySettings,
 				firstNamePrivacy: PrivacyLevel.NOBODY,
 				lastNamePrivacy: PrivacyLevel.NOBODY,
 				biographyPrivacy: PrivacyLevel.NOBODY,
 			};
-			mockPrivacyRepository.findOne.mockResolvedValue(restrictiveSettings);
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue(restrictiveSettings);
 
 			const result = await service.filterUserData(viewerUser.id, mockUser as User);
 
@@ -178,38 +254,100 @@ describe('PrivacyService', () => {
 		});
 	});
 
-	describe('canViewFirstName', () => {
-		it('should allow viewing own first name', async () => {
-			const result = await service.canViewFirstName(mockUser.id, mockUser.id);
+	describe('checkAccess helpers', () => {
+		const viewerId = 'viewer-id';
+		const targetId = 'target-id';
+
+		it('should return true if viewer is target', async () => {
+			const result = await service.canViewFirstName(targetId, targetId);
 			expect(result).toBe(true);
 		});
 
-		it('should respect privacy settings for other users', async () => {
-			const restrictiveSettings = {
-				...mockPrivacySettings,
-				firstNamePrivacy: PrivacyLevel.NOBODY,
-			};
-			mockPrivacyRepository.findOne.mockResolvedValue(restrictiveSettings);
+		it('should return false if blocked', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue({ id: 'block-id' });
+			const result = await service.canViewFirstName(viewerId, targetId);
+			expect(result).toBe(false);
+		});
 
-			const result = await service.canViewFirstName('viewer-id', mockUser.id);
+		it('should return true if EVERYONE', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ firstNamePrivacy: PrivacyLevel.EVERYONE });
+
+			const result = await service.canViewFirstName(viewerId, targetId);
+			expect(result).toBe(true);
+		});
+
+		it('should return true if CONTACTS and is contact', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ firstNamePrivacy: PrivacyLevel.CONTACTS });
+			mockContactRepository.findOne.mockResolvedValue({ id: 'contact-id' });
+
+			const result = await service.canViewFirstName(viewerId, targetId);
+			expect(result).toBe(true);
+		});
+
+		it('should return false if CONTACTS and is NOT contact', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ firstNamePrivacy: PrivacyLevel.CONTACTS });
+			mockContactRepository.findOne.mockResolvedValue(null);
+
+			const result = await service.canViewFirstName(viewerId, targetId);
+			expect(result).toBe(false);
+		});
+
+		it('should return false if NOBODY', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ firstNamePrivacy: PrivacyLevel.NOBODY });
+
+			const result = await service.canViewFirstName(viewerId, targetId);
 			expect(result).toBe(false);
 		});
 	});
 
-	describe('canSearchByPhone', () => {
-		it('should return search permission based on privacy settings', async () => {
-			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
-
+	describe('other getters', () => {
+		it('should return searchByPhone setting', async () => {
+			mockCacheService.get.mockResolvedValue({ searchByPhone: true });
 			const result = await service.canSearchByPhone(mockUser.id);
 			expect(result).toBe(true);
 		});
-	});
 
-	describe('shouldSendReadReceipts', () => {
-		it('should return read receipts setting', async () => {
-			mockPrivacyRepository.findOne.mockResolvedValue(mockPrivacySettings);
+		it('should return searchByUsername setting', async () => {
+			mockCacheService.get.mockResolvedValue({ searchByUsername: false });
+			const result = await service.canSearchByUsername(mockUser.id);
+			expect(result).toBe(false);
+		});
 
+		it('should return readReceipts setting', async () => {
+			mockCacheService.get.mockResolvedValue({ readReceipts: true });
 			const result = await service.shouldSendReadReceipts(mockUser.id);
+			expect(result).toBe(true);
+		});
+
+		it('should check canViewProfilePicture', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ profilePicturePrivacy: PrivacyLevel.EVERYONE });
+			const result = await service.canViewProfilePicture('viewer', 'target');
+			expect(result).toBe(true);
+		});
+
+		it('should check canViewLastName', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ lastNamePrivacy: PrivacyLevel.EVERYONE });
+			const result = await service.canViewLastName('viewer', 'target');
+			expect(result).toBe(true);
+		});
+
+		it('should check canViewBiography', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ biographyPrivacy: PrivacyLevel.EVERYONE });
+			const result = await service.canViewBiography('viewer', 'target');
+			expect(result).toBe(true);
+		});
+
+		it('should check canViewLastSeen', async () => {
+			mockBlockedUserRepository.findOne.mockResolvedValue(null);
+			mockCacheService.get.mockResolvedValue({ lastSeenPrivacy: PrivacyLevel.EVERYONE });
+			const result = await service.canViewLastSeen('viewer', 'target');
 			expect(result).toBe(true);
 		});
 	});
