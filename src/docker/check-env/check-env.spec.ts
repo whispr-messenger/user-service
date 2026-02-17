@@ -1,11 +1,11 @@
-describe('runEnvChecks', () => {
-	let originalEnv: NodeJS.ProcessEnv;
-	let consoleLogSpy: jest.SpyInstance;
-	let consoleErrorSpy: jest.SpyInstance;
-	let consoleWarnSpy: jest.SpyInstance;
-	let runEnvChecks: () => void;
+import runEnvChecks from './check-env';
+import { EnvCheckConfig } from './types';
 
-	const REQUIRED_VARS = [
+const TEST_SERVICE_NAME = 'Test Service';
+
+const TEST_CONFIG: EnvCheckConfig = {
+	serviceName: TEST_SERVICE_NAME,
+	required: [
 		'NODE_ENV',
 		'DATABASE_HOST',
 		'DATABASE_PORT',
@@ -15,7 +15,39 @@ describe('runEnvChecks', () => {
 		'REDIS_URL',
 		'HTTP_PORT',
 		'GRPC_PORT',
-	];
+	],
+	optional: [
+		{ name: 'DATABASE_URL', default: '(constructed from individual DATABASE vars)' },
+		{ name: 'DATABASE_LOGGING', default: 'false' },
+		{ name: 'DATABASE_MIGRATIONS_RUN', default: 'false' },
+		{ name: 'DATABASE_SYNCHRONIZE', default: 'false' },
+		{ name: 'NODE_OPTIONS', default: '(default Node settings)' },
+		{ name: 'PORT', default: '(defaults to HTTP_PORT)' },
+		{ name: 'LOG_LEVEL', default: 'info' },
+		{ name: 'METRICS_ENABLED', default: 'true' },
+		{ name: 'HEALTH_CHECK_TIMEOUT', default: '5000' },
+	],
+};
+
+const REQUIRED_VARS = TEST_CONFIG.required;
+
+const REQUIRED_VALUES: Record<string, string> = {
+	NODE_ENV: 'production',
+	DATABASE_HOST: 'localhost',
+	DATABASE_PORT: '5432',
+	DATABASE_USERNAME: 'user',
+	DATABASE_PASSWORD: 'password',
+	DATABASE_NAME: 'user_service',
+	REDIS_URL: 'redis://localhost:6379/0',
+	HTTP_PORT: '3000',
+	GRPC_PORT: '50051',
+};
+
+describe('runEnvChecks', () => {
+	let originalEnv: NodeJS.ProcessEnv;
+	let consoleLogSpy: jest.SpyInstance;
+	let consoleErrorSpy: jest.SpyInstance;
+	let consoleWarnSpy: jest.SpyInstance;
 
 	const colors = {
 		reset: '\u001b[0m',
@@ -35,13 +67,6 @@ describe('runEnvChecks', () => {
 
 		// Clear environment variables
 		process.env = {};
-
-		// Clear module cache to reset the global counters (missingVars, optionalVars)
-		jest.resetModules();
-
-		// Import the module fresh for each test
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		runEnvChecks = require('./check-env').default;
 	});
 
 	afterEach(() => {
@@ -55,21 +80,15 @@ describe('runEnvChecks', () => {
 	});
 
 	const setAllRequired = () => {
-		process.env.NODE_ENV = 'production';
-		process.env.DATABASE_HOST = 'localhost';
-		process.env.DATABASE_PORT = '5432';
-		process.env.DATABASE_USERNAME = 'user';
-		process.env.DATABASE_PASSWORD = 'password';
-		process.env.DATABASE_NAME = 'user_service';
-		process.env.REDIS_URL = 'redis://localhost:6379/0';
-		process.env.HTTP_PORT = '3000';
-		process.env.GRPC_PORT = '50051';
+		for (const [key, value] of Object.entries(REQUIRED_VALUES)) {
+			process.env[key] = value;
+		}
 	};
 
 	describe('Success cases', () => {
 		it('should pass when all required environment variables are set', () => {
 			setAllRequired();
-			expect(() => runEnvChecks()).not.toThrow();
+			expect(() => runEnvChecks(TEST_CONFIG)).not.toThrow();
 
 			// Verify success message with color
 			expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -79,9 +98,9 @@ describe('runEnvChecks', () => {
 			);
 		});
 
-		it('should check all 10 required variables', () => {
+		it('should check all required variables', () => {
 			setAllRequired();
-			runEnvChecks();
+			runEnvChecks(TEST_CONFIG);
 
 			REQUIRED_VARS.forEach((varName) => {
 				expect(consoleLogSpy).toHaveBeenCalledWith(
@@ -97,7 +116,7 @@ describe('runEnvChecks', () => {
 				setAllRequired();
 				delete process.env[varName];
 
-				expect(() => runEnvChecks()).toThrow('Missing required environment variables');
+				expect(() => runEnvChecks(TEST_CONFIG)).toThrow('Missing required environment variables');
 				expect(consoleErrorSpy).toHaveBeenCalledWith(
 					expect.stringContaining(`${colors.red}✗${colors.reset} ${varName} is NOT set (REQUIRED)`)
 				);
@@ -107,7 +126,7 @@ describe('runEnvChecks', () => {
 				setAllRequired();
 				process.env[varName] = '';
 
-				expect(() => runEnvChecks()).toThrow('Missing required environment variables');
+				expect(() => runEnvChecks(TEST_CONFIG)).toThrow('Missing required environment variables');
 				expect(consoleErrorSpy).toHaveBeenCalledWith(
 					expect.stringContaining(`${colors.red}✗${colors.reset} ${varName} is NOT set (REQUIRED)`)
 				);
@@ -117,7 +136,7 @@ describe('runEnvChecks', () => {
 				setAllRequired();
 				process.env[varName] = '   ';
 
-				expect(() => runEnvChecks()).toThrow('Missing required environment variables');
+				expect(() => runEnvChecks(TEST_CONFIG)).toThrow('Missing required environment variables');
 				expect(consoleErrorSpy).toHaveBeenCalledWith(
 					expect.stringContaining(`${colors.red}✗${colors.reset} ${varName} is NOT set (REQUIRED)`)
 				);
@@ -132,7 +151,7 @@ describe('runEnvChecks', () => {
 			delete process.env.DATABASE_HOST;
 			process.env.DATABASE_PORT = '';
 
-			expect(() => runEnvChecks()).toThrow('Missing required environment variables');
+			expect(() => runEnvChecks(TEST_CONFIG)).toThrow('Missing required environment variables');
 
 			// Should report 3 missing
 			expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -146,7 +165,7 @@ describe('runEnvChecks', () => {
 	describe('Optional variables', () => {
 		it('should warn when optional variables are missing', () => {
 			setAllRequired();
-			runEnvChecks();
+			runEnvChecks(TEST_CONFIG);
 
 			// Verify one of the optional vars (e.g. DATABASE_LOGGING)
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -156,7 +175,6 @@ describe('runEnvChecks', () => {
 			);
 
 			// Should report total count of optional vars not set
-			// There are about 10 optional checks in the script
 			expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining(`${colors.yellow}WARNING:`));
 		});
 
@@ -165,7 +183,7 @@ describe('runEnvChecks', () => {
 			process.env.DATABASE_LOGGING = 'true';
 			process.env.LOG_LEVEL = 'debug';
 
-			runEnvChecks();
+			runEnvChecks(TEST_CONFIG);
 
 			expect(consoleLogSpy).toHaveBeenCalledWith(
 				expect.stringContaining(`${colors.green}✓${colors.reset} DATABASE_LOGGING is set`)
@@ -179,7 +197,7 @@ describe('runEnvChecks', () => {
 			setAllRequired();
 			process.env.LOG_LEVEL = ' ';
 
-			runEnvChecks();
+			runEnvChecks(TEST_CONFIG);
 
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
 				expect.stringContaining(
@@ -192,15 +210,82 @@ describe('runEnvChecks', () => {
 	describe('Output Formatting', () => {
 		it('should log visual headers and footers', () => {
 			setAllRequired();
-			runEnvChecks();
+			runEnvChecks(TEST_CONFIG);
 
 			expect(consoleLogSpy).toHaveBeenCalledWith('==================================================');
-			expect(consoleLogSpy).toHaveBeenCalledWith('  Whispr User Service - Environment Check');
+			expect(consoleLogSpy).toHaveBeenCalledWith(`  ${TEST_SERVICE_NAME} - Environment Check`);
 			expect(consoleLogSpy).toHaveBeenCalledWith(
 				expect.stringContaining('Checking REQUIRED environment variables...')
 			);
 			expect(consoleLogSpy).toHaveBeenCalledWith(
 				expect.stringContaining('Checking OPTIONAL environment variables...')
+			);
+		});
+
+		it('should display the configured service name in header', () => {
+			setAllRequired();
+			const customConfig: EnvCheckConfig = {
+				serviceName: 'My Custom Service',
+				required: REQUIRED_VARS,
+				optional: [],
+			};
+
+			runEnvChecks(customConfig);
+
+			expect(consoleLogSpy).toHaveBeenCalledWith('  My Custom Service - Environment Check');
+		});
+	});
+
+	describe('Configuration flexibility', () => {
+		it('should work with a minimal configuration', () => {
+			process.env.ONLY_VAR = 'set';
+			const minimalConfig: EnvCheckConfig = {
+				serviceName: 'Minimal',
+				required: ['ONLY_VAR'],
+				optional: [],
+			};
+
+			expect(() => runEnvChecks(minimalConfig)).not.toThrow();
+
+			expect(consoleLogSpy).toHaveBeenCalledWith(
+				expect.stringContaining(`${colors.green}✓${colors.reset} ONLY_VAR is set`)
+			);
+			expect(consoleLogSpy).toHaveBeenCalledWith('  Minimal - Environment Check');
+		});
+
+		it('should work with no required and only optional variables', () => {
+			const optionalOnlyConfig: EnvCheckConfig = {
+				serviceName: 'Optional Only',
+				required: [],
+				optional: [{ name: 'SOME_OPT', default: 'fallback' }],
+			};
+
+			expect(() => runEnvChecks(optionalOnlyConfig)).not.toThrow();
+
+			expect(consoleWarnSpy).toHaveBeenCalledWith(
+				expect.stringContaining(
+					`${colors.yellow}⚠${colors.reset} SOME_OPT is NOT set (will use default: fallback)`
+				)
+			);
+		});
+
+		it('should not accumulate counters across multiple calls', () => {
+			setAllRequired();
+			runEnvChecks(TEST_CONFIG);
+
+			// Second call with a missing var should report exactly 1 missing, not accumulated
+			delete process.env.NODE_ENV;
+			const smallConfig: EnvCheckConfig = {
+				serviceName: 'Test',
+				required: ['NODE_ENV'],
+				optional: [],
+			};
+
+			expect(() => runEnvChecks(smallConfig)).toThrow('Missing required environment variables');
+			expect(consoleErrorSpy).toHaveBeenCalledWith(
+				expect.stringContaining(
+					`${colors.red}ERROR: 1 required environment variable(s) missing!${colors.reset}`
+				)
 			);
 		});
 	});
