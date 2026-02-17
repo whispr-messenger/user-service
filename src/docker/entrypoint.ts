@@ -1,9 +1,9 @@
-import runEnvChecks from './check-env';
+import runEnvChecks, { USER_SERVICE_ENV_CONFIG } from './check-env';
 
 export function runEntrypoint() {
 	try {
 		// Run environment checks. Will throw on missing required vars
-		runEnvChecks();
+		runEnvChecks(USER_SERVICE_ENV_CONFIG);
 
 		if (process.env.NODE_ENV !== 'test') {
 			console.log('Starting User Service...\n');
