@@ -1,8 +1,16 @@
-import runEnvChecks from './check-env';
+import runEnvChecks, { USER_SERVICE_ENV_CONFIG } from './check-env';
 import { runEntrypoint } from './entrypoint';
 
 // Mock the dependencies
-jest.mock('./check-env');
+jest.mock('./check-env', () => ({
+	__esModule: true,
+	default: jest.fn(),
+	USER_SERVICE_ENV_CONFIG: {
+		serviceName: 'Whispr User Service',
+		required: [],
+		optional: [],
+	},
+}));
 jest.mock('../main.js', () => ({}), { virtual: true });
 
 describe('Entrypoint', () => {
