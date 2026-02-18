@@ -230,7 +230,9 @@ describe('RedisConfig', () => {
 		});
 
 		it('should register error, ready, connect, and close event handlers', () => {
-			jest.spyOn(configService, 'get').mockImplementation((_key: string, defaultValue?: any) => defaultValue);
+			jest.spyOn(configService, 'get').mockImplementation(
+				(_key: string, defaultValue?: any) => defaultValue
+			);
 
 			new RedisConfig(configService);
 
@@ -288,7 +290,9 @@ describe('RedisConfig', () => {
 
 	describe('health', () => {
 		it('should return health status object', () => {
-			jest.spyOn(configService, 'get').mockImplementation((_key: string, defaultValue?: any) => defaultValue);
+			jest.spyOn(configService, 'get').mockImplementation(
+				(_key: string, defaultValue?: any) => defaultValue
+			);
 
 			const redisConfig = new RedisConfig(configService);
 			const health = redisConfig.health;
@@ -299,7 +303,9 @@ describe('RedisConfig', () => {
 
 	describe('getClient', () => {
 		it('should return Redis client instance', () => {
-			jest.spyOn(configService, 'get').mockImplementation((_key: string, defaultValue?: any) => defaultValue);
+			jest.spyOn(configService, 'get').mockImplementation(
+				(_key: string, defaultValue?: any) => defaultValue
+			);
 
 			const redisConfig = new RedisConfig(configService);
 			const client = redisConfig.getClient();
@@ -309,7 +315,9 @@ describe('RedisConfig', () => {
 
 	describe('onModuleDestroy', () => {
 		it('should quit Redis client on module destroy', async () => {
-			jest.spyOn(configService, 'get').mockImplementation((_key: string, defaultValue?: any) => defaultValue);
+			jest.spyOn(configService, 'get').mockImplementation(
+				(_key: string, defaultValue?: any) => defaultValue
+			);
 
 			const redisConfig = new RedisConfig(configService);
 			await redisConfig.onModuleDestroy();
