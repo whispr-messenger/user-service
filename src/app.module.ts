@@ -2,8 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { typeOrmModuleAsyncOptions } from './typeorm.config';
-import { CacheModule } from '@nestjs/cache-manager';
-import { cacheModuleAsyncOptions } from './cache.config';
+import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
 
 // import { UsersModule } from './users/users.module';
@@ -20,7 +19,7 @@ import { HealthModule } from './health/health.module';
 			envFilePath: ['.env.development', '.env.local', '.env'],
 		}),
 		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
-		CacheModule.registerAsync(cacheModuleAsyncOptions),
+		CacheModule,
 		HealthModule,
 		// UsersModule,
 		// PrivacyModule,
