@@ -43,11 +43,11 @@ export default function runEnvChecks(): void {
 	checkRequired('NODE_ENV');
 
 	// Database
-	checkRequired('DATABASE_HOST');
-	checkRequired('DATABASE_PORT');
-	checkRequired('DATABASE_USERNAME');
-	checkRequired('DATABASE_PASSWORD');
-	checkRequired('DATABASE_NAME');
+	checkRequired('DB_HOST');
+	checkRequired('DB_PORT');
+	checkRequired('DB_USERNAME');
+	checkRequired('DB_PASSWORD');
+	checkRequired('DB_NAME');
 
 	// Redis
 	checkRequired('REDIS_URL');
@@ -58,10 +58,10 @@ export default function runEnvChecks(): void {
 
 	console.log('\nChecking OPTIONAL environment variables...');
 
-	checkOptional('DATABASE_URL', '(constructed from individual DATABASE vars)');
-	checkOptional('DATABASE_LOGGING', 'false');
-	checkOptional('DATABASE_MIGRATIONS_RUN', 'false');
-	checkOptional('DATABASE_SYNCHRONIZE', 'false');
+	checkOptional('DB_URL', '(constructed from individual DB vars)');
+	checkOptional('DB_LOGGING', 'false');
+	checkOptional('DB_MIGRATIONS_RUN', 'false');
+	checkOptional('DB_SYNCHRONIZE', 'false');
 	checkOptional('NODE_OPTIONS', '(default Node settings)');
 	checkOptional('PORT', '(defaults to HTTP_PORT)');
 	checkOptional('LOG_LEVEL', 'info');

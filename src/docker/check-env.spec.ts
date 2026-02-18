@@ -7,11 +7,11 @@ describe('runEnvChecks', () => {
 
 	const REQUIRED_VARS = [
 		'NODE_ENV',
-		'DATABASE_HOST',
-		'DATABASE_PORT',
-		'DATABASE_USERNAME',
-		'DATABASE_PASSWORD',
-		'DATABASE_NAME',
+		'DB_HOST',
+		'DB_PORT',
+		'DB_USERNAME',
+		'DB_PASSWORD',
+		'DB_NAME',
 		'REDIS_URL',
 		'HTTP_PORT',
 		'GRPC_PORT',
@@ -56,11 +56,11 @@ describe('runEnvChecks', () => {
 
 	const setAllRequired = () => {
 		process.env.NODE_ENV = 'production';
-		process.env.DATABASE_HOST = 'localhost';
-		process.env.DATABASE_PORT = '5432';
-		process.env.DATABASE_USERNAME = 'user';
-		process.env.DATABASE_PASSWORD = 'password';
-		process.env.DATABASE_NAME = 'user_service';
+		process.env.DB_HOST = 'localhost';
+		process.env.DB_PORT = '5432';
+		process.env.DB_USERNAME = 'user';
+		process.env.DB_PASSWORD = 'password';
+		process.env.DB_NAME = 'user_service';
 		process.env.REDIS_URL = 'redis://localhost:6379/0';
 		process.env.HTTP_PORT = '3000';
 		process.env.GRPC_PORT = '50051';
@@ -129,8 +129,8 @@ describe('runEnvChecks', () => {
 		it('should report the correct count of missing required variables', () => {
 			setAllRequired();
 			delete process.env.NODE_ENV;
-			delete process.env.DATABASE_HOST;
-			process.env.DATABASE_PORT = '';
+			delete process.env.DB_HOST;
+			process.env.DB_PORT = '';
 
 			expect(() => runEnvChecks()).toThrow('Missing required environment variables');
 
@@ -148,10 +148,10 @@ describe('runEnvChecks', () => {
 			setAllRequired();
 			runEnvChecks();
 
-			// Verify one of the optional vars (e.g. DATABASE_LOGGING)
+			// Verify one of the optional vars (e.g. DB_LOGGING)
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
 				expect.stringContaining(
-					`${colors.yellow}⚠${colors.reset} DATABASE_LOGGING is NOT set (will use default: false)`
+					`${colors.yellow}⚠${colors.reset} DB_LOGGING is NOT set (will use default: false)`
 				)
 			);
 
@@ -162,13 +162,13 @@ describe('runEnvChecks', () => {
 
 		it('should log success when optional variable is set', () => {
 			setAllRequired();
-			process.env.DATABASE_LOGGING = 'true';
+			process.env.DB_LOGGING = 'true';
 			process.env.LOG_LEVEL = 'debug';
 
 			runEnvChecks();
 
 			expect(consoleLogSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.green}✓${colors.reset} DATABASE_LOGGING is set`)
+				expect.stringContaining(`${colors.green}✓${colors.reset} DB_LOGGING is set`)
 			);
 			expect(consoleLogSpy).toHaveBeenCalledWith(
 				expect.stringContaining(`${colors.green}✓${colors.reset} LOG_LEVEL is set`)
