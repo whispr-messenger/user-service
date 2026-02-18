@@ -5,12 +5,13 @@ import { typeOrmModuleAsyncOptions } from './typeorm.config';
 import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
 
-// import { UsersModule } from './users/users.module';
-// import { PrivacyModule } from './privacy/privacy.module';
-// import { ContactsModule } from './contacts/contacts.module';
-// import { BlockedUsersModule } from './blocked-users/blocked-users.module';
-// import { UserSearchModule } from './search/user-search.module';
-// import { GroupsModule } from './groups/groups.module';
+import { UsersModule } from './users/users.module';
+import { PrivacyModule } from './privacy/privacy.module';
+import { ContactsModule } from './contacts/contacts.module';
+import { BlockedUsersModule } from './blocked-users/blocked-users.module';
+import { UserSearchModule } from './search/user-search.module';
+import { GroupsModule } from './groups/groups.module';
+import { CacheModule as LocalCacheModule } from './cache/cache.module';
 
 @Module({
 	imports: [
@@ -21,12 +22,12 @@ import { HealthModule } from './health/health.module';
 		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
 		CacheModule,
 		HealthModule,
-		// UsersModule,
-		// PrivacyModule,
-		// ContactsModule,
-		// BlockedUsersModule,
-		// UserSearchModule,
-		// GroupsModule,
+		UsersModule,
+		PrivacyModule,
+		ContactsModule,
+		BlockedUsersModule,
+		UserSearchModule,
+		GroupsModule,
 	],
 })
 export class AppModule {}
