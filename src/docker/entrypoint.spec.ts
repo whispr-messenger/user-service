@@ -1,4 +1,4 @@
-import runEnvChecks, { USER_SERVICE_ENV_CONFIG } from './check-env';
+import runEnvChecks from './check-env';
 import { runEntrypoint } from './entrypoint';
 
 // Mock the dependencies
