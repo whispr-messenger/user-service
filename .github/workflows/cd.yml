@@ -63,20 +63,20 @@ jobs:
             if [ -n "${{ inputs.commit_sha }}" ]; then
               COMMIT_SHA="${{ inputs.commit_sha }}"
               echo "Validating manually provided commit SHA: $COMMIT_SHA"
-              
+
               # Validate SHA format (40 hex characters for full SHA or 7+ for short SHA)
               if ! echo "$COMMIT_SHA" | grep -qE '^[a-fA-F0-9]{7,40}$'; then
                 echo "❌ Error: Invalid commit SHA format. Must be 7-40 hexadecimal characters."
                 exit 1
               fi
-              
+
               # Verify the commit exists in the repository
               if ! git rev-parse --verify "${COMMIT_SHA}^{commit}" >/dev/null 2>&1; then
                 echo "❌ Error: Commit SHA '${COMMIT_SHA}' does not exist in the repository."
                 echo "Please provide a valid commit SHA from the main branch."
                 exit 1
               fi
-              
+
               # Get the full SHA if a short SHA was provided
               COMMIT_SHA=$(git rev-parse --verify "${COMMIT_SHA}^{commit}")
               echo "✅ Commit SHA validated successfully"
@@ -125,7 +125,7 @@ jobs:
 
       - name: Validate deployment manifest path
         run: |
-          MANIFEST_PATH="infrastructure/argocd/k8s/whispr/user-service/deployment.yaml"
+          MANIFEST_PATH="infrastructure/k8s/whispr/user-service/deployment.yaml"
           if [ ! -f "$MANIFEST_PATH" ]; then
             echo "❌ Error: Deployment manifest not found at $MANIFEST_PATH"
             echo "Please verify the path in the infrastructure repository."
@@ -138,10 +138,10 @@ jobs:
         run: |
           # Use the validated commit SHA from the previous step
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
-          
+
           # Extract short SHA safely using printf (7 characters, matching docker metadata-action default)
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
-          
+
           # Use the short SHA tag format that matches the CI docker workflow
           IMAGE_TAG="sha-${SHORT_SHA}"
 
@@ -155,21 +155,21 @@ jobs:
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
           # Update the deployment manifest in the infrastructure repository
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/argocd/k8s/whispr/user-service/deployment.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/k8s/whispr/user-service/deployment.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' infrastructure/argocd/k8s/whispr/user-service/deployment.yaml
+          yq '.spec.template.spec.containers[0].image' infrastructure/k8s/whispr/user-service/deployment.yaml
 
       - name: Commit and push changes
         working-directory: infrastructure
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          
+
           # Check if there are changes to commit
-          if git diff --quiet argocd/k8s/whispr/user-service/deployment.yaml; then
+          if git diff --quiet k8s/whispr/user-service/deployment.yaml; then
             echo "No changes to commit"
             exit 0
           fi
@@ -177,7 +177,7 @@ jobs:
           # Use the validated commit SHA determined in the previous step
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
-          
+
           # Build commit message based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA} (manual trigger)"
@@ -185,7 +185,7 @@ jobs:
             COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
           fi
 
-          git add argocd/k8s/whispr/user-service/deployment.yaml
+          git add k8s/whispr/user-service/deployment.yaml
           git commit -m "${COMMIT_MSG}"
 
           # Push directly to main in infrastructure repo
