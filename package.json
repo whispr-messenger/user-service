@@ -36,7 +36,8 @@
 		"docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
 		"docker:dev-down": "docker-compose -f docker-compose.dev.yml down",
 		"docker:clean": "docker-compose down -v --rmi all",
-		"just": "just"
+		"just": "just",
+		"prepare": "husky"
 	},
 	"dependencies": {
 		"@grpc/grpc-js": "^1.14.3",
@@ -132,5 +133,11 @@
 		"semi": true,
 		"singleQuote": true,
 		"printWidth": 110
+	},
+	"lint-staged": {
+		"*.ts": [
+			"eslint --fix",
+			"prettier --write"
+		]
 	}
 }
