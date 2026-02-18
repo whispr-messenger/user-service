@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/app.module';
-import { DataSource } from 'typeorm';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const request = require('supertest');
@@ -9,18 +8,11 @@ const request = require('supertest');
 describe('HealthController (e2e)', () => {
 	let app: INestApplication;
 
-	const mockDataSource = {
-		query: jest.fn().mockResolvedValue([{ '?column?': 1 }]),
-	};
-
 	beforeEach(async () => {
 		try {
 			const moduleFixture: TestingModule = await Test.createTestingModule({
 				imports: [AppModule],
-			})
-				.overrideProvider(DataSource)
-				.useValue(mockDataSource)
-				.compile();
+			}).compile();
 
 			app = moduleFixture.createNestApplication();
 			await app.init();

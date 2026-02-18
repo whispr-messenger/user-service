@@ -4,9 +4,10 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { User, PrivacySettings, PrivacyLevel, UserSearchIndex } from '../entities';
+import { User, PrivacySettings, PrivacyLevel, UserSearchIndex, Contact, BlockedUser } from '../entities';
 import { CreateUserDto, UpdateUserDto } from '../dto';
 import { CacheService } from '../cache';
+import { PrivacyService } from '../privacy/privacy.service';
 
 describe('UsersService', () => {
 	let service: UsersService;
@@ -53,6 +54,7 @@ describe('UsersService', () => {
 		find: jest.fn(),
 		update: jest.fn(),
 		delete: jest.fn(),
+		softDelete: jest.fn(),
 		findAndCount: jest.fn(),
 		createQueryBuilder: jest.fn(() => ({
 			where: jest.fn().mockReturnThis(),
@@ -80,12 +82,39 @@ describe('UsersService', () => {
 		get: jest.fn(),
 		del: jest.fn(),
 		exists: jest.fn(),
+		keys: jest.fn(() => []),
+		delMany: jest.fn(),
 	};
 
 	const mockUserSearchIndexRepository = {
 		create: jest.fn(),
 		save: jest.fn(),
 		findOne: jest.fn(),
+		createQueryBuilder: jest.fn(),
+	};
+
+	const mockContactRepository = {
+		findOne: jest.fn(),
+		find: jest.fn(),
+	};
+
+	const mockBlockedUserRepository = {
+		findOne: jest.fn(),
+		find: jest.fn(),
+	};
+
+	const mockPrivacyService = {
+		getPrivacySettings: jest.fn(),
+		updatePrivacySettings: jest.fn(),
+		canViewProfilePicture: jest.fn(),
+		canViewFirstName: jest.fn(),
+		canViewLastName: jest.fn(),
+		canViewBiography: jest.fn(),
+		canViewLastSeen: jest.fn(),
+		canSearchByPhone: jest.fn(),
+		canSearchByUsername: jest.fn(),
+		shouldSendReadReceipts: jest.fn(),
+		filterUserData: jest.fn(),
 	};
 
 	beforeEach(async () => {
@@ -103,6 +132,18 @@ describe('UsersService', () => {
 				{
 					provide: getRepositoryToken(UserSearchIndex),
 					useValue: mockUserSearchIndexRepository,
+				},
+				{
+					provide: getRepositoryToken(Contact),
+					useValue: mockContactRepository,
+				},
+				{
+					provide: getRepositoryToken(BlockedUser),
+					useValue: mockBlockedUserRepository,
+				},
+				{
+					provide: PrivacyService,
+					useValue: mockPrivacyService,
 				},
 				{
 					provide: CacheService,
@@ -303,15 +344,125 @@ describe('UsersService', () => {
 		it('should search users by query', async () => {
 			const users = [mockUser];
 			const total = 1;
+			const query = 'test';
+			const requesterId = 'requester-id';
 
-			mockUserRepository.findAndCount.mockResolvedValue([users, total]);
+			mockUserSearchIndexRepository.createQueryBuilder = jest.fn(() => ({
+				select: jest.fn().mockReturnThis(),
+				where: jest.fn().mockReturnThis(),
+				orWhere: jest.fn().mockReturnThis(),
+				skip: jest.fn().mockReturnThis(),
+				take: jest.fn().mockReturnThis(),
+				getManyAndCount: jest.fn().mockResolvedValue([[{ userId: mockUser.id }], total]),
+			}));
 
-			const result = await service.findAll(1, 10);
+			mockUserRepository.find.mockResolvedValue(users);
+			mockPrivacyService.filterUserData.mockResolvedValue(mockUser);
+
+			const result = await service.searchUsers(query, requesterId, 1, 10);
 
 			expect(result).toEqual({
-				users,
+				users: [mockUser],
 				total,
 			});
+			expect(mockPrivacyService.filterUserData).toHaveBeenCalled();
+		});
+
+		it('should return empty list if no matches found', async () => {
+			const query = 'nonexistent';
+			const requesterId = 'requester-id';
+
+			mockUserSearchIndexRepository.createQueryBuilder = jest.fn(() => ({
+				select: jest.fn().mockReturnThis(),
+				where: jest.fn().mockReturnThis(),
+				orWhere: jest.fn().mockReturnThis(),
+				skip: jest.fn().mockReturnThis(),
+				take: jest.fn().mockReturnThis(),
+				getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+			}));
+
+			const result = await service.searchUsers(query, requesterId, 1, 10);
+
+			expect(result).toEqual({
+				users: [],
+				total: 0,
+			});
+		});
+	});
+
+	describe('getProfile', () => {
+		it('should return cached profile if available', async () => {
+			const targetId = 'target-id';
+			const requesterId = 'requester-id';
+			const cachedProfile = { ...mockUser };
+
+			mockCacheService.get.mockResolvedValue(cachedProfile);
+
+			const result = await service.getProfile(targetId, requesterId);
+
+			expect(result).toEqual(cachedProfile);
+			expect(mockCacheService.get).toHaveBeenCalledWith(`profile:${targetId}:${requesterId}`);
+		});
+
+		it('should fetch and filter profile if not cached', async () => {
+			const targetId = mockUser.id;
+			const requesterId = 'requester-id';
+
+			mockCacheService.get.mockResolvedValue(null);
+			mockUserRepository.findOne.mockResolvedValue(mockUser);
+			mockPrivacyService.filterUserData.mockResolvedValue(mockUser);
+
+			const result = await service.getProfile(targetId, requesterId);
+
+			expect(result).toEqual(mockUser);
+			expect(mockPrivacyService.filterUserData).toHaveBeenCalledWith(requesterId, mockUser);
+			expect(mockCacheService.set).toHaveBeenCalled();
+		});
+	});
+
+	describe('getMe', () => {
+		it('should return current user', async () => {
+			mockUserRepository.findOne.mockResolvedValue(mockUser);
+
+			const result = await service.getMe(mockUser.id);
+
+			expect(result).toEqual(mockUser);
+		});
+	});
+
+	describe('updateLastSeen', () => {
+		it('should update last seen timestamp', async () => {
+			mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+			await service.updateLastSeen(mockUser.id);
+
+			expect(mockUserRepository.update).toHaveBeenCalledWith(
+				mockUser.id,
+				expect.objectContaining({ lastSeen: expect.any(Date) })
+			);
+		});
+	});
+
+	describe('activateUser', () => {
+		it('should activate a user', async () => {
+			mockUserRepository.findOne.mockResolvedValue(mockUser);
+			mockUserRepository.update.mockResolvedValue({ affected: 1 } as any);
+
+			await service.activate(mockUser.id);
+
+			expect(mockUserRepository.update).toHaveBeenCalledWith(mockUser.id, { isActive: true });
+		});
+	});
+
+	describe('removeUser', () => {
+		it('should soft delete a user', async () => {
+			mockUserRepository.findOne.mockResolvedValue(mockUser);
+			mockUserRepository.softDelete.mockResolvedValue({ affected: 1 } as any);
+
+			await service.remove(mockUser.id);
+
+			expect(mockUserRepository.softDelete).toHaveBeenCalledWith(mockUser.id);
+			expect(mockCacheService.del).toHaveBeenCalledWith(`user:${mockUser.id}`);
 		});
 	});
 });

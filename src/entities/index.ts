@@ -5,3 +5,4 @@ export { BlockedUser } from './blocked-user.entity';
 export { Group } from './group.entity';
 export { GroupMember, GroupRole } from './group-member.entity';
 export { UserSearchIndex } from './user-search-index.entity';
+export { ContactRequest, ContactRequestStatus } from './contact-request.entity';
