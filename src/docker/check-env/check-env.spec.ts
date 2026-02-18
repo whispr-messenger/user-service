@@ -12,7 +12,7 @@ const TEST_CONFIG: EnvCheckConfig = {
 		'DATABASE_USERNAME',
 		'DATABASE_PASSWORD',
 		'DATABASE_NAME',
-		'REDIS_URL',
+		'REDIS_DB',
 		'HTTP_PORT',
 		'GRPC_PORT',
 	],
@@ -26,6 +26,14 @@ const TEST_CONFIG: EnvCheckConfig = {
 		{ name: 'LOG_LEVEL', default: 'info' },
 		{ name: 'METRICS_ENABLED', default: 'true' },
 		{ name: 'HEALTH_CHECK_TIMEOUT', default: '5000' },
+		{ name: 'REDIS_MODE', default: 'direct' },
+		{ name: 'REDIS_HOST', default: 'localhost' },
+		{ name: 'REDIS_PORT', default: '6379' },
+		{ name: 'REDIS_USERNAME', default: '(no auth)' },
+		{ name: 'REDIS_PASSWORD', default: '(no auth)' },
+		{ name: 'REDIS_SENTINELS', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'REDIS_MASTER_NAME', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'REDIS_SENTINEL_PASSWORD', default: '(required when REDIS_MODE=sentinel)' },
 	],
 };
 
@@ -38,7 +46,7 @@ const REQUIRED_VALUES: Record<string, string> = {
 	DATABASE_USERNAME: 'user',
 	DATABASE_PASSWORD: 'password',
 	DATABASE_NAME: 'user_service',
-	REDIS_URL: 'redis://localhost:6379/0',
+	REDIS_DB: '1',
 	HTTP_PORT: '3000',
 	GRPC_PORT: '50051',
 };

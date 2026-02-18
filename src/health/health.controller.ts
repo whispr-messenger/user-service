@@ -1,17 +1,17 @@
-import { Controller, Get, Inject, Logger } from '@nestjs/common';
+import { Controller, Get, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { cacheHealth } from '../cache.config';
 import { ServiceUnavailableException } from '@nestjs/common';
+import { CacheService } from '../cache';
+import { RedisConfig } from '../config/redis.config';
 
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
 	constructor(
 		private readonly dataSource: DataSource,
-		@Inject(CACHE_MANAGER) private readonly cacheManager: Cache
+		private readonly cacheService: CacheService,
+		private readonly redisConfig: RedisConfig
 	) {}
 
 	private logger = new Logger(HealthController.name);
@@ -101,13 +101,14 @@ export class HealthController {
 		this.logger.debug('Checking cache connection');
 
 		// Check internal health tracker
-		if (!cacheHealth.isHealthy) {
-			throw cacheHealth.lastError || new Error('Redis connection is unhealthy');
+		const health = this.redisConfig.health;
+		if (!health.isHealthy) {
+			throw health.lastError || new Error('Redis connection is unhealthy');
 		}
 
 		// Verify functional cache operations
-		await this.cacheManager.set('health-check', 'ok', 1000);
-		const result = await this.cacheManager.get('health-check');
+		await this.cacheService.set('health-check', 'ok', 10);
+		const result = await this.cacheService.get<string>('health-check');
 
 		if (result !== 'ok') {
 			throw new Error('Cache operation failed: unexpected result');
