@@ -8,7 +8,7 @@ const request = require('supertest');
 describe('HealthController (e2e)', () => {
 	let app: INestApplication;
 
-	beforeEach(async () => {
+	beforeAll(async () => {
 		try {
 			const moduleFixture: TestingModule = await Test.createTestingModule({
 				imports: [AppModule],
@@ -22,7 +22,7 @@ describe('HealthController (e2e)', () => {
 		}
 	});
 
-	afterEach(async () => {
+	afterAll(async () => {
 		if (app) {
 			await app.close();
 		}
