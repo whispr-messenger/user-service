@@ -11,7 +11,6 @@ import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { UserSearchModule } from './search/user-search.module';
 import { GroupsModule } from './groups/groups.module';
-import { CacheModule as LocalCacheModule } from './cache/cache.module';
 
 @Module({
 	imports: [
