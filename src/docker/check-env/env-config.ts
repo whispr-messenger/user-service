@@ -1,0 +1,35 @@
+import { EnvCheckConfig } from './types';
+
+export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
+	serviceName: 'Whispr User Service',
+	required: [
+		'NODE_ENV',
+		'DB_HOST',
+		'DB_PORT',
+		'DB_USERNAME',
+		'DB_PASSWORD',
+		'DB_NAME',
+		'REDIS_DB',
+		'HTTP_PORT',
+		'GRPC_PORT',
+	],
+	optional: [
+		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
+		{ name: 'DB_LOGGING', default: 'false' },
+		{ name: 'DB_MIGRATIONS_RUN', default: 'false' },
+		{ name: 'DB_SYNCHRONIZE', default: 'false' },
+		{ name: 'NODE_OPTIONS', default: '(default Node settings)' },
+		{ name: 'PORT', default: '(defaults to HTTP_PORT)' },
+		{ name: 'LOG_LEVEL', default: 'info' },
+		{ name: 'METRICS_ENABLED', default: 'true' },
+		{ name: 'HEALTH_CHECK_TIMEOUT', default: '5000' },
+		{ name: 'REDIS_MODE', default: 'direct' },
+		{ name: 'REDIS_HOST', default: 'localhost' },
+		{ name: 'REDIS_PORT', default: '6379' },
+		{ name: 'REDIS_USERNAME', default: '(no auth)' },
+		{ name: 'REDIS_PASSWORD', default: '(no auth)' },
+		{ name: 'REDIS_SENTINELS', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'REDIS_MASTER_NAME', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'REDIS_SENTINEL_PASSWORD', default: '(required when REDIS_MODE=sentinel)' },
+	],
+};

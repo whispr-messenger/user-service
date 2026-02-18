@@ -6,6 +6,6 @@ import { RedisConfig } from '../config/redis.config';
 @Global()
 @Module({
 	providers: [RedisConfig, CacheService, SearchIndexService],
-	exports: [CacheService, SearchIndexService],
+	exports: [RedisConfig, CacheService, SearchIndexService],
 })
 export class CacheModule {}
