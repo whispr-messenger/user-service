@@ -7,10 +7,12 @@ up ENV:
         docker compose -f docker/dev/compose.yml up -d --build
     elif [ "{{ENV}}" = "prod" ]; then
         docker compose -f docker/prod/compose.yml up --detach --build
+    elif [ "{{ENV}}" = "test" ]; then
+        docker compose -f docker/test/compose.yml run --rm --build test-runner
     elif [ "{{ENV}}" = "doc" ]; then
         docker compose -f docker/doc/compose.yml up --detach
     else
-        echo "{{ENV}}: Accepted values are 'dev', 'prod' or 'doc'." >&2
+        echo "{{ENV}}: Accepted values are 'dev', 'prod', 'test' or 'doc'." >&2
     fi
 
 down ENV:
@@ -19,10 +21,12 @@ down ENV:
         docker compose -f docker/dev/compose.yml down --volumes
     elif [ "{{ENV}}" = "prod" ]; then
         docker compose -f docker/prod/compose.yml down --volumes
+    elif [ "{{ENV}}" = "test" ]; then
+        docker compose -f docker/test/compose.yml down --volumes
     elif [ "{{ENV}}" = "doc" ]; then
         docker compose -f docker/doc/compose.yml up --detach
     else
-        echo "{{ENV}}: Accepted values are 'dev', 'prod' or 'doc'." >&2
+        echo "{{ENV}}: Accepted values are 'dev', 'prod', 'test' or 'doc'." >&2
     fi
 
 logs ENV:
@@ -40,4 +44,4 @@ shell:
     docker compose -f docker/dev/compose.yml exec -it user-service bash
 
 test:
-    docker compose -f docker/dev/compose.yml exec -it -e NODE_ENV=test user-service npm run test
+    docker compose -f docker/test/compose.yml run --rm --build test-runner

@@ -23,11 +23,9 @@ export class User {
 	id: string;
 
 	@Column({ type: 'varchar', length: 20, unique: true })
-	@Index()
 	phoneNumber: string;
 
 	@Column({ type: 'varchar', length: 50, unique: true })
-	@Index()
 	username: string;
 
 	@Column({ type: 'varchar', length: 100 })
