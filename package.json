@@ -22,9 +22,8 @@
 		"test:cov": "jest --coverage",
 		"test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
 		"test:e2e": "jest --config ./test/jest-e2e.json",
-		"test:e2e:docker": "tsx test/docker/docker-e2e-runner.ts",
-		"test:e2e:docker:run": "jest --config ./test/docker/jest-docker-e2e.json",
-		"test:e2e:docker:cleanup": "tsx test/docker/docker-e2e-runner.ts --cleanup",
+		"test:e2e:docker": "docker compose -f docker/test/compose.yml run --rm --build test-runner",
+		"test:e2e:docker:cleanup": "docker compose -f docker/test/compose.yml down -v",
 		"typeorm": "typeorm-ts-node-commonjs",
 		"migration:generate": "npm run typeorm -- migration:generate -d src/config/database.config.ts",
 		"migration:run": "npm run typeorm -- migration:run -d src/config/database.config.ts",
@@ -109,10 +108,27 @@
 			"^.+\\.(t|j)s$": "ts-jest"
 		},
 		"collectCoverageFrom": [
-			"**/*.(t|j)s"
+			"**/*.(t|j)s",
+			"!**/*.interface.ts",
+			"!**/*.enum.ts",
+			"!**/*.dto.ts",
+			"!**/main.ts",
+			"!**/*.module.ts"
 		],
 		"coverageDirectory": "../coverage",
 		"testEnvironment": "node",
+		"roots": [
+			"<rootDir>"
+		],
+		"modulePaths": [
+			"<rootDir>"
+		],
+		"moduleNameMapper": {
+			"^src/(.*)$": "<rootDir>/$1"
+		},
+		"setupFilesAfterEnv": [
+			"<rootDir>/../test/setup.ts"
+		],
 		"coverageThreshold": {
 			"global": {
 				"statements": 47,
