@@ -3,6 +3,8 @@ export { UpdateUserDto } from './update-user.dto';
 export { UpdatePrivacySettingsDto } from './update-privacy-settings.dto';
 export { AddContactDto } from './add-contact.dto';
 export { UpdateContactDto } from './update-contact.dto';
+export * from './create-contact-request.dto';
+export * from './respond-contact-request.dto';
 export { BlockUserDto } from './block-user.dto';
 export { CreateGroupDto } from './create-group.dto';
 export { UpdateGroupDto } from './update-group.dto';
