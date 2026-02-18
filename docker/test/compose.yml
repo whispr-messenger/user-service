@@ -1,0 +1,79 @@
+name: whispr-user-test
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispr-user-test-postgres
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test_db
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    expose:
+      - 5432
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U test -d test_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: whispr-user-test-redis
+    command: redis-server --appendonly yes
+    expose:
+      - 6379
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+
+  test-runner:
+    build:
+      context: ../..
+      dockerfile: docker/test/Dockerfile
+    container_name: whispr-user-test-runner
+    volumes:
+      - ../..:/workspace:cached
+      - node_modules_volume:/workspace/node_modules
+    working_dir: /workspace
+    environment:
+      NODE_ENV: test
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: test
+      DB_PASSWORD: test
+      DB_NAME: test_db
+      DB_SYNCHRONIZE: true
+      DB_LOGGING: false
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: test-jwt-secret
+      HTTP_PORT: 3000
+    networks:
+      - test-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+
+volumes:
+  node_modules_volume:
+
+networks:
+  test-network:
+    driver: bridge

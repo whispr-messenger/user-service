@@ -93,24 +93,32 @@ jobs:
       - name: Run unit tests
         run: npm run test:cov
         env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_USERNAME: test
-          DATABASE_PASSWORD: test
-          DATABASE_NAME: test_db
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          DB_NAME: test_db
+          DB_SYNCHRONIZE: true
+          DB_LOGGING: false
           REDIS_HOST: localhost
           REDIS_PORT: 6379
+          REDIS_URL: redis://localhost:6379/0
 
       - name: Run e2e tests
         run: npm run test:e2e
         env:
-          DATABASE_HOST: localhost
-          DATABASE_PORT: 5432
-          DATABASE_USERNAME: test
-          DATABASE_PASSWORD: test
-          DATABASE_NAME: test_db
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          DB_NAME: test_db
+          DB_SYNCHRONIZE: true
+          DB_LOGGING: false
           REDIS_HOST: localhost
           REDIS_PORT: 6379
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET: test-jwt-secret
+          HTTP_PORT: 3000
 
       ####################################################################################################
       # SonarQube Analysis (conditional on should_deploy and secrets availability)
