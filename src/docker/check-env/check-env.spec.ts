@@ -7,20 +7,20 @@ const TEST_CONFIG: EnvCheckConfig = {
 	serviceName: TEST_SERVICE_NAME,
 	required: [
 		'NODE_ENV',
-		'DATABASE_HOST',
-		'DATABASE_PORT',
-		'DATABASE_USERNAME',
-		'DATABASE_PASSWORD',
-		'DATABASE_NAME',
+		'DB_HOST',
+		'DB_PORT',
+		'DB_USERNAME',
+		'DB_PASSWORD',
+		'DB_NAME',
 		'REDIS_DB',
 		'HTTP_PORT',
 		'GRPC_PORT',
 	],
 	optional: [
-		{ name: 'DATABASE_URL', default: '(constructed from individual DATABASE vars)' },
-		{ name: 'DATABASE_LOGGING', default: 'false' },
-		{ name: 'DATABASE_MIGRATIONS_RUN', default: 'false' },
-		{ name: 'DATABASE_SYNCHRONIZE', default: 'false' },
+		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
+		{ name: 'DB_LOGGING', default: 'false' },
+		{ name: 'DB_MIGRATIONS_RUN', default: 'false' },
+		{ name: 'DB_SYNCHRONIZE', default: 'false' },
 		{ name: 'NODE_OPTIONS', default: '(default Node settings)' },
 		{ name: 'PORT', default: '(defaults to HTTP_PORT)' },
 		{ name: 'LOG_LEVEL', default: 'info' },
@@ -41,11 +41,11 @@ const REQUIRED_VARS = TEST_CONFIG.required;
 
 const REQUIRED_VALUES: Record<string, string> = {
 	NODE_ENV: 'production',
-	DATABASE_HOST: 'localhost',
-	DATABASE_PORT: '5432',
-	DATABASE_USERNAME: 'user',
-	DATABASE_PASSWORD: 'password',
-	DATABASE_NAME: 'user_service',
+	DB_HOST: 'localhost',
+	DB_PORT: '5432',
+	DB_USERNAME: 'user',
+	DB_PASSWORD: 'password',
+	DB_NAME: 'user_service',
 	REDIS_DB: '1',
 	HTTP_PORT: '3000',
 	GRPC_PORT: '50051',
@@ -156,8 +156,8 @@ describe('runEnvChecks', () => {
 		it('should report the correct count of missing required variables', () => {
 			setAllRequired();
 			delete process.env.NODE_ENV;
-			delete process.env.DATABASE_HOST;
-			process.env.DATABASE_PORT = '';
+			delete process.env.DB_HOST;
+			process.env.DB_PORT = '';
 
 			expect(() => runEnvChecks(TEST_CONFIG)).toThrow('Missing required environment variables');
 
@@ -175,10 +175,10 @@ describe('runEnvChecks', () => {
 			setAllRequired();
 			runEnvChecks(TEST_CONFIG);
 
-			// Verify one of the optional vars (e.g. DATABASE_LOGGING)
+			// Verify one of the optional vars (e.g. DB_LOGGING)
 			expect(consoleWarnSpy).toHaveBeenCalledWith(
 				expect.stringContaining(
-					`${colors.yellow}⚠${colors.reset} DATABASE_LOGGING is NOT set (will use default: false)`
+					`${colors.yellow}⚠${colors.reset} DB_LOGGING is NOT set (will use default: false)`
 				)
 			);
 
@@ -188,13 +188,13 @@ describe('runEnvChecks', () => {
 
 		it('should log success when optional variable is set', () => {
 			setAllRequired();
-			process.env.DATABASE_LOGGING = 'true';
+			process.env.DB_LOGGING = 'true';
 			process.env.LOG_LEVEL = 'debug';
 
 			runEnvChecks(TEST_CONFIG);
 
 			expect(consoleLogSpy).toHaveBeenCalledWith(
-				expect.stringContaining(`${colors.green}✓${colors.reset} DATABASE_LOGGING is set`)
+				expect.stringContaining(`${colors.green}✓${colors.reset} DB_LOGGING is set`)
 			);
 			expect(consoleLogSpy).toHaveBeenCalledWith(
 				expect.stringContaining(`${colors.green}✓${colors.reset} LOG_LEVEL is set`)
