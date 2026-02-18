@@ -31,11 +31,11 @@ function parseDatabaseUrl(url: string): DatabaseConfig {
  */
 function getEnvDatabaseConfig(configService: ConfigService): DatabaseConfig {
 	return {
-		host: configService.get('DATABASE_HOST', 'localhost'),
-		port: configService.get('DATABASE_PORT', DEFAULT_POSTGRES_PORT),
-		username: configService.get('DATABASE_USERNAME', 'postgres'),
-		password: configService.get('DATABASE_PASSWORD', 'password'),
-		database: configService.get('DATABASE_NAME', 'user_service'),
+		host: configService.get('DB_HOST', 'localhost'),
+		port: configService.get('DB_PORT', DEFAULT_POSTGRES_PORT),
+		username: configService.get('DB_USERNAME', 'postgres'),
+		password: configService.get('DB_PASSWORD', 'password'),
+		database: configService.get('DB_NAME', 'user_service'),
 	};
 }
 
@@ -47,14 +47,14 @@ function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
 		// Entities, or Entity Schemas, to be loaded and used for this data source.
 		entities: [__dirname + '/**/*.entity{.ts,.js}'],
 		// Indicates if logging is enabled or not. If set to true then query and error logging will be enabled.
-		logging: configService.get('DATABASE_LOGGING', 'false') === 'true',
+		logging: configService.get('DB_LOGGING', 'false') === 'true',
 		// Migrations to be loaded and used for this data source
 		migrations: [__dirname + '/migrations/*{.ts,.js}'],
 		// Indicates if migrations should be auto-run on every application launch.
-		migrationsRun: configService.get('DATABASE_MIGRATIONS_RUN', 'false') === 'true',
+		migrationsRun: configService.get('DB_MIGRATIONS_RUN', 'false') === 'true',
 		// Indicates if database schema should be auto created on every application launch.
 		// Be careful with this option and don't use this in production - otherwise you can lose production data.
-		synchronize: configService.get('DATABASE_SYNCHRONIZE', 'false') === 'true',
+		synchronize: configService.get('DB_SYNCHRONIZE', 'false') === 'true',
 	};
 }
 
@@ -62,7 +62,7 @@ function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
  * Factory function to create TypeORM configuration based on environment
  */
 async function typeOrmModuleOptionsFactory(configService: ConfigService): Promise<TypeOrmModuleOptions> {
-	const databaseUrl = configService.get('DATABASE_URL');
+	const databaseUrl = configService.get('DB_URL');
 	const databaseConfig = databaseUrl ? parseDatabaseUrl(databaseUrl) : getEnvDatabaseConfig(configService);
 
 	const dataSourceOptions: DataSourceOptions = getDataSourceOptions(configService);
