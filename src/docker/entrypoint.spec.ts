@@ -11,6 +11,7 @@ jest.mock('./check-env', () => ({
 		optional: [],
 	},
 }));
+
 jest.mock('../main.js', () => ({}), { virtual: true });
 
 describe('Entrypoint', () => {
