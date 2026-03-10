@@ -118,4 +118,25 @@ describe('HealthController', () => {
 			await expect(controller.readiness()).rejects.toThrow(ServiceUnavailableException);
 		});
 	});
+
+	describe('alive', () => {
+		it('should return alive status with uptime and memory info', () => {
+			const result = controller.alive();
+
+			expect(result.status).toBe('alive');
+			expect(typeof result.timestamp).toBe('string');
+			expect(typeof result.uptime).toBe('number');
+			expect(result.memory).toBeDefined();
+		});
+	});
+
+	describe('check — missing branches', () => {
+		it('should mark cache as unhealthy when get returns unexpected value', async () => {
+			(dataSource.query as jest.Mock).mockResolvedValue([{ 1: 1 }]);
+			cacheService.set.mockResolvedValue(undefined);
+			cacheService.get.mockResolvedValue('unexpected');
+
+			await expect(controller.check()).rejects.toThrow(ServiceUnavailableException);
+		});
+	});
 });
