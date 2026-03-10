@@ -249,3 +249,34 @@ Then pass it as a number in `createJiraIssue`:
 
 - `mcp__atlassian__jiraRead` — requires an `action` enum parameter, not a free-form URL; not useful for agile/sprint endpoints.
 - `mcp__atlassian__fetch` — requires an `id` parameter; cannot be used for arbitrary REST calls.
+
+---
+
+## Task Tracking with Beads
+
+This repository uses **beads** (`bd`) — a git-backed, graph-based issue tracker optimised for AI agents — for local task tracking within a session or across long-horizon work.
+
+Beads uses a Dolt (version-controlled SQL) database and assigns each task a short hash ID (e.g. `bd-a1b2`) to avoid merge collisions in multi-agent workflows.
+
+### Key commands
+
+| Command | Purpose |
+|---------|---------|
+| `bd ready` | List tasks with no blocking dependencies (pick your next task here) |
+| `bd create "Title" -p 0` | Create a new task (`-p 0` = highest priority) |
+| `bd update <id> --claim` | Atomically assign the task to yourself and mark it in-progress |
+| `bd dep add <child> <parent>` | Declare that `<child>` depends on `<parent>` |
+| `bd show <id>` | Show task details and history |
+
+### Task hierarchy
+
+Tasks use dot notation: `bd-a3f8` (epic) → `bd-a3f8.1` (task) → `bd-a3f8.1.1` (subtask).
+
+### Workflow
+
+1. Run `bd ready` to see what is available.
+2. Run `bd update <id> --claim` to take ownership and start work.
+3. Use `bd dep add` to express blocking relationships between tasks.
+4. Close tasks with `bd update <id> --status done` when complete.
+
+Use beads for **in-session planning and subtask decomposition**. Jira remains the source of truth for sprint-level tickets.
