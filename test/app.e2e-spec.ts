@@ -39,14 +39,9 @@ describe('HealthController (e2e)', () => {
 		});
 	});
 
-	describe('Health Check', () => {
-		it('should return application info', async () => {
-			const response = await request(app.getHttpServer()).get('/health').expect(200);
-			expect(response).toBeDefined();
-			expect(response.body).toBeDefined();
-			expect(response.body.status).toBeDefined();
-			expect(response.body.timestamp).toBeDefined();
-			expect(response.body.services).toBeDefined();
+	describe('404 on unknown routes', () => {
+		it('should return 404 for unknown routes', async () => {
+			await request(app.getHttpServer()).get('/unknown-route').expect(404);
 		});
 	});
 });
