@@ -7,12 +7,10 @@ import {
 	OneToOne,
 	OneToMany,
 } from 'typeorm';
-import { PrivacySettings } from '../../privacy/privacy-settings.entity';
-import { Contact } from '../../contacts/contact.entity';
-import { BlockedUser } from '../../blocked-users/blocked-user.entity';
-import { Group } from '../../groups/group.entity';
-import { GroupMember } from '../../groups/group-member.entity';
-import { UserSearchIndex } from '../../search/entities/user-search-index.entity';
+
+// These modules are integrated in future tickets (WHISPR-319 to WHISPR-324).
+// Relations use lazy require() so TypeORM resolves them at runtime without
+// requiring the files to exist at compile time.
 
 @Entity({ name: 'users', schema: 'users' })
 export class User {
@@ -49,29 +47,44 @@ export class User {
 	@UpdateDateColumn()
 	updatedAt: Date;
 
-	@OneToOne(() => PrivacySettings, (privacySettings: PrivacySettings) => privacySettings.user, {
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToOne(() => require('../../privacy/privacy-settings.entity').PrivacySettings, (ps: any) => ps.user, {
 		cascade: true,
 	})
-	privacySettings: PrivacySettings;
+	privacySettings: any;
 
-	@OneToMany(() => Contact, (contact: Contact) => contact.user)
-	contacts: Contact[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(() => require('../../contacts/contact.entity').Contact, (c: any) => c.user)
+	contacts: any[];
 
-	@OneToMany(() => Contact, (contact: Contact) => contact.contactUser)
-	contactedBy: Contact[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(() => require('../../contacts/contact.entity').Contact, (c: any) => c.contactUser)
+	contactedBy: any[];
 
-	@OneToMany(() => BlockedUser, (blockedUser: BlockedUser) => blockedUser.user)
-	blockedUsers: BlockedUser[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(() => require('../../blocked-users/blocked-user.entity').BlockedUser, (b: any) => b.user)
+	blockedUsers: any[];
 
-	@OneToMany(() => BlockedUser, (blockedUser: BlockedUser) => blockedUser.blockedUser)
-	blockedBy: BlockedUser[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(
+		() => require('../../blocked-users/blocked-user.entity').BlockedUser,
+		(b: any) => b.blockedUser
+	)
+	blockedBy: any[];
 
-	@OneToMany(() => Group, (group: Group) => group.createdBy)
-	createdGroups: Group[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(() => require('../../groups/group.entity').Group, (g: any) => g.createdBy)
+	createdGroups: any[];
 
-	@OneToMany(() => GroupMember, (groupMember: GroupMember) => groupMember.user)
-	groupMemberships: GroupMember[];
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToMany(() => require('../../groups/group-member.entity').GroupMember, (gm: any) => gm.user)
+	groupMemberships: any[];
 
-	@OneToOne(() => UserSearchIndex, (searchIndex: UserSearchIndex) => searchIndex.user, { cascade: true })
-	searchIndex: UserSearchIndex;
+	// eslint-disable-next-line @typescript-eslint/no-require-imports
+	@OneToOne(
+		() => require('../../search/entities/user-search-index.entity').UserSearchIndex,
+		(si: any) => si.user,
+		{ cascade: true }
+	)
+	searchIndex: any;
 }
