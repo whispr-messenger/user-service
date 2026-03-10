@@ -1,9 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { typeOrmModuleAsyncOptions } from '../typeorm.config';
-import { CacheModule } from '../cache';
-import { HealthModule } from '../health/health.module';
+import { DatabaseConfig } from '../config/database.config';
 import { AccountsModule } from './accounts/accounts.module';
 
 @Module({
@@ -12,9 +10,9 @@ import { AccountsModule } from './accounts/accounts.module';
 			isGlobal: true,
 			envFilePath: ['.env.development', '.env.local', '.env'],
 		}),
-		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
-		CacheModule,
-		HealthModule,
+		TypeOrmModule.forRootAsync({
+			useClass: DatabaseConfig,
+		}),
 		AccountsModule,
 	],
 })
