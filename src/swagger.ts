@@ -10,6 +10,7 @@ function buildSwaggerDocument(port: number) {
 		.setVersion('1.0')
 		.addServer('https://whispr.epitech.beer', 'Production')
 		.addServer(`http://localhost:${port}`, 'Development')
+		.addBearerAuth()
 		.build();
 }
 
