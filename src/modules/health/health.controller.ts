@@ -45,7 +45,8 @@ export class HealthController {
 			this.logger.debug('Database check passed');
 		} catch (error) {
 			if (process.env.NODE_ENV !== 'test') {
-				this.logger.error('Database check failed:', error.message);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				this.logger.error('Database check failed:', errorMessage);
 			}
 			health.services.database = 'unhealthy';
 			health.status = 'error';
@@ -56,7 +57,8 @@ export class HealthController {
 			health.services.cache = 'healthy';
 		} catch (error) {
 			if (process.env.NODE_ENV !== 'test') {
-				this.logger.error('Cache check failed:', error.message);
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				this.logger.error('Cache check failed:', errorMessage);
 			}
 			health.services.cache = 'unhealthy';
 			health.status = 'error';
@@ -83,10 +85,11 @@ export class HealthController {
 			await this.checkCacheHealth();
 			return { status: 'ready' };
 		} catch (error) {
-			this.logger.error('Readiness check failed:', error.message);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			this.logger.error('Readiness check failed:', errorMessage);
 			throw new ServiceUnavailableException({
 				status: 'not ready',
-				error: error.message,
+				error: errorMessage,
 			});
 		}
 	}

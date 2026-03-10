@@ -24,7 +24,7 @@ export class AccountsController {
 	constructor(private readonly accountsService: AccountsService) {}
 
 	/**
-	 * Handles user.registered event from auth module
+	 * Handles user.registered event from auth-service
 	 * Creates a minimal user record in the users schema
 	 * This allows the auth module to create users without depending on the users module
 	 */
@@ -36,12 +36,13 @@ export class AccountsController {
 			const user = await this.accountsService.createFromEvent(event);
 			this.logger.log(`Successfully created user projection for ${user.id} (${user.phoneNumber})`);
 		} catch (error) {
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorStack = error instanceof Error ? error.stack : '';
 			this.logger.error(
-				`Failed to create user projection for ${event.userId}: ${error.message}`,
-				error.stack
+				`Failed to create user projection for ${event.userId}: ${errorMessage}`,
+				errorStack
 			);
-			// Don't throw - we don't want to block the auth module
-			// The event can be retried or handled via a dead letter queue
+			// Don't throw - The event can be retried or handled via a dead letter queue
 		}
 	}
 
