@@ -104,6 +104,10 @@ jobs:
           REDIS_PORT: 6379
           REDIS_URL: redis://localhost:6379/0
 
+      - name: Initialize database schemas
+        run: |
+          PGPASSWORD=test psql -h localhost -U test -d test_db -c "CREATE SCHEMA IF NOT EXISTS users; GRANT ALL ON SCHEMA users TO test;"
+
       - name: Run e2e tests
         run: npm run test:e2e
         env:

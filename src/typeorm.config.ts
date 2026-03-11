@@ -40,20 +40,12 @@ function getEnvDatabaseConfig(configService: ConfigService): DatabaseConfig {
 }
 
 function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
-	// https://typeorm.io/docs/data-source/data-source-options/
 	return {
-		// RDBMS type. You must specify what database engine you use
 		type: 'postgres',
-		// Entities, or Entity Schemas, to be loaded and used for this data source.
 		entities: [__dirname + '/**/*.entity{.ts,.js}'],
-		// Indicates if logging is enabled or not. If set to true then query and error logging will be enabled.
 		logging: configService.get('DB_LOGGING', 'false') === 'true',
-		// Migrations to be loaded and used for this data source
-		migrations: [__dirname + '/migrations/*{.ts,.js}'],
-		// Indicates if migrations should be auto-run on every application launch.
+		migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
 		migrationsRun: configService.get('DB_MIGRATIONS_RUN', 'false') === 'true',
-		// Indicates if database schema should be auto created on every application launch.
-		// Be careful with this option and don't use this in production - otherwise you can lose production data.
 		synchronize: configService.get('DB_SYNCHRONIZE', 'false') === 'true',
 	};
 }
@@ -64,7 +56,6 @@ function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
 async function typeOrmModuleOptionsFactory(configService: ConfigService): Promise<TypeOrmModuleOptions> {
 	const databaseUrl = configService.get('DB_URL');
 	const databaseConfig = databaseUrl ? parseDatabaseUrl(databaseUrl) : getEnvDatabaseConfig(configService);
-
 	const dataSourceOptions: DataSourceOptions = getDataSourceOptions(configService);
 
 	return {
