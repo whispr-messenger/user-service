@@ -122,7 +122,6 @@
 			"modules/blocked-users/",
 			"modules/contacts/",
 			"modules/groups/",
-			"modules/privacy/",
 			"modules/search/"
 		],
 		"roots": [
