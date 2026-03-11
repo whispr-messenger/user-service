@@ -5,6 +5,7 @@ import { typeOrmModuleAsyncOptions } from '../typeorm.config';
 import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
+import { ProfileModule } from './profile/profile.module';
 
 @Module({
 	imports: [
@@ -16,6 +17,7 @@ import { AccountsModule } from './accounts/accounts.module';
 		CacheModule,
 		HealthModule,
 		AccountsModule,
+		ProfileModule,
 	],
 })
 export class AppModule {}
