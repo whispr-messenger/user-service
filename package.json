@@ -119,7 +119,6 @@
 		"testEnvironment": "node",
 		"testPathIgnorePatterns": [
 			"/node_modules/",
-			"modules/blocked-users/",
 			"modules/groups/",
 			"modules/search/"
 		],
