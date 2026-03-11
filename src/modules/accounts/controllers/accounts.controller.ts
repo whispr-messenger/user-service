@@ -2,10 +2,10 @@ import { Controller, Patch, Param, Delete, ParseUUIDPipe, HttpStatus, Logger } f
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
-import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from 'src/modules/shared/events';
+import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from '../../shared/events';
 
 /**
- * UsersController - Manages core user identity and lifecycle endpoints
+ * AccountsController - Manages core user identity and lifecycle endpoints
  *
  * Handles:
  * - User listing and retrieval

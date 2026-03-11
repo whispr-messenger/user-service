@@ -3,7 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
-import { UserCreatedEvent, UserDeactivatedEvent } from '../events';
+import { UserCreatedEvent } from '../events';
 
 /**
  * AccountsService - Manages core user identity and lifecycle
@@ -71,8 +71,6 @@ export class AccountsService {
 			)
 		);
 
-		// Publish user.deactivated event for projections
-		this.eventsClient.emit('user.deactivated', new UserDeactivatedEvent(user.id, new Date()));
 		return user;
 	}
 

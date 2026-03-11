@@ -39,6 +39,12 @@ describe('HealthController (e2e)', () => {
 		});
 	});
 
+	describe('Health endpoints', () => {
+		it('GET /health/live should return 200', async () => {
+			await request(app.getHttpServer()).get('/health/live').expect(200);
+		});
+	});
+
 	describe('404 on unknown routes', () => {
 		it('should return 404 for unknown routes', async () => {
 			await request(app.getHttpServer()).get('/unknown-route').expect(404);

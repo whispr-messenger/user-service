@@ -225,8 +225,8 @@ export class SearchIndexService {
 	}> {
 		try {
 			const [phoneCount, usernameCount, nameIndexKeys, cachedUserKeys] = await Promise.all([
-				this.cacheService.get<number>(`${this.PHONE_INDEX_KEY}:count`) || 0,
-				this.cacheService.get<number>(`${this.USERNAME_INDEX_KEY}:count`) || 0,
+				this.cacheService.get<number>(`${this.PHONE_INDEX_KEY}:count`).then((v) => v ?? 0),
+				this.cacheService.get<number>(`${this.USERNAME_INDEX_KEY}:count`).then((v) => v ?? 0),
 				this.cacheService.keys(`${this.NAME_INDEX_KEY}:*`),
 				this.cacheService.keys(`${this.USER_CACHE_PREFIX}:*`),
 			]);
