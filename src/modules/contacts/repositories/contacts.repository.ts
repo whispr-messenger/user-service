@@ -1,0 +1,33 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Contact } from '../entities/contact.entity';
+
+@Injectable()
+export class ContactsRepository {
+	constructor(
+		@InjectRepository(Contact)
+		private readonly repo: Repository<Contact>
+	) {}
+
+	async findAllByOwner(ownerId: string): Promise<Contact[]> {
+		return this.repo.find({ where: { ownerId } });
+	}
+
+	async findOne(ownerId: string, contactId: string): Promise<Contact | null> {
+		return this.repo.findOne({ where: { ownerId, contactId } });
+	}
+
+	async create(ownerId: string, contactId: string, nickname?: string): Promise<Contact> {
+		const contact = this.repo.create({ ownerId, contactId, nickname: nickname ?? null });
+		return this.repo.save(contact);
+	}
+
+	async save(contact: Contact): Promise<Contact> {
+		return this.repo.save(contact);
+	}
+
+	async remove(contact: Contact): Promise<void> {
+		await this.repo.remove(contact);
+	}
+}
