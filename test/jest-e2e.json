@@ -8,7 +8,13 @@
   },
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",
-    "^src/(.*)$": "<rootDir>/../src/$1"
+    "^src/(.*)$": "<rootDir>/../src/$1",
+    "^../../privacy/privacy-settings\\.entity$": "<rootDir>/stubs/entity.stub.ts",
+    "^../../contacts/contact\\.entity$": "<rootDir>/stubs/entity.stub.ts",
+    "^../../blocked-users/blocked-user\\.entity$": "<rootDir>/stubs/entity.stub.ts",
+    "^../../groups/group\\.entity$": "<rootDir>/stubs/entity.stub.ts",
+    "^../../groups/group-member\\.entity$": "<rootDir>/stubs/entity.stub.ts",
+    "^../../search/entities/user-search-index\\.entity$": "<rootDir>/stubs/entity.stub.ts"
   },
   "setupFilesAfterEnv": ["<rootDir>/setup-e2e.ts"],
   "testTimeout": 60000,

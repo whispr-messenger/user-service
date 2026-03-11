@@ -54,3 +54,6 @@ build/
 
 # Redis dump
 dump.rdb
+
+# Dolt database files (added by bd init)
+.dolt/

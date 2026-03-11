@@ -10,6 +10,7 @@ echo "Running end to end tests"
 echo "----------------------------------------------------------------------------------------------------"
 echo ""
 
+npm run test:e2e:docker:cleanup
 npm run test:e2e:docker
 
 echo ""
