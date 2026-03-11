@@ -18,4 +18,8 @@ GRANT ALL PRIVILEGES ON DATABASE testing TO dev_user;
 GRANT CREATE ON SCHEMA public TO dev_user;
 GRANT USAGE ON SCHEMA public TO dev_user;
 
+-- Créer le schéma applicatif
+CREATE SCHEMA IF NOT EXISTS users;
+GRANT ALL ON SCHEMA users TO dev_user;
+
 ---
