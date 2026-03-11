@@ -123,7 +123,6 @@
 			"modules/contacts/",
 			"modules/groups/",
 			"modules/privacy/",
-			"modules/profile/",
 			"modules/search/"
 		],
 		"roots": [
