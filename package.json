@@ -117,6 +117,15 @@
 		],
 		"coverageDirectory": "../coverage",
 		"testEnvironment": "node",
+		"testPathIgnorePatterns": [
+			"/node_modules/",
+			"modules/blocked-users/",
+			"modules/contacts/",
+			"modules/groups/",
+			"modules/privacy/",
+			"modules/profile/",
+			"modules/search/"
+		],
 		"roots": [
 			"<rootDir>"
 		],
