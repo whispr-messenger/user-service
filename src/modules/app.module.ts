@@ -6,6 +6,7 @@ import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { ProfileModule } from './profile/profile.module';
+import { PrivacyModule } from './privacy/privacy.module';
 
 @Module({
 	imports: [
@@ -18,6 +19,7 @@ import { ProfileModule } from './profile/profile.module';
 		HealthModule,
 		AccountsModule,
 		ProfileModule,
+		PrivacyModule,
 	],
 })
 export class AppModule {}
