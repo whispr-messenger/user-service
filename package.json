@@ -120,7 +120,6 @@
 		"testPathIgnorePatterns": [
 			"/node_modules/",
 			"modules/blocked-users/",
-			"modules/contacts/",
 			"modules/groups/",
 			"modules/search/"
 		],
