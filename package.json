@@ -119,8 +119,7 @@
 		"coverageDirectory": "../coverage",
 		"testEnvironment": "node",
 		"testPathIgnorePatterns": [
-			"/node_modules/",
-			"modules/search/"
+			"/node_modules/"
 		],
 		"roots": [
 			"<rootDir>"
