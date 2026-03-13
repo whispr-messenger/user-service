@@ -6,6 +6,7 @@ import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
 import { User } from '../../common/entities/user.entity';
 import { AddContactDto } from '../dto/add-contact.dto';
+import { UpdateContactDto } from '../dto/update-contact.dto';
 
 const mockUser = (id: string = 'uuid-1'): User =>
 	({
@@ -52,6 +53,7 @@ describe('ContactsService', () => {
 						findAllByOwner: jest.fn(),
 						findOne: jest.fn(),
 						create: jest.fn(),
+						save: jest.fn(),
 						remove: jest.fn(),
 					},
 				},
@@ -149,6 +151,43 @@ describe('ContactsService', () => {
 
 			await expect(service.addContact('uuid-1', { contactId: 'uuid-2' })).rejects.toThrow(
 				ConflictException
+			);
+		});
+	});
+
+	describe('updateContact', () => {
+		it('updates and returns the contact', async () => {
+			const owner = mockUser('uuid-1');
+			const contact = mockContact();
+			const dto: UpdateContactDto = { nickname: 'Updated' };
+			const saved = { ...contact, nickname: 'Updated' } as Contact;
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(contact);
+			contactsRepository.save.mockResolvedValue(saved);
+
+			const result = await service.updateContact('uuid-1', 'uuid-2', dto);
+
+			expect(contactsRepository.save).toHaveBeenCalledWith(expect.objectContaining(dto));
+			expect(result).toBe(saved);
+		});
+
+		it('throws NotFoundException when owner does not exist', async () => {
+			userRepository.findById.mockResolvedValue(null);
+
+			await expect(service.updateContact('uuid-1', 'uuid-2', { nickname: 'X' })).rejects.toThrow(
+				NotFoundException
+			);
+		});
+
+		it('throws NotFoundException when contact does not exist', async () => {
+			const owner = mockUser('uuid-1');
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(null);
+
+			await expect(service.updateContact('uuid-1', 'uuid-2', { nickname: 'X' })).rejects.toThrow(
+				NotFoundException
 			);
 		});
 	});

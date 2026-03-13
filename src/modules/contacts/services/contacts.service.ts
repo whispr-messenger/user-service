@@ -3,6 +3,7 @@ import { UserRepository } from '../../common/repositories';
 import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
 import { AddContactDto } from '../dto/add-contact.dto';
+import { UpdateContactDto } from '../dto/update-contact.dto';
 
 @Injectable()
 export class ContactsService {
@@ -37,6 +38,18 @@ export class ContactsService {
 		}
 
 		return this.contactsRepository.create(ownerId, dto.contactId, dto.nickname);
+	}
+
+	async updateContact(ownerId: string, contactId: string, dto: UpdateContactDto): Promise<Contact> {
+		await this.ensureUserExists(ownerId);
+
+		const contact = await this.contactsRepository.findOne(ownerId, contactId);
+		if (!contact) {
+			throw new NotFoundException('Contact not found');
+		}
+
+		Object.assign(contact, dto);
+		return this.contactsRepository.save(contact);
 	}
 
 	async removeContact(ownerId: string, contactId: string): Promise<void> {

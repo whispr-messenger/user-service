@@ -30,4 +30,9 @@ export class ContactsRepository {
 	async remove(contact: Contact): Promise<void> {
 		await this.repo.remove(contact);
 	}
+
+	async isContact(ownerId: string, contactId: string): Promise<boolean> {
+		const count = await this.repo.count({ where: { ownerId, contactId } });
+		return count > 0;
+	}
 }
