@@ -4,7 +4,9 @@ import { DataSource } from 'typeorm';
 import { ServiceUnavailableException } from '@nestjs/common';
 import { CacheService } from '../cache';
 import { RedisConfig } from '../../config/redis.config';
+import { Public } from '../jwt-auth/public.decorator';
 
+@Public()
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {
