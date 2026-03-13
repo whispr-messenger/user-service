@@ -12,6 +12,7 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		'REDIS_DB',
 		'HTTP_PORT',
 		'GRPC_PORT',
+		'JWT_JWKS_URL',
 	],
 	optional: [
 		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
