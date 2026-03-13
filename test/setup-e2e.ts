@@ -5,6 +5,7 @@ import { Test } from '@nestjs/testing';
 beforeAll(async () => {
 	process.env.NODE_ENV = 'test';
 	process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-jwt-secret';
+	process.env.JWT_JWKS_URL = process.env.JWT_JWKS_URL || 'http://localhost/.well-known/jwks.json';
 	process.env.HTTP_PORT = process.env.HTTP_PORT || '3000';
 	process.env.DB_SYNCHRONIZE = process.env.DB_SYNCHRONIZE || 'true';
 	process.env.DB_LOGGING = process.env.DB_LOGGING || 'false';

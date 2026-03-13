@@ -60,6 +60,7 @@ services:
       REDIS_PORT: 6379
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: test-jwt-secret
+      JWT_JWKS_URL: http://localhost/.well-known/jwks.json
       HTTP_PORT: 3000
     networks:
       - test-network

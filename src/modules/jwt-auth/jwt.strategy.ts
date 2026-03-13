@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ExtractJwt, SecretOrKeyProvider, Strategy } from 'passport-jwt';
 import { JwksService } from './jwks.service';
 
 export interface JwtPayload {
@@ -15,7 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 	constructor(private readonly jwksService: JwksService) {
 		super({
 			jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
-			secretOrKeyProvider: jwksService.getSecretProvider(),
+			secretOrKeyProvider: jwksService.getSecretProvider() as unknown as SecretOrKeyProvider,
 			algorithms: ['ES256'],
 		});
 	}
