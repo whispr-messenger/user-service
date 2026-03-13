@@ -120,7 +120,6 @@
 		"testEnvironment": "node",
 		"testPathIgnorePatterns": [
 			"/node_modules/",
-			"modules/groups/",
 			"modules/search/"
 		],
 		"roots": [
