@@ -10,6 +10,6 @@ import { BlockedUsersController } from './controllers/blocked-users.controller';
 	imports: [CommonModule, TypeOrmModule.forFeature([BlockedUser])],
 	controllers: [BlockedUsersController],
 	providers: [BlockedUsersService, BlockedUsersRepository],
-	exports: [BlockedUsersService],
+	exports: [BlockedUsersService, BlockedUsersRepository],
 })
 export class BlockedUsersModule {}

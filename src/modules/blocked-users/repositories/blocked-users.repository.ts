@@ -26,4 +26,14 @@ export class BlockedUsersRepository {
 	async remove(blockedUser: BlockedUser): Promise<void> {
 		await this.repo.remove(blockedUser);
 	}
+
+	async isBlockedEitherWay(userA: string, userB: string): Promise<boolean> {
+		const count = await this.repo.count({
+			where: [
+				{ blockerId: userA, blockedId: userB },
+				{ blockerId: userB, blockedId: userA },
+			],
+		});
+		return count > 0;
+	}
 }

@@ -9,6 +9,7 @@ import { ProfileModule } from './profile/profile.module';
 import { PrivacyModule } from './privacy/privacy.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
 	imports: [
@@ -24,6 +25,7 @@ import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 		PrivacyModule,
 		ContactsModule,
 		BlockedUsersModule,
+		SearchModule,
 	],
 })
 export class AppModule {}

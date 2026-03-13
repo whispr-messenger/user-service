@@ -10,6 +10,6 @@ import { PrivacyController } from './controllers/privacy.controller';
 	imports: [CommonModule, TypeOrmModule.forFeature([PrivacySettings])],
 	controllers: [PrivacyController],
 	providers: [PrivacyService, PrivacySettingsRepository],
-	exports: [PrivacyService],
+	exports: [PrivacyService, PrivacySettingsRepository],
 })
 export class PrivacyModule {}
