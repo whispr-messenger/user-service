@@ -127,7 +127,11 @@ export class ProfileService {
 	}
 
 	public async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
-		const user = await this.findOne(id);
+		let user = await this.userRepository.findById(id);
+
+		if (!user) {
+			user = await this.userRepository.create({ id });
+		}
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);

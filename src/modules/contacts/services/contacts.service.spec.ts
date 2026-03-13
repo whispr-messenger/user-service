@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { ContactsService } from './contacts.service';
 import { UserRepository } from '../../common/repositories';
 import { ContactsRepository } from '../repositories/contacts.repository';
@@ -55,6 +56,12 @@ describe('ContactsService', () => {
 						create: jest.fn(),
 						save: jest.fn(),
 						remove: jest.fn(),
+					},
+				},
+				{
+					provide: ConfigService,
+					useValue: {
+						get: jest.fn().mockReturnValue('https://whispr.app'),
 					},
 				},
 			],

@@ -120,6 +120,18 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', false);
 		});
 
+		it('emits user.deactivated event after deactivation', async () => {
+			userRepository.findById.mockResolvedValue(mockUser());
+			userRepository.updateStatus.mockResolvedValue(undefined);
+
+			await service.deactivate('uuid-1');
+
+			expect(eventsClient.emit).toHaveBeenCalledWith(
+				'user.deactivated',
+				expect.objectContaining({ userId: 'uuid-1' })
+			);
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 

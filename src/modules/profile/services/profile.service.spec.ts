@@ -74,6 +74,7 @@ describe('ProfileService', () => {
 						findByUsernameInsensitive: jest.fn(),
 						findByPhoneNumber: jest.fn(),
 						save: jest.fn(),
+						create: jest.fn(),
 					},
 				},
 				{
@@ -221,10 +222,19 @@ describe('ProfileService', () => {
 			expect(result).toBe(saved);
 		});
 
-		it('throws NotFoundException when user does not exist', async () => {
-			userRepository.findById.mockResolvedValue(null);
+		it('creates a new profile when user does not exist', async () => {
+			const created = mockUser({ id: 'uuid-1', firstName: null, lastName: null });
+			const dto: UpdateProfileDto = { firstName: 'Alice' };
+			const saved = { ...created, ...dto } as User;
 
-			await expect(service.updateProfile('uuid-1', {})).rejects.toThrow(NotFoundException);
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+			userRepository.save.mockResolvedValue(saved);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(userRepository.create).toHaveBeenCalledWith({ id: 'uuid-1' });
+			expect(result).toBe(saved);
 		});
 
 		it('throws ConflictException when username is already taken by another user', async () => {

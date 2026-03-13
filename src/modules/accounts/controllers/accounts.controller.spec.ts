@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AccountsController } from './accounts.controller';
 import { AccountsService } from '../services/accounts.service';
-import { UserRegisteredEvent } from 'src/modules/shared/events';
+import { UserRegisteredEvent } from '../../shared/events';
 
 const mockAccountsService = (): jest.Mocked<AccountsService> =>
 	({

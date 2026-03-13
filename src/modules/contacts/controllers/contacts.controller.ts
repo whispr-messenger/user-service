@@ -22,6 +22,21 @@ import { Contact } from '../entities/contact.entity';
 export class ContactsController {
 	constructor(private readonly contactsService: ContactsService) {}
 
+	@Get('qr/:userId')
+	@ApiOperation({ summary: 'Get shareable contact QR payload for a user' })
+	@ApiParam({
+		name: 'userId',
+		type: 'string',
+		format: 'uuid',
+		description: 'User ID to generate QR payload for',
+	})
+	@ApiResponse({ status: HttpStatus.OK, description: 'QR payload generated successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	async getContactQr(@Param('userId', ParseUUIDPipe) userId: string) {
+		return this.contactsService.getContactQr(userId);
+	}
+
 	@Get(':ownerId')
 	@ApiOperation({ summary: 'Get all contacts for a user' })
 	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })

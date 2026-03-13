@@ -3,7 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
-import { UserCreatedEvent } from '../events';
+import { UserCreatedEvent, UserDeactivatedEvent } from '../events';
 
 /**
  * AccountsService - Manages core user identity and lifecycle
@@ -81,6 +81,8 @@ export class AccountsService {
 	public async deactivate(id: string): Promise<void> {
 		await this.findOne(id);
 		await this.userRepository.updateStatus(id, false);
+
+		this.eventsClient.emit('user.deactivated', new UserDeactivatedEvent(id, new Date()));
 	}
 
 	public async activate(id: string): Promise<void> {

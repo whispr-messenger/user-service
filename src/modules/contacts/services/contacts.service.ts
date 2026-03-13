@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UserRepository } from '../../common/repositories';
 import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
@@ -9,7 +10,8 @@ import { UpdateContactDto } from '../dto/update-contact.dto';
 export class ContactsService {
 	constructor(
 		private readonly userRepository: UserRepository,
-		private readonly contactsRepository: ContactsRepository
+		private readonly contactsRepository: ContactsRepository,
+		private readonly configService: ConfigService
 	) {}
 
 	private async ensureUserExists(userId: string): Promise<void> {
@@ -61,5 +63,31 @@ export class ContactsService {
 		}
 
 		await this.contactsRepository.remove(contact);
+	}
+
+	async getContactQr(userId: string): Promise<{
+		userId: string;
+		username: string | null;
+		displayName: string | null;
+		profilePictureUrl: string | null;
+		deepLink: string;
+	}> {
+		const user = await this.userRepository.findById(userId);
+		if (!user) {
+			throw new NotFoundException('User not found');
+		}
+
+		const baseUrl = this.configService.get<string>('APP_DEEP_LINK_BASE', 'https://whispr.app');
+		const deepLink = `${baseUrl}/contact/${userId}`;
+
+		const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || null;
+
+		return {
+			userId: user.id,
+			username: user.username,
+			displayName,
+			profilePictureUrl: user.profilePictureUrl,
+			deepLink,
+		};
 	}
 }
