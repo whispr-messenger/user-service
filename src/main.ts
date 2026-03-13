@@ -21,7 +21,7 @@ async function bootstrap() {
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
-	const port = configService.get<number>('HTTP_PORT', 3002);
+	const port = configService.get<number>('HTTP_PORT', 3011);
 	const globalPrefix = 'user';
 
 	app.setGlobalPrefix(globalPrefix);

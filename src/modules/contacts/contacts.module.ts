@@ -10,6 +10,6 @@ import { ContactsController } from './controllers/contacts.controller';
 	imports: [CommonModule, TypeOrmModule.forFeature([Contact])],
 	controllers: [ContactsController],
 	providers: [ContactsService, ContactsRepository],
-	exports: [ContactsService],
+	exports: [ContactsService, ContactsRepository],
 })
 export class ContactsModule {}
