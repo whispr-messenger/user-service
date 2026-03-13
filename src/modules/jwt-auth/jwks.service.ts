@@ -1,16 +1,17 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import JwksRsa from 'jwks-rsa';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const jwksRsa = require('jwks-rsa');
 
 @Injectable()
 export class JwksService implements OnModuleInit {
 	private readonly logger = new Logger(JwksService.name);
 	private readonly jwksUrl: string;
-	private readonly client: JwksRsa.JwksClient;
+	private readonly client: { getKeys(): Promise<unknown[]> };
 
 	constructor(private readonly configService: ConfigService) {
 		this.jwksUrl = this.configService.getOrThrow<string>('JWT_JWKS_URL');
-		this.client = new JwksRsa.JwksClient({
+		this.client = new jwksRsa.JwksClient({
 			jwksUri: this.jwksUrl,
 			cache: true,
 			cacheMaxAge: 60 * 60 * 1000, // 1 hour
@@ -27,8 +28,12 @@ export class JwksService implements OnModuleInit {
 		}
 	}
 
-	getSecretProvider(): JwksRsa.SecretCallbackLong {
-		return JwksRsa.passportJwtSecret({
+	getSecretProvider(): (
+		req: unknown,
+		rawJwtToken: unknown,
+		done: (err: unknown, secret?: unknown) => void
+	) => void {
+		return jwksRsa.passportJwtSecret({
 			jwksUri: this.jwksUrl,
 			cache: true,
 			cacheMaxAge: 60 * 60 * 1000,
