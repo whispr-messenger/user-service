@@ -11,6 +11,7 @@ import { PrivacyModule } from './privacy/privacy.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { GroupsModule } from './groups/groups.module';
+import { UserSearchModule } from './search/user-search.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -30,6 +31,7 @@ import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 		ContactsModule,
 		BlockedUsersModule,
 		GroupsModule,
+		UserSearchModule,
 	],
 	providers: [
 		{
