@@ -34,7 +34,7 @@ jobs:
     uses: ./.github/workflows/tests.yml
     with:
       ref: ${{ github.ref }}
-      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      should_deploy: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod') && github.event_name == 'push' }}
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -47,16 +47,16 @@ jobs:
     uses: ./.github/workflows/trivy.yml
     with:
       ref: ${{ github.ref }}
-      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      should_deploy: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod') && github.event_name == 'push' }}
 
   # ================================
   # Docker Build
   # ================================
   docker:
     name: 📦 Container Registry
-    needs: [tests, security]
-    if: success()
+    needs: [security]
+    if: ${{ needs.security.result == 'success' }}
     uses: ./.github/workflows/docker.yml
     with:
       ref: ${{ github.ref }}
-      should_deploy: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+      should_deploy: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod') && github.event_name == 'push' }}

@@ -131,6 +131,7 @@ jobs:
             type=ref,event=branch
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=stable,enable={{is_default_branch}}
+            type=raw,value=deploy-preprod,enable=${{ github.ref == 'refs/heads/deploy/preprod' }}
             type=raw,value={{date 'YYYY.MM.DD'}},enable={{is_default_branch}}
           labels: |
             org.opencontainers.image.title=User Service
