@@ -1,6 +1,7 @@
 import { Controller, Patch, Param, Delete, ParseUUIDPipe, HttpStatus, Logger } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
+import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from '../../shared/events';
 
@@ -21,7 +22,10 @@ import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from '../../shared/
 export class AccountsController {
 	private readonly logger = new Logger(AccountsController.name);
 
-	constructor(private readonly accountsService: AccountsService) {}
+	constructor(
+		private readonly accountsService: AccountsService,
+		private readonly userRegisteredRetryService: UserRegisteredRetryService
+	) {}
 
 	/**
 	 * Handles user.registered event from auth-service
@@ -31,19 +35,7 @@ export class AccountsController {
 	@MessagePattern(USER_REGISTERED_PATTERN)
 	async createUserAccount(@Payload() event: UserRegisteredEvent): Promise<void> {
 		this.logger.log(`Received ${USER_REGISTERED_PATTERN} event for user ${event.userId}`);
-
-		try {
-			const user = await this.accountsService.createFromEvent(event);
-			this.logger.log(`Successfully created user projection for ${user.id} (${user.phoneNumber})`);
-		} catch (error) {
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			const errorStack = error instanceof Error ? error.stack : '';
-			this.logger.error(
-				`Failed to create user projection for ${event.userId}: ${errorMessage}`,
-				errorStack
-			);
-			// Don't throw - The event can be retried or handled via a dead letter queue
-		}
+		await this.userRegisteredRetryService.handleWithRetry(event);
 	}
 
 	@Patch(':id/last-seen')

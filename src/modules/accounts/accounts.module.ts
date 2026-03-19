@@ -3,6 +3,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccountsController } from './controllers/accounts.controller';
 import { AccountsService } from './services/accounts.service';
+import { UserRegisteredRetryService } from './services/user-registered-retry.service';
 import { CommonModule } from '../common/common.module';
 
 /**
@@ -38,7 +39,7 @@ import { CommonModule } from '../common/common.module';
 		]),
 	],
 	controllers: [AccountsController],
-	providers: [AccountsService],
+	providers: [AccountsService, UserRegisteredRetryService],
 	exports: [AccountsService],
 })
 export class AccountsModule {}
