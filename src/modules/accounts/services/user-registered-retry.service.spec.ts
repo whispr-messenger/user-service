@@ -107,7 +107,7 @@ describe('UserRegisteredRetryService', () => {
 
 	it('uses exponential backoff delays between retries', async () => {
 		const delays: number[] = [];
-		jest.spyOn(global, 'setTimeout').mockImplementation((fn: any, ms?: number) => {
+		jest.spyOn(globalThis, 'setTimeout').mockImplementation((fn: any, ms?: number) => {
 			delays.push(ms ?? 0);
 			fn();
 			return {} as any;

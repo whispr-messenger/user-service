@@ -61,6 +61,6 @@ export class UserRegisteredRetryService {
 	}
 
 	private sleep(ms: number): Promise<void> {
-		return new Promise((resolve) => setTimeout(resolve, ms));
+		return new Promise((resolve) => globalThis.setTimeout(resolve, ms));
 	}
 }
