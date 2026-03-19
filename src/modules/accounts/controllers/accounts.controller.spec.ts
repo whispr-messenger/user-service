@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { AccountsController } from './accounts.controller';
 import { AccountsService } from '../services/accounts.service';
+import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
 import { UserRegisteredEvent } from 'src/modules/shared/events';
 
 const mockAccountsService = (): jest.Mocked<AccountsService> =>
@@ -13,39 +14,44 @@ const mockAccountsService = (): jest.Mocked<AccountsService> =>
 		remove: jest.fn(),
 	}) as unknown as jest.Mocked<AccountsService>;
 
+const mockUserRegisteredRetryService = (): jest.Mocked<UserRegisteredRetryService> =>
+	({ handleWithRetry: jest.fn() }) as unknown as jest.Mocked<UserRegisteredRetryService>;
+
 describe('AccountsController', () => {
 	let controller: AccountsController;
 	let accountsService: jest.Mocked<AccountsService>;
+	let retryService: jest.Mocked<UserRegisteredRetryService>;
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AccountsController],
-			providers: [{ provide: AccountsService, useFactory: mockAccountsService }],
+			providers: [
+				{ provide: AccountsService, useFactory: mockAccountsService },
+				{ provide: UserRegisteredRetryService, useFactory: mockUserRegisteredRetryService },
+			],
 		}).compile();
 
 		controller = module.get<AccountsController>(AccountsController);
 		accountsService = module.get(AccountsService);
+		retryService = module.get(UserRegisteredRetryService);
 	});
 
 	describe('createUserAccount', () => {
 		const event: UserRegisteredEvent = new UserRegisteredEvent('uuid-1', '+33600000001');
 
-		it('calls createFromEvent and returns nothing on success', async () => {
-			accountsService.createFromEvent.mockResolvedValue({
-				id: 'uuid-1',
-				phoneNumber: '+33600000001',
-			} as any);
+		it('delegates to userRegisteredRetryService.handleWithRetry', async () => {
+			retryService.handleWithRetry.mockResolvedValue(undefined);
 
 			const result = await controller.createUserAccount(event);
 
-			expect(accountsService.createFromEvent).toHaveBeenCalledWith(event);
+			expect(retryService.handleWithRetry).toHaveBeenCalledWith(event);
 			expect(result).toBeUndefined();
 		});
 
-		it('swallows errors thrown by createFromEvent without rethrowing', async () => {
-			accountsService.createFromEvent.mockRejectedValue(new Error('DB failure'));
+		it('resolves without throwing when retry service rejects', async () => {
+			retryService.handleWithRetry.mockRejectedValue(new Error('unexpected'));
 
-			await expect(controller.createUserAccount(event)).resolves.toBeUndefined();
+			await expect(controller.createUserAccount(event)).rejects.toThrow('unexpected');
 		});
 	});
 
