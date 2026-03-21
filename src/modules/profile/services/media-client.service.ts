@@ -56,10 +56,7 @@ export class MediaClientService {
 			});
 		} catch (err) {
 			this.logger.error(`Failed to reach media-service: ${(err as Error).message}`);
-			throw new HttpException(
-				'Media service unavailable',
-				HttpStatus.SERVICE_UNAVAILABLE
-			);
+			throw new HttpException('Media service unavailable', HttpStatus.SERVICE_UNAVAILABLE);
 		}
 
 		if (res.status === 404) {
@@ -68,10 +65,7 @@ export class MediaClientService {
 
 		if (!res.ok) {
 			this.logger.error(`Media service returned ${res.status}`);
-			throw new HttpException(
-				'Failed to retrieve media metadata',
-				HttpStatus.BAD_GATEWAY
-			);
+			throw new HttpException('Failed to retrieve media metadata', HttpStatus.BAD_GATEWAY);
 		}
 
 		const body = (await res.json()) as MediaMetadata;

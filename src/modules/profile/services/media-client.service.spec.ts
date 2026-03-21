@@ -72,15 +72,16 @@ describe('MediaClientService', () => {
 				status: 404,
 			});
 
-			await expect(service.getMediaMetadata('bad-id', 'user-1')).rejects.toThrow(
-				HttpException
-			);
+			await expect(service.getMediaMetadata('bad-id', 'user-1')).rejects.toThrow(HttpException);
 
-			try {
-				await service.getMediaMetadata('bad-id', 'user-1');
-			} catch (err) {
-				expect((err as HttpException).getStatus()).toBe(HttpStatus.NOT_FOUND);
-			}
+			mockFetch.mockResolvedValue({
+				ok: false,
+				status: 404,
+			});
+
+			await expect(service.getMediaMetadata('bad-id', 'user-1')).rejects.toMatchObject({
+				status: HttpStatus.NOT_FOUND,
+			});
 		});
 
 		it('throws HttpException BAD_GATEWAY on non-404 error', async () => {
@@ -89,23 +90,17 @@ describe('MediaClientService', () => {
 				status: 500,
 			});
 
-			try {
-				await service.getMediaMetadata('media-1', 'user-1');
-				fail('Expected exception');
-			} catch (err) {
-				expect((err as HttpException).getStatus()).toBe(HttpStatus.BAD_GATEWAY);
-			}
+			await expect(service.getMediaMetadata('media-1', 'user-1')).rejects.toMatchObject({
+				status: HttpStatus.BAD_GATEWAY,
+			});
 		});
 
 		it('throws HttpException SERVICE_UNAVAILABLE on network error', async () => {
 			mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
 
-			try {
-				await service.getMediaMetadata('media-1', 'user-1');
-				fail('Expected exception');
-			} catch (err) {
-				expect((err as HttpException).getStatus()).toBe(HttpStatus.SERVICE_UNAVAILABLE);
-			}
+			await expect(service.getMediaMetadata('media-1', 'user-1')).rejects.toMatchObject({
+				status: HttpStatus.SERVICE_UNAVAILABLE,
+			});
 		});
 	});
 });

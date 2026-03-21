@@ -30,7 +30,7 @@ jobs:
           ref: ${{ inputs.ref || github.event.client_payload.ref }}
 
       - name: Run Trivy filesystem scan
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@0.35.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
