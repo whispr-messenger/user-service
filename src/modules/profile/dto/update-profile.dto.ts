@@ -1,4 +1,4 @@
-import { IsString, IsOptional, MaxLength, IsUrl } from 'class-validator';
+import { IsString, IsOptional, IsUUID, MaxLength, IsUrl } from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdateProfileDto {
@@ -30,4 +30,14 @@ export class UpdateProfileDto {
 	@IsUrl()
 	@MaxLength(500)
 	profilePictureUrl?: string;
+
+	@ApiPropertyOptional({
+		description:
+			'UUID returned by POST /media/v1/upload (context=avatar). ' +
+			'When provided, the service resolves it to a URL via media-service ' +
+			'and updates profilePictureUrl accordingly.',
+	})
+	@IsOptional()
+	@IsUUID()
+	avatarMediaId?: string;
 }
