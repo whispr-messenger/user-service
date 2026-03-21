@@ -1,9 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import {
-	NotFoundException,
-	ConflictException,
-	BadRequestException,
-} from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UserRepository } from '../../common/repositories';
 import { MediaClientService, MediaMetadata } from './media-client.service';
@@ -168,9 +164,7 @@ describe('ProfileService', () => {
 
 			userRepository.findById.mockResolvedValue(user);
 
-			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(
-				BadRequestException
-			);
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
 		});
 
 		it('throws BadRequestException when media context is not avatar', async () => {
@@ -181,9 +175,7 @@ describe('ProfileService', () => {
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
 
-			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(
-				BadRequestException
-			);
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
 		});
 
 		it('throws BadRequestException when media does not belong to the user', async () => {
@@ -194,9 +186,7 @@ describe('ProfileService', () => {
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
 
-			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(
-				BadRequestException
-			);
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
 		});
 
 		it('does not store avatarMediaId as a database column', async () => {

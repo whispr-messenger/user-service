@@ -1,9 +1,4 @@
-import {
-	Injectable,
-	NotFoundException,
-	ConflictException,
-	BadRequestException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
@@ -43,9 +38,7 @@ export class ProfileService {
 		// Resolve avatarMediaId → profilePictureUrl via media-service
 		if (dto.avatarMediaId) {
 			if (dto.profilePictureUrl) {
-				throw new BadRequestException(
-					'Cannot provide both avatarMediaId and profilePictureUrl'
-				);
+				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
 			}
 			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id);
 			if (media.context !== 'avatar') {
