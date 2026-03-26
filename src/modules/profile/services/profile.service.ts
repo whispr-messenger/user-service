@@ -8,7 +8,7 @@ import { MediaClientService } from './media-client.service';
 export class ProfileService {
 	constructor(
 		private readonly userRepository: UserRepository,
-		private readonly mediaClient: MediaClientService,
+		private readonly mediaClient: MediaClientService
 	) {}
 
 	private async findOne(id: string): Promise<User> {

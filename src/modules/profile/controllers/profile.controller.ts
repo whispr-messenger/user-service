@@ -39,16 +39,16 @@ export class ProfileController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Username already taken' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Cannot update another user\'s profile' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot update another user's profile" })
 	async updateProfile(
 		@Param('id', ParseUUIDPipe) id: string,
 		@Body() dto: UpdateProfileDto,
-		@Request() req: ExpressRequest & { user: JwtPayload },
+		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<User> {
 		// The JWT sub claim is the authoritative user identity — prevent users from
 		// updating each other's profiles by comparing the route param to the caller.
 		if (req.user?.sub !== id) {
-			throw new ForbiddenException('Cannot update another user\'s profile');
+			throw new ForbiddenException("Cannot update another user's profile");
 		}
 		return this.profileService.updateProfile(id, dto);
 	}
