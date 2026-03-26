@@ -27,9 +27,13 @@ export class MediaClientService {
 	private readonly baseUrl: string;
 
 	constructor(private readonly configService: ConfigService) {
+		// MEDIA_SERVICE_URL must be set explicitly in all environments.
+		// The fallback is the in-cluster DNS name for the k8s whispr-dev namespace
+		// and is intentionally specific so a missing env var fails visibly rather
+		// than silently calling a wrong endpoint.
 		this.baseUrl = this.configService.get<string>(
 			'MEDIA_SERVICE_URL',
-			'http://media-service.whispr-dev.svc.cluster.local:3000'
+			'http://media-service.whispr.svc.cluster.local'
 		);
 	}
 
