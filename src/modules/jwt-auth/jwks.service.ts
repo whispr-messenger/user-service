@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const jwksRsa = require('jwks-rsa');
@@ -8,11 +8,12 @@ const BACKOFF_CAP_MS = 30_000;
 const BACKOFF_MAX_ATTEMPTS = 10;
 
 @Injectable()
-export class JwksService implements OnModuleInit {
+export class JwksService implements OnModuleInit, OnModuleDestroy {
 	private readonly logger = new Logger(JwksService.name);
 	private readonly jwksUrl: string;
 	private readonly client: { getKeys(): Promise<unknown[]> };
 	private _isReady = false;
+	private _destroyed = false;
 
 	constructor(private readonly configService: ConfigService) {
 		this.jwksUrl = this.configService.getOrThrow<string>('JWT_JWKS_URL');
@@ -32,10 +33,16 @@ export class JwksService implements OnModuleInit {
 		void this.loadKeysWithRetry();
 	}
 
+	onModuleDestroy(): void {
+		this._destroyed = true;
+	}
+
 	private async loadKeysWithRetry(): Promise<void> {
 		let delay = BACKOFF_INITIAL_MS;
 
 		for (let attempt = 1; attempt <= BACKOFF_MAX_ATTEMPTS; attempt++) {
+			if (this._destroyed) return;
+
 			try {
 				const keys = await this.client.getKeys();
 				const keyCount = (keys as unknown[]).length;
@@ -71,8 +78,10 @@ export class JwksService implements OnModuleInit {
 	}
 
 	private async continueBackgroundRetry(): Promise<void> {
-		while (!this._isReady) {
+		while (!this._isReady && !this._destroyed) {
 			await this.sleep(BACKOFF_CAP_MS);
+
+			if (this._destroyed) return;
 
 			try {
 				const keys = await this.client.getKeys();

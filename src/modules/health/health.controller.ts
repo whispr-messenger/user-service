@@ -1,7 +1,6 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
-import { ServiceUnavailableException } from '@nestjs/common';
 import { CacheService } from '../cache';
 import { RedisConfig } from '../../config/redis.config';
 import { Public } from '../jwt-auth/public.decorator';
@@ -98,7 +97,7 @@ export class HealthController {
 
 		const jwksResult = this.jwksHealthIndicator.check();
 		if (jwksResult.jwks.status === 'down') {
-			this.logger.error('Readiness check failed: JWKS keys not loaded');
+			this.logger.warn('Readiness check failed: JWKS keys not loaded');
 			throw new ServiceUnavailableException({
 				status: 'not ready',
 				error: 'JWKS keys not loaded',

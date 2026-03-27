@@ -74,14 +74,17 @@ describe('JwksService', () => {
 			expect(service.isReady).toBe(true);
 		});
 
-		it('should leave isReady false when all attempts fail', async () => {
+		it('should leave isReady false and start background retry when all attempts fail', async () => {
 			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
-			jest.spyOn(service as any, 'continueBackgroundRetry').mockResolvedValue(undefined);
+			const bgRetrySpy = jest
+				.spyOn(service as any, 'continueBackgroundRetry')
+				.mockResolvedValue(undefined);
 			jwksMock.__mockGetKeys.mockRejectedValue(new Error('Network error'));
 
 			await (service as any).loadKeysWithRetry();
 
 			expect(service.isReady).toBe(false);
+			expect(bgRetrySpy).toHaveBeenCalled();
 		});
 
 		it('should set isReady to true when keys succeed after initial failures', async () => {
@@ -104,6 +107,14 @@ describe('JwksService', () => {
 
 			expect(service.isReady).toBe(false);
 			expect(sleepSpy).toHaveBeenCalled();
+		});
+	});
+
+	describe('onModuleDestroy', () => {
+		it('should set _destroyed flag to stop background retries', () => {
+			service.onModuleDestroy();
+
+			expect((service as any)._destroyed).toBe(true);
 		});
 	});
 
