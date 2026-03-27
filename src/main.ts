@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
@@ -43,6 +43,14 @@ async function bootstrap() {
 			password: configService.get<string>('REDIS_PASSWORD'),
 		},
 	});
+
+	app.useGlobalPipes(
+		new ValidationPipe({
+			whitelist: true,
+			forbidNonWhitelisted: true,
+			transform: true,
+		})
+	);
 
 	app.useGlobalInterceptors(new LoggingInterceptor());
 
