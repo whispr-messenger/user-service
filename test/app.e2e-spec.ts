@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import { AppModule } from '../src/modules/app.module';
+import { JwksService } from '../src/modules/jwt-auth/jwks.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const request = require('supertest');
@@ -12,7 +13,17 @@ describe('HealthController (e2e)', () => {
 		try {
 			const moduleFixture: TestingModule = await Test.createTestingModule({
 				imports: [AppModule],
-			}).compile();
+			})
+				.overrideProvider(JwksService)
+				.useValue({
+					isReady: true,
+					onModuleInit: () => {},
+					getSecretProvider:
+						() =>
+						(_req: unknown, _raw: unknown, done: (err: unknown, secret?: unknown) => void) =>
+							done(null, 'test-secret'),
+				})
+				.compile();
 
 			app = moduleFixture.createNestApplication();
 			await app.init();
