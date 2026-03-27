@@ -65,7 +65,7 @@ services:
     # command: sleep infinity  # Keep container running for dev
     ports:
       - "${HTTP_PORT}:${HTTP_PORT}"   # NestJS
-      - "9229:9229"   # Debugger
+      - "9230:9229"   # Debugger
     networks:
       - whispr-network
     depends_on:
