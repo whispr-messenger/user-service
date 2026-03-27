@@ -1,10 +1,10 @@
-import { Controller, Get, Logger } from '@nestjs/common';
+import { Controller, Get, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { DataSource } from 'typeorm';
-import { ServiceUnavailableException } from '@nestjs/common';
 import { CacheService } from '../cache';
 import { RedisConfig } from '../../config/redis.config';
 import { Public } from '../jwt-auth/public.decorator';
+import { JwksHealthIndicator } from '../jwt-auth/jwks-health.indicator';
 
 @Public()
 @ApiTags('Health')
@@ -13,7 +13,8 @@ export class HealthController {
 	constructor(
 		private readonly dataSource: DataSource,
 		private readonly cacheService: CacheService,
-		private readonly redisConfig: RedisConfig
+		private readonly redisConfig: RedisConfig,
+		private readonly jwksHealthIndicator: JwksHealthIndicator
 	) {}
 
 	private logger = new Logger(HealthController.name);
@@ -85,7 +86,6 @@ export class HealthController {
 		try {
 			await this.dataSource.query('SELECT 1');
 			await this.checkCacheHealth();
-			return { status: 'ready' };
 		} catch (error) {
 			const errorMessage = error instanceof Error ? error.message : String(error);
 			this.logger.error('Readiness check failed:', errorMessage);
@@ -94,6 +94,17 @@ export class HealthController {
 				error: errorMessage,
 			});
 		}
+
+		const jwksResult = this.jwksHealthIndicator.check();
+		if (jwksResult.jwks.status === 'down') {
+			this.logger.warn('Readiness check failed: JWKS keys not loaded');
+			throw new ServiceUnavailableException({
+				status: 'not ready',
+				error: 'JWKS keys not loaded',
+			});
+		}
+
+		return { status: 'ready' };
 	}
 
 	private async checkCacheHealth() {

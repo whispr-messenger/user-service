@@ -56,18 +56,71 @@ describe('JwksService', () => {
 	});
 
 	describe('onModuleInit', () => {
-		it('should load JWKS keys at startup', async () => {
+		it('should trigger background key loading without blocking', () => {
+			jest.spyOn(service as any, 'loadKeysWithRetry').mockResolvedValue(undefined);
+
+			service.onModuleInit();
+
+			expect((service as any).loadKeysWithRetry).toHaveBeenCalled();
+		});
+	});
+
+	describe('loadKeysWithRetry', () => {
+		it('should set isReady to true when keys load successfully', async () => {
 			jwksMock.__mockGetKeys.mockResolvedValue([{ kid: 'key-1' }]);
 
-			await service.onModuleInit();
+			await (service as any).loadKeysWithRetry();
 
-			expect(jwksMock.__mockGetKeys).toHaveBeenCalled();
+			expect(service.isReady).toBe(true);
 		});
 
-		it('should log error when JWKS fetch fails at startup', async () => {
+		it('should leave isReady false and start background retry when all attempts fail', async () => {
+			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+			const bgRetrySpy = jest
+				.spyOn(service as any, 'continueBackgroundRetry')
+				.mockResolvedValue(undefined);
 			jwksMock.__mockGetKeys.mockRejectedValue(new Error('Network error'));
 
-			await expect(service.onModuleInit()).resolves.not.toThrow();
+			await (service as any).loadKeysWithRetry();
+
+			expect(service.isReady).toBe(false);
+			expect(bgRetrySpy).toHaveBeenCalled();
+		});
+
+		it('should set isReady to true when keys succeed after initial failures', async () => {
+			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+			jwksMock.__mockGetKeys
+				.mockRejectedValueOnce(new Error('Network error'))
+				.mockResolvedValue([{ kid: 'key-1' }]);
+
+			await (service as any).loadKeysWithRetry();
+
+			expect(service.isReady).toBe(true);
+		});
+
+		it('should leave isReady false and retry when keyset is empty', async () => {
+			const sleepSpy = jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+			jest.spyOn(service as any, 'continueBackgroundRetry').mockResolvedValue(undefined);
+			jwksMock.__mockGetKeys.mockResolvedValue([]);
+
+			await (service as any).loadKeysWithRetry();
+
+			expect(service.isReady).toBe(false);
+			expect(sleepSpy).toHaveBeenCalled();
+		});
+	});
+
+	describe('onModuleDestroy', () => {
+		it('should set _destroyed flag to stop background retries', () => {
+			service.onModuleDestroy();
+
+			expect((service as any)._destroyed).toBe(true);
+		});
+	});
+
+	describe('isReady', () => {
+		it('should be false before keys are loaded', () => {
+			expect(service.isReady).toBe(false);
 		});
 	});
 
