@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { UserRepository } from '../../common/repositories';
+import { MediaClientService, MediaMetadata } from './media-client.service';
 import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 
@@ -19,9 +20,21 @@ const mockUser = (): User =>
 		updatedAt: new Date(),
 	}) as User;
 
+const mockMediaMetadata = (overrides: Partial<MediaMetadata> = {}): MediaMetadata => ({
+	id: 'media-uuid-1',
+	url: 'https://cdn.whispr.epitech.beer/avatars/media-uuid-1.webp',
+	thumbnailUrl: null,
+	context: 'avatar',
+	mimeType: 'image/webp',
+	sizeBytes: 12345,
+	ownerId: 'uuid-1',
+	...overrides,
+});
+
 describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
+	let mediaClient: jest.Mocked<MediaClientService>;
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -35,11 +48,18 @@ describe('ProfileService', () => {
 						save: jest.fn(),
 					},
 				},
+				{
+					provide: MediaClientService,
+					useValue: {
+						getMediaMetadata: jest.fn(),
+					},
+				},
 			],
 		}).compile();
 
 		service = module.get<ProfileService>(ProfileService);
 		userRepository = module.get(UserRepository);
+		mediaClient = module.get(MediaClientService);
 	});
 
 	describe('getProfile', () => {
@@ -116,6 +136,74 @@ describe('ProfileService', () => {
 			await service.updateProfile('uuid-1', dto);
 
 			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('updateProfile with avatarMediaId', () => {
+		it('resolves avatarMediaId to profilePictureUrl via media-service', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1');
+			expect(result.profilePictureUrl).toBe(metadata.url);
+		});
+
+		it('throws BadRequestException when both avatarMediaId and profilePictureUrl are provided', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = {
+				avatarMediaId: 'media-uuid-1',
+				profilePictureUrl: 'https://example.com/photo.jpg',
+			};
+
+			userRepository.findById.mockResolvedValue(user);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('throws BadRequestException when media context is not avatar', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata({ context: 'message' });
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('throws BadRequestException when media does not belong to the user', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata({ ownerId: 'other-uuid' });
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('does not store avatarMediaId as a database column', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1', firstName: 'Alice' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			await service.updateProfile('uuid-1', dto);
+
+			const savedArg = userRepository.save.mock.calls[0][0] as any;
+			expect(savedArg.avatarMediaId).toBeUndefined();
+			expect(savedArg.firstName).toBe('Alice');
+			expect(savedArg.profilePictureUrl).toBe(metadata.url);
 		});
 	});
 });
