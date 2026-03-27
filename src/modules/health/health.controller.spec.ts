@@ -4,12 +4,24 @@ import { DataSource } from 'typeorm';
 import { ServiceUnavailableException, Logger } from '@nestjs/common';
 import { CacheService } from '../cache';
 import { RedisConfig } from '../../config/redis.config';
+import { JwksHealthIndicator } from '../jwt-auth/jwks-health.indicator';
+
+jest.mock('jwks-rsa', () => {
+	const mockGetKeysFn = jest.fn();
+	const MockClient = jest.fn().mockImplementation(() => ({ getKeys: mockGetKeysFn }));
+	const mockPassport = jest.fn();
+	return Object.assign(MockClient, {
+		JwksClient: MockClient,
+		passportJwtSecret: mockPassport,
+	});
+});
 
 describe('HealthController', () => {
 	let controller: HealthController;
 	let dataSource: DataSource;
 	let cacheService: any;
 	let redisConfig: any;
+	let jwksHealthIndicator: any;
 
 	beforeAll(() => {
 		jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
@@ -44,6 +56,12 @@ describe('HealthController', () => {
 						health: mockHealth,
 					},
 				},
+				{
+					provide: JwksHealthIndicator,
+					useValue: {
+						check: jest.fn().mockReturnValue({ jwks: { status: 'up' } }),
+					},
+				},
 			],
 		}).compile();
 
@@ -51,6 +69,7 @@ describe('HealthController', () => {
 		dataSource = module.get<DataSource>(DataSource);
 		cacheService = module.get(CacheService);
 		redisConfig = module.get(RedisConfig);
+		jwksHealthIndicator = module.get(JwksHealthIndicator);
 
 		redisConfig.health.isHealthy = true;
 		redisConfig.health.lastError = null;
@@ -94,10 +113,11 @@ describe('HealthController', () => {
 	});
 
 	describe('readiness', () => {
-		it('should return ready when all services are healthy', async () => {
+		it('should return ready when all services are healthy and JWKS is loaded', async () => {
 			(dataSource.query as jest.Mock).mockResolvedValue([{ 1: 1 }]);
 			cacheService.set.mockResolvedValue(undefined);
 			cacheService.get.mockResolvedValue('ok');
+			jwksHealthIndicator.check.mockReturnValue({ jwks: { status: 'up' } });
 
 			const result = await controller.readiness();
 
@@ -114,6 +134,15 @@ describe('HealthController', () => {
 			(dataSource.query as jest.Mock).mockResolvedValue([{ 1: 1 }]);
 			redisConfig.health.isHealthy = false;
 			redisConfig.health.lastError = new Error('Redis Error');
+
+			await expect(controller.readiness()).rejects.toThrow(ServiceUnavailableException);
+		});
+
+		it('should throw ServiceUnavailableException when JWKS keys are not loaded', async () => {
+			(dataSource.query as jest.Mock).mockResolvedValue([{ 1: 1 }]);
+			cacheService.set.mockResolvedValue(undefined);
+			cacheService.get.mockResolvedValue('ok');
+			jwksHealthIndicator.check.mockReturnValue({ jwks: { status: 'down' } });
 
 			await expect(controller.readiness()).rejects.toThrow(ServiceUnavailableException);
 		});
