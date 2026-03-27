@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Build output
+dist/
+
+# Git
+.git/
+.gitignore
+
+# Dev environment secrets and local config
+docker/dev/.env
+docker/dev/secrets/
+
+# Test artifacts
+coverage/
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
