@@ -6,6 +6,8 @@ import { CacheService } from '../cache';
 import { RedisConfig } from '../../config/redis.config';
 import { JwksHealthIndicator } from '../jwt-auth/jwks-health.indicator';
 
+// jwks-rsa uses ESM (jose) which Jest cannot parse without a transform.
+// Mocking it here prevents the transitive import from failing at parse time.
 jest.mock('jwks-rsa', () => {
 	const mockGetKeysFn = jest.fn();
 	const MockClient = jest.fn().mockImplementation(() => ({ getKeys: mockGetKeysFn }));

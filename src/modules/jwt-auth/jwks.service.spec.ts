@@ -76,6 +76,7 @@ describe('JwksService', () => {
 
 		it('should leave isReady false when all attempts fail', async () => {
 			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+			jest.spyOn(service as any, 'continueBackgroundRetry').mockResolvedValue(undefined);
 			jwksMock.__mockGetKeys.mockRejectedValue(new Error('Network error'));
 
 			await (service as any).loadKeysWithRetry();
@@ -92,6 +93,17 @@ describe('JwksService', () => {
 			await (service as any).loadKeysWithRetry();
 
 			expect(service.isReady).toBe(true);
+		});
+
+		it('should leave isReady false and retry when keyset is empty', async () => {
+			const sleepSpy = jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
+			jest.spyOn(service as any, 'continueBackgroundRetry').mockResolvedValue(undefined);
+			jwksMock.__mockGetKeys.mockResolvedValue([]);
+
+			await (service as any).loadKeysWithRetry();
+
+			expect(service.isReady).toBe(false);
+			expect(sleepSpy).toHaveBeenCalled();
 		});
 	});
 

@@ -38,25 +38,58 @@ export class JwksService implements OnModuleInit {
 		for (let attempt = 1; attempt <= BACKOFF_MAX_ATTEMPTS; attempt++) {
 			try {
 				const keys = await this.client.getKeys();
-				this._isReady = true;
-				this.logger.log(`JWKS loaded: ${(keys as unknown[]).length} key(s) from ${this.jwksUrl}`);
-				return;
-			} catch (err) {
-				this.logger.error(
-					`Failed to load JWKS (attempt ${attempt}/${BACKOFF_MAX_ATTEMPTS}) from ${this.jwksUrl}: ${err}`
-				);
+				const keyCount = (keys as unknown[]).length;
 
-				if (attempt < BACKOFF_MAX_ATTEMPTS) {
-					this.logger.warn(`Retrying in ${delay}ms…`);
-					await this.sleep(delay);
-					delay = Math.min(delay * 2, BACKOFF_CAP_MS);
+				if (keyCount > 0) {
+					this._isReady = true;
+					this.logger.log(`JWKS loaded: ${keyCount} key(s) from ${this.jwksUrl}`);
+					return;
 				}
+
+				this.logger.warn(
+					`JWKS endpoint ${this.jwksUrl} returned no keys (attempt ${attempt}/${BACKOFF_MAX_ATTEMPTS}).`
+				);
+			} catch (err) {
+				const baseMessage = `Failed to load JWKS (attempt ${attempt}/${BACKOFF_MAX_ATTEMPTS}) from ${this.jwksUrl}`;
+				const errorMessage = err instanceof Error ? err.message : String(err);
+				const stack = err instanceof Error ? err.stack : undefined;
+				this.logger.error(`${baseMessage}: ${errorMessage}`, stack);
+			}
+
+			if (attempt < BACKOFF_MAX_ATTEMPTS) {
+				this.logger.warn(`Retrying in ${delay}ms…`);
+				await this.sleep(delay);
+				delay = Math.min(delay * 2, BACKOFF_CAP_MS);
 			}
 		}
 
 		this.logger.error(
-			`JWKS could not be loaded after ${BACKOFF_MAX_ATTEMPTS} attempts. Service marked as not ready.`
+			`JWKS could not be loaded after ${BACKOFF_MAX_ATTEMPTS} attempts. Service marked as not ready. Continuing background retries with interval ${BACKOFF_CAP_MS}ms.`
 		);
+
+		void this.continueBackgroundRetry();
+	}
+
+	private async continueBackgroundRetry(): Promise<void> {
+		while (!this._isReady) {
+			await this.sleep(BACKOFF_CAP_MS);
+
+			try {
+				const keys = await this.client.getKeys();
+				const keyCount = (keys as unknown[]).length;
+
+				if (keyCount > 0) {
+					this._isReady = true;
+					this.logger.log(`JWKS loaded (background retry): ${keyCount} key(s) from ${this.jwksUrl}`);
+				} else {
+					this.logger.warn(`JWKS background retry: endpoint ${this.jwksUrl} returned no keys.`);
+				}
+			} catch (err) {
+				const errorMessage = err instanceof Error ? err.message : String(err);
+				const stack = err instanceof Error ? err.stack : undefined;
+				this.logger.error(`Background JWKS reload failed from ${this.jwksUrl}: ${errorMessage}`, stack);
+			}
+		}
 	}
 
 	getSecretProvider(): (

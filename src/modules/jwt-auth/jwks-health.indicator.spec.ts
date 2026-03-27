@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwksHealthIndicator } from './jwks-health.indicator';
 import { JwksService } from './jwks.service';
 
+// jwks-rsa uses ESM (jose) which Jest cannot parse without a transform.
+// Mocking it here prevents the transitive import from failing at parse time.
 jest.mock('jwks-rsa', () => {
 	const mockGetKeysFn = jest.fn();
 	const MockClient = jest.fn().mockImplementation(() => ({ getKeys: mockGetKeysFn }));
