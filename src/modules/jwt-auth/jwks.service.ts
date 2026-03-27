@@ -80,14 +80,19 @@ export class JwksService implements OnModuleInit {
 
 				if (keyCount > 0) {
 					this._isReady = true;
-					this.logger.log(`JWKS loaded (background retry): ${keyCount} key(s) from ${this.jwksUrl}`);
+					this.logger.log(
+						`JWKS loaded (background retry): ${keyCount} key(s) from ${this.jwksUrl}`
+					);
 				} else {
 					this.logger.warn(`JWKS background retry: endpoint ${this.jwksUrl} returned no keys.`);
 				}
 			} catch (err) {
 				const errorMessage = err instanceof Error ? err.message : String(err);
 				const stack = err instanceof Error ? err.stack : undefined;
-				this.logger.error(`Background JWKS reload failed from ${this.jwksUrl}: ${errorMessage}`, stack);
+				this.logger.error(
+					`Background JWKS reload failed from ${this.jwksUrl}: ${errorMessage}`,
+					stack
+				);
 			}
 		}
 	}
