@@ -56,38 +56,47 @@ describe('JwksService', () => {
 	});
 
 	describe('onModuleInit', () => {
-		it('should load JWKS keys at startup and set isReady to true', async () => {
+		it('should trigger background key loading without blocking', () => {
+			jest.spyOn(service as any, 'loadKeysWithRetry').mockResolvedValue(undefined);
+
+			service.onModuleInit();
+
+			expect((service as any).loadKeysWithRetry).toHaveBeenCalled();
+		});
+	});
+
+	describe('loadKeysWithRetry', () => {
+		it('should set isReady to true when keys load successfully', async () => {
 			jwksMock.__mockGetKeys.mockResolvedValue([{ kid: 'key-1' }]);
 
-			await service.onModuleInit();
+			await (service as any).loadKeysWithRetry();
 
-			expect(jwksMock.__mockGetKeys).toHaveBeenCalled();
 			expect(service.isReady).toBe(true);
 		});
 
-		it('should leave isReady false when JWKS fetch fails on all attempts', async () => {
+		it('should leave isReady false when all attempts fail', async () => {
 			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
 			jwksMock.__mockGetKeys.mockRejectedValue(new Error('Network error'));
 
-			await expect(service.onModuleInit()).resolves.not.toThrow();
+			await (service as any).loadKeysWithRetry();
 
 			expect(service.isReady).toBe(false);
 		});
 
-		it('should set isReady to true when JWKS succeeds after initial failures', async () => {
+		it('should set isReady to true when keys succeed after initial failures', async () => {
 			jest.spyOn(service as any, 'sleep').mockResolvedValue(undefined);
 			jwksMock.__mockGetKeys
 				.mockRejectedValueOnce(new Error('Network error'))
 				.mockResolvedValue([{ kid: 'key-1' }]);
 
-			await service.onModuleInit();
+			await (service as any).loadKeysWithRetry();
 
 			expect(service.isReady).toBe(true);
 		});
 	});
 
 	describe('isReady', () => {
-		it('should be false before onModuleInit is called', () => {
+		it('should be false before keys are loaded', () => {
 			expect(service.isReady).toBe(false);
 		});
 	});

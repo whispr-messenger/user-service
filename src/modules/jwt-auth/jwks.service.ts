@@ -28,7 +28,11 @@ export class JwksService implements OnModuleInit {
 		return this._isReady;
 	}
 
-	async onModuleInit(): Promise<void> {
+	onModuleInit(): void {
+		void this.loadKeysWithRetry();
+	}
+
+	private async loadKeysWithRetry(): Promise<void> {
 		let delay = BACKOFF_INITIAL_MS;
 
 		for (let attempt = 1; attempt <= BACKOFF_MAX_ATTEMPTS; attempt++) {
