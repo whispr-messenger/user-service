@@ -3,6 +3,7 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import type { Request, Response } from 'express';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
@@ -55,6 +56,11 @@ async function bootstrap() {
 	app.useGlobalInterceptors(new LoggingInterceptor());
 
 	app.enableShutdownHooks();
+
+	const expressApp = app.getHttpAdapter().getInstance();
+	expressApp.get('/metrics', (_req: Request, res: Response) => {
+		res.type('text/plain').send('');
+	});
 
 	await app.startAllMicroservices();
 	await app.listen(port);

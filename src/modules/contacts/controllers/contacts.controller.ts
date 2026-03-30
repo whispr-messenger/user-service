@@ -2,6 +2,7 @@ import {
 	Controller,
 	Get,
 	Post,
+	Patch,
 	Delete,
 	Param,
 	Body,
@@ -12,6 +13,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { ContactsService } from '../services/contacts.service';
 import { AddContactDto } from '../dto/add-contact.dto';
+import { UpdateContactDto } from '../dto/update-contact.dto';
 import { Contact } from '../entities/contact.entity';
 
 @ApiTags('Contacts')
@@ -41,6 +43,20 @@ export class ContactsController {
 		@Body() dto: AddContactDto
 	): Promise<Contact> {
 		return this.contactsService.addContact(ownerId, dto);
+	}
+
+	@Patch(':ownerId/:contactId')
+	@ApiOperation({ summary: 'Update a contact for a user' })
+	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })
+	@ApiParam({ name: 'contactId', type: 'string', format: 'uuid', description: 'Contact user ID' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Contact updated successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or contact not found' })
+	async updateContact(
+		@Param('ownerId', ParseUUIDPipe) ownerId: string,
+		@Param('contactId', ParseUUIDPipe) contactId: string,
+		@Body() dto: UpdateContactDto
+	): Promise<Contact> {
+		return this.contactsService.updateContact(ownerId, contactId, dto);
 	}
 
 	@Delete(':ownerId/:contactId')
