@@ -1,4 +1,10 @@
-import { Injectable, Logger, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+	Injectable,
+	Logger,
+	NotFoundException,
+	ConflictException,
+	BadRequestException,
+} from '@nestjs/common';
 import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
