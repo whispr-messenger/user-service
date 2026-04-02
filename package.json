@@ -56,6 +56,7 @@
 		"compression": "^1.8.1",
 		"helmet": "^8.1.0",
 		"ioredis": "^5.9.2",
+		"jwks-rsa": "^4.0.1",
 		"passport": "^0.7.0",
 		"passport-jwt": "^4.0.1",
 		"pg": "^8.17.1",
@@ -117,6 +118,9 @@
 		],
 		"coverageDirectory": "../coverage",
 		"testEnvironment": "node",
+		"testPathIgnorePatterns": [
+			"/node_modules/"
+		],
 		"roots": [
 			"<rootDir>"
 		],
@@ -129,6 +133,7 @@
 		"setupFilesAfterEnv": [
 			"<rootDir>/../test/setup.ts"
 		],
+		"coverageReporters": ["text", "text-summary", "lcov"],
 		"coverageThreshold": {
 			"global": {
 				"statements": 47,

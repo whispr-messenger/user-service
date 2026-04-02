@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { AppModule } from '../src/app.module';
+import { AppModule } from '../src/modules/app.module';
+import { JwksService } from '../src/modules/jwt-auth/jwks.service';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const request = require('supertest');
@@ -12,7 +13,17 @@ describe('HealthController (e2e)', () => {
 		try {
 			const moduleFixture: TestingModule = await Test.createTestingModule({
 				imports: [AppModule],
-			}).compile();
+			})
+				.overrideProvider(JwksService)
+				.useValue({
+					isReady: true,
+					onModuleInit: () => {},
+					getSecretProvider:
+						() =>
+						(_req: unknown, _raw: unknown, done: (err: unknown, secret?: unknown) => void) =>
+							done(null, 'test-secret'),
+				})
+				.compile();
 
 			app = moduleFixture.createNestApplication();
 			await app.init();
@@ -28,25 +39,21 @@ describe('HealthController (e2e)', () => {
 		}
 	});
 
-	describe('Application Bootstrap', () => {
-		it('should bootstrap the application successfully', () => {
-			expect(app).toBeDefined();
-			expect(app.getHttpServer()).toBeDefined();
-		});
-
-		it('should have the correct environment setup', () => {
-			expect(process.env.NODE_ENV).toBe('test');
+	describe('Health endpoints', () => {
+		it('GET /health/live should return 200 with alive status', async () => {
+			await request(app.getHttpServer())
+				.get('/health/live')
+				.expect(200)
+				.expect('Content-Type', /application\/json/)
+				.expect((res) => {
+					expect(res.body.status).toBe('alive');
+				});
 		});
 	});
 
-	describe('Health Check', () => {
-		it('should return application info', async () => {
-			const response = await request(app.getHttpServer()).get('/health').expect(200);
-			expect(response).toBeDefined();
-			expect(response.body).toBeDefined();
-			expect(response.body.status).toBeDefined();
-			expect(response.body.timestamp).toBeDefined();
-			expect(response.body.services).toBeDefined();
+	describe('404 on unknown routes', () => {
+		it('should return 404 for unknown routes', async () => {
+			await request(app.getHttpServer()).get('/unknown-route').expect(404);
 		});
 	});
 });

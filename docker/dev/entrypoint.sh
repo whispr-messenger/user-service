@@ -2,6 +2,5 @@
 
 set -e
 
-npm install
-
-npm run start:dev -- -b swc
+npm run build
+npm run start:prod

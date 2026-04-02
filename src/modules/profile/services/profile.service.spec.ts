@@ -1,0 +1,209 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { ProfileService } from './profile.service';
+import { UserRepository } from '../../common/repositories';
+import { MediaClientService, MediaMetadata } from './media-client.service';
+import { User } from '../../common/entities/user.entity';
+import { UpdateProfileDto } from '../dto/update-profile.dto';
+
+const mockUser = (): User =>
+	({
+		id: 'uuid-1',
+		phoneNumber: '+33600000001',
+		username: null,
+		firstName: null,
+		lastName: null,
+		biography: null,
+		profilePictureUrl: null,
+		isActive: true,
+		createdAt: new Date(),
+		updatedAt: new Date(),
+	}) as User;
+
+const mockMediaMetadata = (overrides: Partial<MediaMetadata> = {}): MediaMetadata => ({
+	id: 'media-uuid-1',
+	url: 'https://cdn.whispr.epitech.beer/avatars/media-uuid-1.webp',
+	thumbnailUrl: null,
+	context: 'avatar',
+	mimeType: 'image/webp',
+	sizeBytes: 12345,
+	ownerId: 'uuid-1',
+	...overrides,
+});
+
+describe('ProfileService', () => {
+	let service: ProfileService;
+	let userRepository: jest.Mocked<UserRepository>;
+	let mediaClient: jest.Mocked<MediaClientService>;
+
+	beforeEach(async () => {
+		const module: TestingModule = await Test.createTestingModule({
+			providers: [
+				ProfileService,
+				{
+					provide: UserRepository,
+					useValue: {
+						findById: jest.fn(),
+						findByUsernameInsensitive: jest.fn(),
+						save: jest.fn(),
+					},
+				},
+				{
+					provide: MediaClientService,
+					useValue: {
+						getMediaMetadata: jest.fn(),
+					},
+				},
+			],
+		}).compile();
+
+		service = module.get<ProfileService>(ProfileService);
+		userRepository = module.get(UserRepository);
+		mediaClient = module.get(MediaClientService);
+	});
+
+	describe('getProfile', () => {
+		it('returns the user when found', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result).toBe(user);
+			expect(userRepository.findById).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('throws NotFoundException when user does not exist', async () => {
+			userRepository.findById.mockResolvedValue(null);
+
+			await expect(service.getProfile('uuid-1')).rejects.toThrow(NotFoundException);
+		});
+	});
+
+	describe('updateProfile', () => {
+		it('updates and returns the user', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { firstName: 'Alice', lastName: 'Smith' };
+			const saved = { ...user, ...dto } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(userRepository.save).toHaveBeenCalledWith(expect.objectContaining(dto));
+			expect(result).toBe(saved);
+		});
+
+		it('throws NotFoundException when user does not exist', async () => {
+			userRepository.findById.mockResolvedValue(null);
+
+			await expect(service.updateProfile('uuid-1', {})).rejects.toThrow(NotFoundException);
+		});
+
+		it('throws ConflictException when username is already taken by another user', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { username: 'taken' };
+			const otherUser = { ...mockUser(), id: 'uuid-2', username: 'taken' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(otherUser);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(ConflictException);
+		});
+
+		it('does not check username uniqueness when username is unchanged', async () => {
+			const user = { ...mockUser(), username: 'alice' } as User;
+			const dto: UpdateProfileDto = { username: 'alice', firstName: 'Alice' };
+			const saved = { ...user, ...dto } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
+		});
+
+		it('does not check username uniqueness when dto has no username', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { biography: 'Hello world' };
+			const saved = { ...user, ...dto } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('updateProfile with avatarMediaId', () => {
+		it('resolves avatarMediaId to profilePictureUrl via media-service', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1');
+			expect(result.profilePictureUrl).toBe(metadata.url);
+		});
+
+		it('throws BadRequestException when both avatarMediaId and profilePictureUrl are provided', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = {
+				avatarMediaId: 'media-uuid-1',
+				profilePictureUrl: 'https://example.com/photo.jpg',
+			};
+
+			userRepository.findById.mockResolvedValue(user);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('throws BadRequestException when media context is not avatar', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata({ context: 'message' });
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('throws BadRequestException when media does not belong to the user', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata({ ownerId: 'other-uuid' });
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+
+			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
+		});
+
+		it('does not store avatarMediaId as a database column', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1', firstName: 'Alice' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			await service.updateProfile('uuid-1', dto);
+
+			const savedArg = userRepository.save.mock.calls[0][0] as any;
+			expect(savedArg.avatarMediaId).toBeUndefined();
+			expect(savedArg.firstName).toBe('Alice');
+			expect(savedArg.profilePictureUrl).toBe(metadata.url);
+		});
+	});
+});

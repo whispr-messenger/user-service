@@ -1,5 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { Logger } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+
+jest.spyOn(Logger.prototype, 'log').mockImplementation(() => undefined);
+jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+jest.spyOn(Logger.prototype, 'debug').mockImplementation(() => undefined);
+jest.spyOn(Logger.prototype, 'verbose').mockImplementation(() => undefined);
 
 // Global test setup
 beforeAll(async () => {

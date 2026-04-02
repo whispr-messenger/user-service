@@ -9,6 +9,11 @@ EXPOSE 3000 9229
 
 WORKDIR /workspace
 
+COPY package.json package-lock.json ./
+RUN npm ci --include=dev
+
+COPY . .
+
 COPY ./docker/dev/entrypoint.sh /tmp/entrypoint.sh
 RUN chmod +x /tmp/entrypoint.sh
 
