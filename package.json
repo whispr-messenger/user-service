@@ -49,6 +49,7 @@
 		"@nestjs/passport": "^11.0.5",
 		"@nestjs/platform-express": "^11.1.12",
 		"@nestjs/swagger": "^11.2.5",
+		"@nestjs/terminus": "^11.1.1",
 		"@nestjs/typeorm": "^11.0.0",
 		"bcrypt": "^6.0.0",
 		"class-transformer": "^0.5.1",
@@ -133,7 +134,11 @@
 		"setupFilesAfterEnv": [
 			"<rootDir>/../test/setup.ts"
 		],
-		"coverageReporters": ["text", "text-summary", "lcov"],
+		"coverageReporters": [
+			"text",
+			"text-summary",
+			"lcov"
+		],
 		"coverageThreshold": {
 			"global": {
 				"statements": 47,
