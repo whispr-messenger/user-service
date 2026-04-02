@@ -44,7 +44,9 @@ describe('JwksHealthIndicator', () => {
 
 		const result = indicator.check('jwks');
 
-		expect(result).toEqual(expect.objectContaining({ jwks: expect.objectContaining({ status: 'down' }) }));
+		expect(result).toEqual(
+			expect.objectContaining({ jwks: expect.objectContaining({ status: 'down' }) })
+		);
 		expect(mockDown).toHaveBeenCalledWith({ message: 'JWKS keys not loaded' });
 	});
 

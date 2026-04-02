@@ -57,3 +57,7 @@ dump.rdb
 
 # Dolt database files (added by bd init)
 .dolt/
+.gitnexus
+
+# MCP configuration (may contain secrets)
+.mcp.json

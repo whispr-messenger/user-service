@@ -24,7 +24,10 @@ export class RedisHealthIndicator {
 			const result = await Promise.race([
 				client.ping(),
 				new Promise<never>((_, reject) =>
-					globalThis.setTimeout(() => reject(new Error('Redis ping timeout')), REDIS_PING_TIMEOUT_MS)
+					globalThis.setTimeout(
+						() => reject(new Error('Redis ping timeout')),
+						REDIS_PING_TIMEOUT_MS
+					)
 				),
 			]);
 

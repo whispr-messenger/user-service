@@ -51,7 +51,9 @@ describe('RedisHealthIndicator', () => {
 
 		const result = await indicator.check('redis');
 
-		expect(result).toEqual(expect.objectContaining({ redis: expect.objectContaining({ status: 'down' }) }));
+		expect(result).toEqual(
+			expect.objectContaining({ redis: expect.objectContaining({ status: 'down' }) })
+		);
 		expect(mockDown).toHaveBeenCalledWith({ message: 'Connection refused' });
 	});
 
