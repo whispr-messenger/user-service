@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { SearchIndexService, SearchIndexEntry } from '../../cache/search-index.service';
 import { PrivacyService } from '../../privacy/services/privacy.service';
 import { UserRepository } from '../../common/repositories';
@@ -13,6 +13,8 @@ export interface UserSearchResult {
 
 @Injectable()
 export class UserSearchService {
+	private readonly logger = new Logger(UserSearchService.name);
+
 	constructor(
 		private readonly searchIndexService: SearchIndexService,
 		private readonly privacyService: PrivacyService,
@@ -20,9 +22,18 @@ export class UserSearchService {
 	) {}
 
 	async searchByPhone(phoneNumber: string): Promise<User | null> {
-		const userId = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
+		// Try Redis index first
+		let userId = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
+
+		// Fallback to database if not in Redis
 		if (!userId) {
-			return null;
+			const user = await this.userRepository.findByPhoneNumber(phoneNumber);
+			if (!user) {
+				return null;
+			}
+			userId = user.id;
+			// Re-index for next time
+			this.reindexUser(user);
 		}
 
 		const privacy = await this.privacyService.getSettings(userId);
@@ -34,9 +45,18 @@ export class UserSearchService {
 	}
 
 	async searchByUsername(username: string): Promise<User | null> {
-		const userId = await this.searchIndexService.searchByUsername(username);
+		// Try Redis index first
+		let userId = await this.searchIndexService.searchByUsername(username);
+
+		// Fallback to database if not in Redis
 		if (!userId) {
-			return null;
+			const user = await this.userRepository.findByUsernameInsensitive(username);
+			if (!user) {
+				return null;
+			}
+			userId = user.id;
+			// Re-index for next time
+			this.reindexUser(user);
 		}
 
 		const privacy = await this.privacyService.getSettings(userId);
@@ -63,6 +83,21 @@ export class UserSearchService {
 			}
 		}
 
+		// Fallback to database if Redis returned no results
+		if (results.length === 0) {
+			const dbResults = await this.userRepository.searchByDisplayName(query, limit);
+			for (const user of dbResults) {
+				results.push({
+					userId: user.id,
+					username: user.username,
+					firstName: user.firstName,
+					lastName: user.lastName,
+				});
+				// Re-index for next time
+				this.reindexUser(user);
+			}
+		}
+
 		return results;
 	}
 
@@ -72,5 +107,13 @@ export class UserSearchService {
 			throw new NotFoundException('User not found');
 		}
 		await this.searchIndexService.indexUser(user);
+	}
+
+	private reindexUser(user: User): void {
+		if (user.username && user.firstName) {
+			this.searchIndexService.indexUser(user).catch((err) => {
+				this.logger.warn(`Failed to re-index user ${user.id}: ${err}`);
+			});
+		}
 	}
 }
