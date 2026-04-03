@@ -61,3 +61,7 @@ dump.rdb
 
 # MCP configuration (may contain secrets)
 .mcp.json
+
+# Claude Code local files (user-specific, not shared)
+.claude/settings.local.json
+CLAUDE.local.md
