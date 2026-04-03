@@ -1,9 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwksHealthIndicator } from './jwks-health.indicator';
 import { JwksService } from './jwks.service';
+import { HealthIndicatorService } from '@nestjs/terminus';
 
-// jwks-rsa uses ESM (jose) which Jest cannot parse without a transform.
-// Mocking it here prevents the transitive import from failing at parse time.
 jest.mock('jwks-rsa', () => {
 	const mockGetKeysFn = jest.fn();
 	const MockClient = jest.fn().mockImplementation(() => ({ getKeys: mockGetKeysFn }));
@@ -17,17 +16,23 @@ jest.mock('jwks-rsa', () => {
 describe('JwksHealthIndicator', () => {
 	let indicator: JwksHealthIndicator;
 	let jwksService: { isReady: boolean };
+	let mockUp: jest.Mock;
+	let mockDown: jest.Mock;
 
 	beforeEach(async () => {
+		mockUp = jest.fn().mockReturnValue({ jwks: { status: 'up' } });
+		mockDown = jest.fn().mockImplementation((data) => ({ jwks: { status: 'down', ...data } }));
+
 		jwksService = { isReady: false };
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
 				JwksHealthIndicator,
 				{
-					provide: JwksService,
-					useValue: jwksService,
+					provide: HealthIndicatorService,
+					useValue: { check: jest.fn().mockReturnValue({ up: mockUp, down: mockDown }) },
 				},
+				{ provide: JwksService, useValue: jwksService },
 			],
 		}).compile();
 
@@ -37,16 +42,20 @@ describe('JwksHealthIndicator', () => {
 	it('should report down when JWKS keys are not loaded', () => {
 		jwksService.isReady = false;
 
-		const result = indicator.check();
+		const result = indicator.check('jwks');
 
-		expect(result.jwks.status).toBe('down');
+		expect(result).toEqual(
+			expect.objectContaining({ jwks: expect.objectContaining({ status: 'down' }) })
+		);
+		expect(mockDown).toHaveBeenCalledWith({ message: 'JWKS keys not loaded' });
 	});
 
 	it('should report up when JWKS keys are loaded', () => {
 		jwksService.isReady = true;
 
-		const result = indicator.check();
+		const result = indicator.check('jwks');
 
-		expect(result.jwks.status).toBe('up');
+		expect(result).toEqual({ jwks: { status: 'up' } });
+		expect(mockUp).toHaveBeenCalled();
 	});
 });
