@@ -57,3 +57,11 @@ dump.rdb
 
 # Dolt database files (added by bd init)
 .dolt/
+.gitnexus
+
+# MCP configuration (may contain secrets)
+.mcp.json
+
+# Claude Code local files (user-specific, not shared)
+.claude/settings.local.json
+CLAUDE.local.md
