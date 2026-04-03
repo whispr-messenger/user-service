@@ -3,7 +3,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 // Relations to PrivacySettings, Contact, BlockedUser, Group, GroupMember and UserSearchIndex
 // are restored incrementally as each module is integrated (WHISPR-319 to WHISPR-324).
 
-@Entity({ name: 'users', schema: 'users' })
+@Entity({ name: 'users' })
 export class User {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;

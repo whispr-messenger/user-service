@@ -21,7 +21,7 @@ export enum MediaAutoDownload {
 	NEVER = 'never',
 }
 
-@Entity({ name: 'privacy_settings', schema: 'users' })
+@Entity({ name: 'privacy_settings' })
 export class PrivacySettings {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;

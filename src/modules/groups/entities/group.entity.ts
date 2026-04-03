@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
-@Entity({ name: 'groups', schema: 'users' })
+@Entity({ name: 'groups' })
 export class Group {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;

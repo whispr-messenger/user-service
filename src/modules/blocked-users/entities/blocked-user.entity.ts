@@ -9,7 +9,7 @@ import {
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
-@Entity({ name: 'blocked_users', schema: 'users' })
+@Entity({ name: 'blocked_users' })
 @Unique(['blockerId', 'blockedId'])
 export class BlockedUser {
 	@PrimaryGeneratedColumn('uuid')

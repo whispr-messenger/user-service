@@ -10,7 +10,7 @@ import {
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
-@Entity({ name: 'contacts', schema: 'users' })
+@Entity({ name: 'contacts' })
 @Unique(['ownerId', 'contactId'])
 export class Contact {
 	@PrimaryGeneratedColumn('uuid')
