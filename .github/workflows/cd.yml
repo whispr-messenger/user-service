@@ -4,7 +4,7 @@ on:
   workflow_run:
     workflows: [🚀 CI Pipeline]
     types: [completed]
-    branches: [main]
+    branches: [main, deploy/avant-preprod, deploy/preprod]
   workflow_dispatch:
     inputs:
       commit_sha:
@@ -18,7 +18,7 @@ env:
 
 jobs:
   update-deployment:
-    if: ${{ (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push') || github.event_name == 'workflow_dispatch' }}
+    if: ${{ (github.event.workflow_run.event == 'push') || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     name: Update Deployment Manifest
 
@@ -37,8 +37,9 @@ jobs:
       - name: Checkout user-service
         uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           path: user-service
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch || 'main' }}
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Log in to GHCR
@@ -120,7 +121,7 @@ jobs:
         with:
           repository: whispr-messenger/infrastructure
           path: infrastructure
-          ref: main
+          ref: ${{ github.event.workflow_run.head_branch || 'main' }}
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Validate deployment manifest path
