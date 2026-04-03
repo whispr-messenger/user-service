@@ -54,6 +54,11 @@ async function bootstrap() {
 
 	app.useGlobalInterceptors(new LoggingInterceptor());
 
+	app.enableCors({
+		origin: true,
+		credentials: true,
+	});
+
 	app.enableShutdownHooks();
 
 	await app.startAllMicroservices();
