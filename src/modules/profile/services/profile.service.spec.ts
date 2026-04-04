@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException, BadRequestException } from '@nest
 import { ProfileService } from './profile.service';
 import { UserRepository } from '../../common/repositories';
 import { MediaClientService, MediaMetadata } from './media-client.service';
+import { SearchIndexService } from '../../cache/search-index.service';
 import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 
@@ -52,6 +53,12 @@ describe('ProfileService', () => {
 					provide: MediaClientService,
 					useValue: {
 						getMediaMetadata: jest.fn(),
+					},
+				},
+				{
+					provide: SearchIndexService,
+					useValue: {
+						indexUser: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
