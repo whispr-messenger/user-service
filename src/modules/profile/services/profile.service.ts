@@ -68,7 +68,7 @@ export class ProfileService {
 
 		const saved = await this.userRepository.save(user);
 
-		if (saved.username && saved.firstName) {
+		if (saved.username || saved.firstName) {
 			try {
 				await this.searchIndexService.indexUser(saved);
 			} catch (err) {
