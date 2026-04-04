@@ -35,6 +35,15 @@ export class CacheService {
 		}
 	}
 
+	async hget(key: string, field: string): Promise<string | null> {
+		try {
+			return await this.redis.hget(key, field);
+		} catch (error) {
+			this.logger.error(`Failed to hget field ${field} from ${key}:`, error);
+			return null;
+		}
+	}
+
 	async del(key: string): Promise<void> {
 		try {
 			await this.redis.del(key);
