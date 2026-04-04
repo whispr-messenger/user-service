@@ -63,15 +63,6 @@ export class CacheService {
 		}
 	}
 
-	async hget(key: string, field: string): Promise<string | null> {
-		try {
-			return await this.redis.hget(key, field);
-		} catch (error) {
-			this.logger.error(`Failed to hget ${key} ${field}:`, error);
-			return null;
-		}
-	}
-
 	async exists(key: string): Promise<boolean> {
 		try {
 			const result = await this.redis.exists(key);
