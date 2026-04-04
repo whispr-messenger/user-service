@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { UserRepository } from '../../common/repositories';
+import { SearchIndexService } from '../../cache/search-index.service';
 import { User } from '../../common/entities/user.entity';
 
 const mockUser = (): User =>
@@ -41,6 +42,12 @@ describe('AccountsService', () => {
 				{
 					provide: 'EVENTS_SERVICE',
 					useValue: eventsClient,
+				},
+				{
+					provide: SearchIndexService,
+					useValue: {
+						indexUser: jest.fn().mockResolvedValue(undefined),
+					},
 				},
 			],
 		}).compile();
