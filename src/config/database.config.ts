@@ -34,7 +34,7 @@ const dataSourceOptions: DataSourceOptions = {
 	password: process.env.DB_PASSWORD || 'password',
 	database: process.env.DB_NAME || 'user_service',
 	entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-	migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+	migrations: [__dirname + '/../database/migrations/*{.ts,.js}'],
 	synchronize: false,
 	logging: false,
 	ssl: false,
