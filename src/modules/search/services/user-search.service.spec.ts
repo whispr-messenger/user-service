@@ -86,6 +86,8 @@ describe('UserSearchService', () => {
 					provide: UserRepository,
 					useValue: {
 						findById: jest.fn(),
+						findByPhoneNumber: jest.fn(),
+						findByUsernameInsensitive: jest.fn(),
 					},
 				},
 			],
@@ -121,6 +123,7 @@ describe('UserSearchService', () => {
 
 		it('returns null when phone number is not indexed', async () => {
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
 
 			const result = await service.searchByPhone('+33600000001');
 
@@ -153,6 +156,7 @@ describe('UserSearchService', () => {
 
 		it('returns null when username is not indexed', async () => {
 			searchIndexService.searchByUsername.mockResolvedValue(null);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
 
 			const result = await service.searchByUsername('testuser');
 

@@ -20,31 +20,37 @@ export class UserSearchService {
 	) {}
 
 	async searchByPhone(phoneNumber: string): Promise<User | null> {
-		const userId = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
-		if (!userId) {
-			return null;
-		}
+		const userIdFromIndex = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
+		const userId = userIdFromIndex ?? (await this.userRepository.findByPhoneNumber(phoneNumber))?.id;
+		if (!userId) return null;
 
 		const privacy = await this.privacyService.getSettings(userId);
 		if (!privacy.searchByPhone) {
 			return null;
 		}
 
-		return this.userRepository.findById(userId);
+		const user = await this.userRepository.findById(userId);
+		if (user && !userIdFromIndex) {
+			await this.searchIndexService.indexUser(user);
+		}
+		return user;
 	}
 
 	async searchByUsername(username: string): Promise<User | null> {
-		const userId = await this.searchIndexService.searchByUsername(username);
-		if (!userId) {
-			return null;
-		}
+		const userIdFromIndex = await this.searchIndexService.searchByUsername(username);
+		const userId = userIdFromIndex ?? (await this.userRepository.findByUsernameInsensitive(username))?.id;
+		if (!userId) return null;
 
 		const privacy = await this.privacyService.getSettings(userId);
 		if (!privacy.searchByUsername) {
 			return null;
 		}
 
-		return this.userRepository.findById(userId);
+		const user = await this.userRepository.findById(userId);
+		if (user && !userIdFromIndex) {
+			await this.searchIndexService.indexUser(user);
+		}
+		return user;
 	}
 
 	async searchByDisplayName(query: string, limit: number = 20): Promise<UserSearchResult[]> {
