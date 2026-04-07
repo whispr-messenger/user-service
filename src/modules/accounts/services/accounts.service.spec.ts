@@ -98,6 +98,24 @@ describe('AccountsService', () => {
 				expect.objectContaining({ userId: created.id })
 			);
 		});
+
+		it('logs before and after emitting user.created event', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+
+			const logSpy = jest.spyOn(service['logger'], 'log');
+
+			await service.createFromEvent(event);
+
+			expect(logSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Emitting user.created for userId=uuid-1')
+			);
+			expect(logSpy).toHaveBeenCalledWith(
+				expect.stringContaining('user.created emitted successfully for userId=uuid-1')
+			);
+		});
 	});
 
 	describe('updateLastSeen', () => {
