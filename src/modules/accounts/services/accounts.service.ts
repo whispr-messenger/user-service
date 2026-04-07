@@ -4,6 +4,7 @@ import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
 import { UserCreatedEvent } from '../events';
+import { SearchIndexService } from '../../cache/search-index.service';
 
 /**
  * AccountsService - Manages core user identity and lifecycle
@@ -18,6 +19,7 @@ import { UserCreatedEvent } from '../events';
 export class AccountsService {
 	constructor(
 		private readonly userRepository: UserRepository,
+		private readonly searchIndexService: SearchIndexService,
 		@Inject('EVENTS_SERVICE')
 		private readonly eventsClient: ClientProxy
 	) {}
@@ -70,6 +72,8 @@ export class AccountsService {
 				user.lastName
 			)
 		);
+
+		await this.searchIndexService.indexUser(user);
 
 		return user;
 	}

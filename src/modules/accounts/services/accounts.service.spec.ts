@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { UserRepository } from '../../common/repositories';
 import { User } from '../../common/entities/user.entity';
+import { SearchIndexService } from '../../cache/search-index.service';
 
 const mockUser = (): User =>
 	({
@@ -20,9 +21,11 @@ describe('AccountsService', () => {
 	let service: AccountsService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let eventsClient: { emit: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock };
 
 	beforeEach(async () => {
 		eventsClient = { emit: jest.fn() };
+		searchIndexService = { indexUser: jest.fn() };
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -41,6 +44,10 @@ describe('AccountsService', () => {
 				{
 					provide: 'EVENTS_SERVICE',
 					useValue: eventsClient,
+				},
+				{
+					provide: SearchIndexService,
+					useValue: searchIndexService,
 				},
 			],
 		}).compile();
