@@ -5,6 +5,7 @@ import { UserRepository } from '../../common/repositories';
 import { MediaClientService, MediaMetadata } from './media-client.service';
 import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
+import { UserSearchService } from '../../search/services/user-search.service';
 
 const mockUser = (): User =>
 	({
@@ -52,6 +53,12 @@ describe('ProfileService', () => {
 					provide: MediaClientService,
 					useValue: {
 						getMediaMetadata: jest.fn(),
+					},
+				},
+				{
+					provide: UserSearchService,
+					useValue: {
+						indexUser: jest.fn(),
 					},
 				},
 			],

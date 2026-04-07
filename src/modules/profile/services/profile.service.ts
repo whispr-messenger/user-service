@@ -3,12 +3,14 @@ import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { MediaClientService } from './media-client.service';
+import { UserSearchService } from '../../search/services/user-search.service';
 
 @Injectable()
 export class ProfileService {
 	constructor(
 		private readonly userRepository: UserRepository,
-		private readonly mediaClient: MediaClientService
+		private readonly mediaClient: MediaClientService,
+		private readonly userSearchService: UserSearchService
 	) {}
 
 	private async findOne(id: string): Promise<User> {
@@ -27,6 +29,11 @@ export class ProfileService {
 
 	public async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
 		const user = await this.findOne(id);
+		const previous = {
+			username: user.username,
+			firstName: user.firstName,
+			lastName: user.lastName,
+		};
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -56,6 +63,14 @@ export class ProfileService {
 		const { avatarMediaId, ...fields } = dto;
 		Object.assign(user, fields);
 
-		return this.userRepository.save(user);
+		const saved = await this.userRepository.save(user);
+		if (
+			saved.username !== previous.username ||
+			saved.firstName !== previous.firstName ||
+			saved.lastName !== previous.lastName
+		) {
+			await this.userSearchService.indexUser(id);
+		}
+		return saved;
 	}
 }
