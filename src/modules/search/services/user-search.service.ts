@@ -101,6 +101,19 @@ export class UserSearchService {
 		return results;
 	}
 
+	async searchByPhoneBatch(phoneNumbers: string[]): Promise<User[]> {
+		const results: User[] = [];
+
+		for (const phoneNumber of phoneNumbers) {
+			const user = await this.searchByPhone(phoneNumber);
+			if (user) {
+				results.push(user);
+			}
+		}
+
+		return results;
+	}
+
 	async indexUser(userId: string): Promise<void> {
 		const user = await this.userRepository.findById(userId);
 		if (!user) {
