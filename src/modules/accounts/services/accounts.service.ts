@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException, ConflictException, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { lastValueFrom } from 'rxjs';
 import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
@@ -64,14 +65,16 @@ export class AccountsService {
 		// Publish user.created event for projections
 		this.logger.log(`Emitting user.created for userId=${user.id}`);
 		try {
-			this.eventsClient.emit(
-				'user.created',
-				new UserCreatedEvent(
-					user.id,
-					user.phoneNumber,
-					user.username || event.phoneNumber, // fallback to phoneNumber if username not set
-					user.firstName || '',
-					user.lastName
+			await lastValueFrom(
+				this.eventsClient.emit(
+					'user.created',
+					new UserCreatedEvent(
+						user.id,
+						user.phoneNumber,
+						user.username || event.phoneNumber, // fallback to phoneNumber if username not set
+						user.firstName || '',
+						user.lastName
+					)
 				)
 			);
 			this.logger.log(`user.created emitted successfully for userId=${user.id}`);

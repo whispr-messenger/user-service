@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException } from '@nestjs/common';
+import { of, throwError } from 'rxjs';
 import { AccountsService } from './accounts.service';
 import { UserRepository } from '../../common/repositories';
 import { User } from '../../common/entities/user.entity';
@@ -22,7 +23,7 @@ describe('AccountsService', () => {
 	let eventsClient: { emit: jest.Mock };
 
 	beforeEach(async () => {
-		eventsClient = { emit: jest.fn() };
+		eventsClient = { emit: jest.fn().mockReturnValue(of(undefined)) };
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -114,6 +115,23 @@ describe('AccountsService', () => {
 			);
 			expect(logSpy).toHaveBeenCalledWith(
 				expect.stringContaining('user.created emitted successfully for userId=uuid-1')
+			);
+		});
+
+		it('logs error when emit observable fails', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+			eventsClient.emit.mockReturnValue(throwError(() => new Error('Transport error')));
+
+			const errorSpy = jest.spyOn(service['logger'], 'error');
+
+			const result = await service.createFromEvent(event);
+
+			expect(result).toBe(created);
+			expect(errorSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Failed to emit user.created for userId=uuid-1: Transport error')
 			);
 		});
 	});
