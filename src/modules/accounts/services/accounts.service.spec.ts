@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, Logger } from '@nestjs/common';
 import { of, throwError } from 'rxjs';
 import { AccountsService } from './accounts.service';
 import { UserRepository } from '../../common/repositories';
@@ -106,7 +106,7 @@ describe('AccountsService', () => {
 			userRepository.findByPhoneNumber.mockResolvedValue(null);
 			userRepository.create.mockResolvedValue(created);
 
-			const logSpy = jest.spyOn(service['logger'], 'log');
+			const logSpy = jest.spyOn(Logger.prototype, 'log');
 
 			await service.createFromEvent(event);
 
@@ -125,13 +125,14 @@ describe('AccountsService', () => {
 			userRepository.create.mockResolvedValue(created);
 			eventsClient.emit.mockReturnValue(throwError(() => new Error('Transport error')));
 
-			const errorSpy = jest.spyOn(service['logger'], 'error');
+			const errorSpy = jest.spyOn(Logger.prototype, 'error');
 
 			const result = await service.createFromEvent(event);
 
 			expect(result).toBe(created);
 			expect(errorSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Failed to emit user.created for userId=uuid-1: Transport error')
+				expect.stringContaining('Failed to emit user.created for userId=uuid-1: Transport error'),
+				expect.any(String)
 			);
 		});
 	});

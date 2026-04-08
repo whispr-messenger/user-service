@@ -79,9 +79,14 @@ export class AccountsService {
 			);
 			this.logger.log(`user.created emitted successfully for userId=${user.id}`);
 		} catch (error) {
-			this.logger.error(
-				`Failed to emit user.created for userId=${user.id}: ${error instanceof Error ? error.message : String(error)}`
-			);
+			if (error instanceof Error) {
+				this.logger.error(
+					`Failed to emit user.created for userId=${user.id}: ${error.message}`,
+					error.stack
+				);
+			} else {
+				this.logger.error(`Failed to emit user.created for userId=${user.id}: ${String(error)}`);
+			}
 		}
 
 		return user;
