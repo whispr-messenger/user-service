@@ -1,7 +1,8 @@
-import { Controller, Get, Query, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Query, Body, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { UserSearchService, UserSearchResult } from '../services/user-search.service';
 import { User } from '../../common/entities/user.entity';
+import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
 
 @ApiTags('Search')
 @ApiBearerAuth()
@@ -16,6 +17,14 @@ export class UserSearchController {
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async searchByPhone(@Query('phoneNumber') phoneNumber: string): Promise<User | null> {
 		return this.userSearchService.searchByPhone(phoneNumber);
+	}
+
+	@Post('phone/batch')
+	@ApiOperation({ summary: 'Search users by phone numbers in batch' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'List of matched users' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	async searchByPhoneBatch(@Body() dto: BatchPhoneSearchDto): Promise<User[]> {
+		return this.userSearchService.searchByPhoneBatch(dto.phoneNumbers);
 	}
 
 	@Get('username')
