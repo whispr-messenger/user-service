@@ -76,7 +76,7 @@ services:
         condition: service_healthy
         restart: true
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/user/v1/health/ready || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:${HTTP_PORT}/user/health/ready || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
