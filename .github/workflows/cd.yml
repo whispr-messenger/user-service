@@ -134,6 +134,14 @@ jobs:
           fi
           echo "✅ Deployment manifest found at $MANIFEST_PATH"
 
+          MIGRATION_MANIFEST_PATH="infrastructure/k8s/whispr/production/user-service/migration-job.yaml"
+          if [ ! -f "$MIGRATION_MANIFEST_PATH" ]; then
+            echo "❌ Error: Migration job manifest not found at $MIGRATION_MANIFEST_PATH"
+            echo "Please verify the path in the infrastructure repository."
+            exit 1
+          fi
+          echo "✅ Migration job manifest found at $MIGRATION_MANIFEST_PATH"
+
       - name: Update image tag in deployment
         id: update_image
         run: |
