@@ -126,7 +126,7 @@ jobs:
 
       - name: Validate deployment manifest path
         run: |
-          MANIFEST_PATH="infrastructure/k8s/whispr/prod/user-service/deployment.yaml"
+          MANIFEST_PATH="infrastructure/k8s/whispr/preprod/user-service/deployment.yaml"
           if [ ! -f "$MANIFEST_PATH" ]; then
             echo "❌ Error: Deployment manifest not found at $MANIFEST_PATH"
             echo "Please verify the path in the infrastructure repository."
@@ -156,12 +156,12 @@ jobs:
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
           # Update the deployment manifest in the infrastructure repository
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/k8s/whispr/prod/user-service/deployment.yaml
+          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/k8s/whispr/preprod/user-service/deployment.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
+          yq '.spec.template.spec.containers[0].image' infrastructure/k8s/whispr/preprod/user-service/deployment.yaml
 
       - name: Commit and push changes
         working-directory: infrastructure
@@ -170,7 +170,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           # Check if there are changes to commit
-          if git diff --quiet k8s/whispr/prod/user-service/deployment.yaml; then
+          if git diff --quiet k8s/whispr/preprod/user-service/deployment.yaml; then
             echo "No changes to commit"
             exit 0
           fi
@@ -186,7 +186,7 @@ jobs:
             COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
           fi
 
-          git add k8s/whispr/prod/user-service/deployment.yaml
+          git add k8s/whispr/preprod/user-service/deployment.yaml
           git commit -m "${COMMIT_MSG}"
 
           # Push directly to main in infrastructure repo
