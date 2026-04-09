@@ -5,6 +5,7 @@ import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
 import { UserCreatedEvent } from '../events';
+import { SearchIndexService } from '../../cache/search-index.service';
 
 /**
  * AccountsService - Manages core user identity and lifecycle
@@ -22,7 +23,8 @@ export class AccountsService {
 	constructor(
 		private readonly userRepository: UserRepository,
 		@Inject('EVENTS_SERVICE')
-		private readonly eventsClient: ClientProxy
+		private readonly eventsClient: ClientProxy,
+		private readonly searchIndexService: SearchIndexService
 	) {}
 
 	private async findOne(id: string): Promise<User> {
@@ -39,9 +41,6 @@ export class AccountsService {
 	 * Create a minimal user record from event
 	 * Used when receiving user.registered event from auth module
 	 * Only creates the record with id and phoneNumber, other fields can be filled later
-	 *
-	 * NOTE: Search index is NOT created at this stage.
-	 * User becomes searchable only after ProfileService.completeProfile() is called.
 	 */
 	public async createFromEvent(event: UserRegisteredEvent): Promise<User> {
 		const existingUser = await this.userRepository.findById(event.userId);
@@ -61,6 +60,9 @@ export class AccountsService {
 			phoneNumber: event.phoneNumber,
 			isActive: true,
 		});
+
+		// Index user in search cache
+		await this.searchIndexService.indexUser(user);
 
 		// Publish user.created event for projections
 		this.logger.log(`Emitting user.created for userId=${user.id}`);
