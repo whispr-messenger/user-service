@@ -27,14 +27,9 @@ export class MediaClientService {
 	private readonly baseUrl: string;
 
 	constructor(private readonly configService: ConfigService) {
-		// MEDIA_SERVICE_URL must be set explicitly in all environments.
-		// The fallback is the in-cluster DNS name for the k8s whispr-dev namespace
-		// and is intentionally specific so a missing env var fails visibly rather
-		// than silently calling a wrong endpoint.
-		this.baseUrl = this.configService.get<string>(
-			'MEDIA_SERVICE_URL',
-			'http://media-service.whispr.svc.cluster.local'
-		);
+		const isKubernetes = !!process.env.KUBERNETES_SERVICE_HOST;
+		const defaultBaseUrl = isKubernetes ? 'http://media-service:3003' : 'http://media-service:3003';
+		this.baseUrl = this.configService.get<string>('MEDIA_SERVICE_URL', defaultBaseUrl);
 	}
 
 	/**
@@ -42,20 +37,25 @@ export class MediaClientService {
 	 *
 	 * @param mediaId  UUID of the uploaded media
 	 * @param userId   UUID of the requesting user (forwarded as x-user-id)
+	 * @param authorization Optional Authorization header from the caller ("Bearer ...")
 	 * @returns        MediaMetadata including the public URL
 	 */
-	async getMediaMetadata(mediaId: string, userId: string): Promise<MediaMetadata> {
+	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
 		const url = `${this.baseUrl}/media/v1/${mediaId}`;
 		this.logger.debug(`Fetching media metadata: ${url}`);
 
 		let res: Response;
 		try {
+			const headers: Record<string, string> = {
+				'x-user-id': userId,
+				Accept: 'application/json',
+			};
+			if (authorization) {
+				headers['Authorization'] = authorization;
+			}
 			res = await fetch(url, {
 				method: 'GET',
-				headers: {
-					'x-user-id': userId,
-					Accept: 'application/json',
-				},
+				headers,
 				signal: AbortSignal.timeout(5_000),
 			});
 		} catch (err) {

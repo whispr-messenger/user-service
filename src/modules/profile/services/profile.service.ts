@@ -27,7 +27,7 @@ export class ProfileService {
 		return this.findOne(id);
 	}
 
-	public async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
+	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
 		const previous = {
 			username: user.username,
@@ -47,7 +47,7 @@ export class ProfileService {
 			if (dto.profilePictureUrl) {
 				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
 			}
-			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id);
+			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
 				throw new BadRequestException(
 					`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
