@@ -156,7 +156,7 @@ jobs:
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
           # Update the deployment manifest in the infrastructure repository
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/k8s/whispr/prod/user-service/deployment.yaml
+          yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
 
       - name: Verify update
         run: |
