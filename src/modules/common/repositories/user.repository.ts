@@ -124,21 +124,6 @@ export class UserRepository {
 	}
 
 	/**
-	 * Search users by display name (first name, last name, or full name)
-	 */
-	async searchByDisplayName(query: string, limit: number = 20): Promise<User[]> {
-		const pattern = `%${query}%`;
-		return this.repository.find({
-			where: [
-				{ firstName: ILike(pattern), isActive: true },
-				{ lastName: ILike(pattern), isActive: true },
-			],
-			take: limit,
-			order: { createdAt: 'DESC' },
-		});
-	}
-
-	/**
 	 * Update user's last seen timestamp
 	 */
 	async updateLastSeen(id: string, lastSeen: Date = new Date()): Promise<void> {

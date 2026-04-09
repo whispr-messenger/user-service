@@ -33,7 +33,7 @@ export class UpdateProfileDto {
 
 	@ApiPropertyOptional({
 		description:
-			'UUID returned by POST /media/upload (context=avatar). ' +
+			'UUID returned by POST /media/v1/upload (context=avatar). ' +
 			'When provided, the service resolves it to a URL via media-service ' +
 			'and updates profilePictureUrl accordingly.',
 	})

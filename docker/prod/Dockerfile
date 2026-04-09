@@ -50,7 +50,7 @@ EXPOSE 3001 50051
 
 # Health check (ensure dist/docker/health-check.js is produced by build)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD ["/nodejs/bin/node", "dist/docker/health-check.js"]
+    CMD ["dist/docker/health-check.js"]
 
 # Start the application with environment checks (use compiled TS in dist)
 # Note: distroless images have 'node' as default ENTRYPOINT, so we only specify the script

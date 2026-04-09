@@ -5,7 +5,6 @@ import { User } from '../common/entities/user.entity';
 const mockCacheService = {
 	pipeline: jest.fn(),
 	get: jest.fn(),
-	hget: jest.fn(),
 	keys: jest.fn(),
 	zrange: jest.fn(),
 	delMany: jest.fn(),
@@ -83,16 +82,16 @@ describe('SearchIndexService', () => {
 
 	describe('searchByPhoneNumber', () => {
 		it('should return userId from cache', async () => {
-			mockCacheService.hget = jest.fn().mockResolvedValue('user-1');
+			mockCacheService.get = jest.fn().mockResolvedValue('user-1');
 
 			const result = await service.searchByPhoneNumber('+1234567890');
 
-			expect(mockCacheService.hget).toHaveBeenCalledWith('search:phone', '+1234567890');
+			expect(mockCacheService.get).toHaveBeenCalledWith('search:phone:+1234567890');
 			expect(result).toBe('user-1');
 		});
 
 		it('should return null when cache throws', async () => {
-			mockCacheService.hget = jest.fn().mockRejectedValue(new Error('Redis error'));
+			mockCacheService.get = jest.fn().mockRejectedValue(new Error('Redis error'));
 
 			const result = await service.searchByPhoneNumber('+1234567890');
 
@@ -102,16 +101,16 @@ describe('SearchIndexService', () => {
 
 	describe('searchByUsername', () => {
 		it('should return userId from cache (lowercased key)', async () => {
-			mockCacheService.hget = jest.fn().mockResolvedValue('user-1');
+			mockCacheService.get = jest.fn().mockResolvedValue('user-1');
 
 			const result = await service.searchByUsername('Alice');
 
-			expect(mockCacheService.hget).toHaveBeenCalledWith('search:username', 'alice');
+			expect(mockCacheService.get).toHaveBeenCalledWith('search:username:alice');
 			expect(result).toBe('user-1');
 		});
 
 		it('should return null when cache throws', async () => {
-			mockCacheService.hget = jest.fn().mockRejectedValue(new Error('Redis error'));
+			mockCacheService.get = jest.fn().mockRejectedValue(new Error('Redis error'));
 
 			const result = await service.searchByUsername('Alice');
 

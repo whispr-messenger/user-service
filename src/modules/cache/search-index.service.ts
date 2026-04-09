@@ -87,7 +87,7 @@ export class SearchIndexService {
 
 	async searchByPhoneNumber(phoneNumber: string): Promise<string | null> {
 		try {
-			return await this.cacheService.hget(this.PHONE_INDEX_KEY, phoneNumber);
+			return await this.cacheService.get<string>(`${this.PHONE_INDEX_KEY}:${phoneNumber}`);
 		} catch (error) {
 			this.logger.error(`Failed to search by phone number ${phoneNumber}:`, error);
 			return null;
@@ -96,7 +96,9 @@ export class SearchIndexService {
 
 	async searchByUsername(username: string): Promise<string | null> {
 		try {
-			return await this.cacheService.hget(this.USERNAME_INDEX_KEY, username.toLowerCase());
+			return await this.cacheService.get<string>(
+				`${this.USERNAME_INDEX_KEY}:${username.toLowerCase()}`
+			);
 		} catch (error) {
 			this.logger.error(`Failed to search by username ${username}:`, error);
 			return null;
