@@ -86,9 +86,6 @@ describe('UserSearchService', () => {
 					provide: UserRepository,
 					useValue: {
 						findById: jest.fn(),
-						findByPhoneNumber: jest.fn(),
-						findByUsernameInsensitive: jest.fn(),
-						searchByDisplayName: jest.fn(),
 					},
 				},
 			],
@@ -100,10 +97,8 @@ describe('UserSearchService', () => {
 		userRepository = module.get(UserRepository);
 	});
 
-	/* --- PLACEHOLDER_TESTS --- */
-
 	describe('searchByPhone', () => {
-		it('returns user when found in Redis index', async () => {
+		it('returns user when found and searchByPhone is enabled', async () => {
 			const user = mockUser();
 			searchIndexService.searchByPhoneNumber.mockResolvedValue('uuid-1');
 			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
@@ -112,20 +107,6 @@ describe('UserSearchService', () => {
 			const result = await service.searchByPhone('+33600000001');
 
 			expect(result).toBe(user);
-		});
-
-		it('falls back to database when not in Redis', async () => {
-			const user = mockUser();
-			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(user);
-			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
-			userRepository.findById.mockResolvedValue(user);
-			searchIndexService.indexUser.mockResolvedValue(undefined);
-
-			const result = await service.searchByPhone('+33600000001');
-
-			expect(result).toBe(user);
-			expect(userRepository.findByPhoneNumber).toHaveBeenCalledWith('+33600000001');
 		});
 
 		it('returns null when user has disabled searchByPhone', async () => {
@@ -135,20 +116,21 @@ describe('UserSearchService', () => {
 			const result = await service.searchByPhone('+33600000001');
 
 			expect(result).toBeNull();
+			expect(userRepository.findById).not.toHaveBeenCalled();
 		});
 
-		it('returns null when not found in Redis or database', async () => {
+		it('returns null when phone number is not indexed', async () => {
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(null);
 
 			const result = await service.searchByPhone('+33600000001');
 
 			expect(result).toBeNull();
+			expect(privacyService.getSettings).not.toHaveBeenCalled();
 		});
 	});
 
 	describe('searchByUsername', () => {
-		it('returns user when found in Redis index', async () => {
+		it('returns user when found and searchByUsername is enabled', async () => {
 			const user = mockUser();
 			searchIndexService.searchByUsername.mockResolvedValue('uuid-1');
 			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByUsername: true }));
@@ -157,20 +139,6 @@ describe('UserSearchService', () => {
 			const result = await service.searchByUsername('testuser');
 
 			expect(result).toBe(user);
-		});
-
-		it('falls back to database when not in Redis', async () => {
-			const user = mockUser();
-			searchIndexService.searchByUsername.mockResolvedValue(null);
-			userRepository.findByUsernameInsensitive.mockResolvedValue(user);
-			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByUsername: true }));
-			userRepository.findById.mockResolvedValue(user);
-			searchIndexService.indexUser.mockResolvedValue(undefined);
-
-			const result = await service.searchByUsername('testuser');
-
-			expect(result).toBe(user);
-			expect(userRepository.findByUsernameInsensitive).toHaveBeenCalledWith('testuser');
 		});
 
 		it('returns null when user has disabled searchByUsername', async () => {
@@ -180,15 +148,16 @@ describe('UserSearchService', () => {
 			const result = await service.searchByUsername('testuser');
 
 			expect(result).toBeNull();
+			expect(userRepository.findById).not.toHaveBeenCalled();
 		});
 
-		it('returns null when not found in Redis or database', async () => {
+		it('returns null when username is not indexed', async () => {
 			searchIndexService.searchByUsername.mockResolvedValue(null);
-			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
 
 			const result = await service.searchByUsername('testuser');
 
 			expect(result).toBeNull();
+			expect(privacyService.getSettings).not.toHaveBeenCalled();
 		});
 	});
 
@@ -209,25 +178,6 @@ describe('UserSearchService', () => {
 			});
 		});
 
-		it('falls back to database when Redis returns empty', async () => {
-			const user = mockUser();
-			searchIndexService.searchByName.mockResolvedValue([]);
-			searchIndexService.getCachedUser.mockResolvedValue(null);
-			userRepository.searchByDisplayName.mockResolvedValue([user]);
-			searchIndexService.indexUser.mockResolvedValue(undefined);
-
-			const result = await service.searchByDisplayName('Test');
-
-			expect(result).toHaveLength(1);
-			expect(result[0]).toEqual({
-				userId: 'uuid-1',
-				username: 'testuser',
-				firstName: 'Test',
-				lastName: 'User',
-			});
-			expect(userRepository.searchByDisplayName).toHaveBeenCalledWith('Test', 20);
-		});
-
 		it('skips users not found in cache', async () => {
 			searchIndexService.searchByName.mockResolvedValue(['uuid-1', 'uuid-2']);
 			searchIndexService.getCachedUser
@@ -239,10 +189,8 @@ describe('UserSearchService', () => {
 			expect(result).toHaveLength(1);
 		});
 
-		it('returns empty array when no users match anywhere', async () => {
+		it('returns empty array when no users match', async () => {
 			searchIndexService.searchByName.mockResolvedValue([]);
-			searchIndexService.getCachedUser.mockResolvedValue(null);
-			userRepository.searchByDisplayName.mockResolvedValue([]);
 
 			const result = await service.searchByDisplayName('NoMatch');
 
