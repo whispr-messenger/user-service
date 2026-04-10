@@ -54,8 +54,9 @@ async function bootstrap() {
 
 	app.useGlobalInterceptors(new LoggingInterceptor());
 
+	const allowedOrigins = configService.get<string>('CORS_ALLOWED_ORIGINS');
 	app.enableCors({
-		origin: true,
+		origin: allowedOrigins ? allowedOrigins.split(',') : false,
 		credentials: true,
 	});
 
