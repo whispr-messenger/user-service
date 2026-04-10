@@ -124,7 +124,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_branch || 'main' }}
           token: ${{ steps.generate_token.outputs.token }}
 
-      - name: Validate deployment manifest path
+      - name: Validate deployment and migration-job manifest paths
         run: |
           MANIFEST_PATH="infrastructure/k8s/whispr/prod/user-service/deployment.yaml"
           if [ ! -f "$MANIFEST_PATH" ]; then
@@ -133,6 +133,14 @@ jobs:
             exit 1
           fi
           echo "✅ Deployment manifest found at $MANIFEST_PATH"
+
+          MIGRATION_MANIFEST_PATH="infrastructure/k8s/whispr/prod/user-service/migration-job.yaml"
+          if [ ! -f "$MIGRATION_MANIFEST_PATH" ]; then
+            echo "❌ Error: Migration job manifest not found at $MIGRATION_MANIFEST_PATH"
+            echo "Please verify the path in the infrastructure repository."
+            exit 1
+          fi
+          echo "✅ Migration job manifest found at $MIGRATION_MANIFEST_PATH"
 
       - name: Update image tag in deployment
         id: update_image
@@ -158,10 +166,15 @@ jobs:
           # Update the deployment manifest in the infrastructure repository
           yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
 
+          # Update the migration job manifest so PreSync always uses the same image
+          yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
+
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
-          yq '.spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
+          yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
+          echo "Updated migration job manifest:"
+          yq 'select(.kind == "Job").spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
 
       - name: Commit and push changes
         working-directory: infrastructure
@@ -170,7 +183,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
 
           # Check if there are changes to commit
-          if git diff --quiet k8s/whispr/prod/user-service/deployment.yaml; then
+          if git diff --quiet k8s/whispr/prod/user-service/deployment.yaml k8s/whispr/prod/user-service/migration-job.yaml; then
             echo "No changes to commit"
             exit 0
           fi
@@ -186,7 +199,7 @@ jobs:
             COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
           fi
 
-          git add k8s/whispr/prod/user-service/deployment.yaml
+          git add k8s/whispr/prod/user-service/deployment.yaml k8s/whispr/prod/user-service/migration-job.yaml
           git commit -m "${COMMIT_MSG}"
 
           # Push directly to main in infrastructure repo
