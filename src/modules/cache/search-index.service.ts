@@ -26,35 +26,61 @@ export class SearchIndexService {
 
 	async indexUser(user: User): Promise<void> {
 		try {
+			const firstName = user.firstName ?? null;
+			const lastName = user.lastName ?? null;
+			const fullName =
+				firstName || lastName
+					? `${firstName ?? ''} ${lastName ?? ''}`.toLowerCase().trim()
+					: null;
+
 			const indexEntry: SearchIndexEntry = {
 				userId: user.id,
 				phoneNumber: user.phoneNumber,
 				username: user.username,
-				firstName: user.firstName,
-				lastName: user.lastName,
-				fullName: `${user.firstName} ${user.lastName}`.toLowerCase().trim(),
+				firstName,
+				lastName,
+				fullName: fullName ?? '',
 				isActive: user.isActive,
 				createdAt: user.createdAt,
 			};
 
 			const commands: Array<[string, ...any[]]> = [
 				['hset', this.PHONE_INDEX_KEY, user.phoneNumber, user.id],
-				['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id],
-				[
-					'zadd',
-					`${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`,
-					user.createdAt.getTime(),
-					user.id,
-				],
-				[
-					'zadd',
-					`${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`,
-					user.createdAt.getTime(),
-					user.id,
-				],
-				['zadd', `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`, user.createdAt.getTime(), user.id],
-				['setex', `${this.USER_CACHE_PREFIX}:${user.id}`, this.CACHE_TTL, JSON.stringify(indexEntry)],
 			];
+
+			if (user.username) {
+				commands.push(['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id]);
+			}
+			if (firstName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${firstName.toLowerCase()}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
+			if (lastName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${lastName.toLowerCase()}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
+			if (fullName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${fullName}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
+			commands.push([
+				'setex',
+				`${this.USER_CACHE_PREFIX}:${user.id}`,
+				this.CACHE_TTL,
+				JSON.stringify(indexEntry),
+			]);
 
 			await this.cacheService.pipeline(commands);
 			this.logger.debug(`Indexed user ${user.id} in search indexes`);
