@@ -9,6 +9,7 @@ beforeAll(async () => {
 	process.env.HTTP_PORT = process.env.HTTP_PORT || '3000';
 	process.env.DB_SYNCHRONIZE = process.env.DB_SYNCHRONIZE || 'true';
 	process.env.DB_LOGGING = process.env.DB_LOGGING || 'false';
+	process.env.MEDIA_SERVICE_URL = process.env.MEDIA_SERVICE_URL || 'http://media-service:3003';
 });
 
 // Global E2E teardown
