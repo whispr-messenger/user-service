@@ -53,7 +53,8 @@ describe('HealthController (e2e)', () => {
 
 	describe('404 on unknown routes', () => {
 		it('should return 404 for unknown routes', async () => {
-			await request(app.getHttpServer()).get('/unknown-route').expect(404);
+			const res = await request(app.getHttpServer()).get('/unknown-route').expect(404);
+			expect(res.status).toBe(404);
 		});
 	});
 });
