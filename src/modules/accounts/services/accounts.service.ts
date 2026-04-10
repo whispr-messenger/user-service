@@ -24,8 +24,7 @@ export class AccountsService {
 		private readonly userRepository: UserRepository,
 		private readonly searchIndexService: SearchIndexService,
 		@Inject('EVENTS_SERVICE')
-		private readonly eventsClient: ClientProxy,
-		private readonly searchIndexService: SearchIndexService
+		private readonly eventsClient: ClientProxy
 	) {}
 
 	private async findOne(id: string): Promise<User> {
