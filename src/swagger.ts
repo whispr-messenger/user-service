@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerCustomOptions, SwaggerModule } from '@nestjs/swagger';
 
-function buildSwaggerDocument(_port: number) {
+function buildSwaggerDocument() {
 	return new DocumentBuilder()
 		.setTitle('User Service')
 		.setDescription('API documentation for the User Service')
@@ -35,7 +35,7 @@ export function createSwaggerDocumentation(
 
 	const swaggerRoute = [globalPrefix, 'swagger'].filter(Boolean).join('/');
 
-	const config = buildSwaggerDocument(port);
+	const config = buildSwaggerDocument();
 	const documentFactory = () =>
 		SwaggerModule.createDocument(app, config, {
 			ignoreGlobalPrefix: false,

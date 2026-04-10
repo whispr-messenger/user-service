@@ -87,6 +87,7 @@ describe('UserSearchService', () => {
 					useValue: {
 						findById: jest.fn(),
 						findByPhoneNumber: jest.fn(),
+						findByPhoneNumberWithFilter: jest.fn(),
 						findByUsernameInsensitive: jest.fn(),
 						searchByDisplayName: jest.fn(),
 					},
@@ -115,7 +116,7 @@ describe('UserSearchService', () => {
 		it('falls back to database when not in Redis', async () => {
 			const user = mockUser();
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(user);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(user);
 			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
 			userRepository.findById.mockResolvedValue(user);
 			searchIndexService.indexUser.mockResolvedValue(undefined);
@@ -123,7 +124,7 @@ describe('UserSearchService', () => {
 			const result = await service.searchByPhone('+33600000001');
 
 			expect(result).toBe(user);
-			expect(userRepository.findByPhoneNumber).toHaveBeenCalledWith('+33600000001');
+			expect(userRepository.findByPhoneNumberWithFilter).toHaveBeenCalledWith('+33600000001');
 		});
 
 		it('returns null when user has disabled searchByPhone', async () => {
@@ -137,7 +138,7 @@ describe('UserSearchService', () => {
 
 		it('returns null when not found in Redis or database', async () => {
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(null);
 
 			const result = await service.searchByPhone('+33600000001');
 

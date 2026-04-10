@@ -42,7 +42,6 @@ function getEnvDatabaseConfig(configService: ConfigService): DatabaseConfig {
 function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
 	return {
 		type: 'postgres',
-		entities: [__dirname + '/**/*.entity{.ts,.js}'],
 		logging: configService.get('DB_LOGGING', 'false') === 'true',
 		migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
 		migrationsRun: configService.get('DB_MIGRATIONS_RUN', 'false') === 'true',
