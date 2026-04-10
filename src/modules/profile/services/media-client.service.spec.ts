@@ -58,7 +58,7 @@ describe('MediaClientService', () => {
 
 			expect(result).toEqual(validBody);
 			expect(mockFetch).toHaveBeenCalledWith(
-				'http://media-service:3000/media/media-1',
+				'http://media-service:3000/media/v1/media-1',
 				expect.objectContaining({
 					method: 'GET',
 					headers: { 'x-user-id': 'user-1', Accept: 'application/json' },
