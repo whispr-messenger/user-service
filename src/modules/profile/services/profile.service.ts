@@ -1,14 +1,24 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+	Injectable,
+	Logger,
+	NotFoundException,
+	ConflictException,
+	BadRequestException,
+} from '@nestjs/common';
 import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { MediaClientService } from './media-client.service';
+import { SearchIndexService } from '../../cache/search-index.service';
 
 @Injectable()
 export class ProfileService {
+	private readonly logger = new Logger(ProfileService.name);
+
 	constructor(
 		private readonly userRepository: UserRepository,
-		private readonly mediaClient: MediaClientService
+		private readonly mediaClient: MediaClientService,
+		private readonly searchIndexService: SearchIndexService
 	) {}
 
 	private async findOne(id: string): Promise<User> {
@@ -25,8 +35,13 @@ export class ProfileService {
 		return this.findOne(id);
 	}
 
-	public async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
+	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
+		const previous = {
+			username: user.username,
+			firstName: user.firstName,
+			lastName: user.lastName,
+		};
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -40,7 +55,7 @@ export class ProfileService {
 			if (dto.profilePictureUrl) {
 				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
 			}
-			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id);
+			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
 				throw new BadRequestException(
 					`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
@@ -56,6 +71,20 @@ export class ProfileService {
 		const { avatarMediaId, ...fields } = dto;
 		Object.assign(user, fields);
 
-		return this.userRepository.save(user);
+		const saved = await this.userRepository.save(user);
+
+		if (
+			saved.username !== previous.username ||
+			saved.firstName !== previous.firstName ||
+			saved.lastName !== previous.lastName
+		) {
+			try {
+				await this.searchIndexService.indexUser(saved);
+			} catch (err) {
+				this.logger.warn(`Failed to index user ${saved.id} in search: ${err}`);
+			}
+		}
+
+		return saved;
 	}
 }

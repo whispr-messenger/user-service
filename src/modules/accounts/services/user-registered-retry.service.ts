@@ -30,6 +30,9 @@ export class UserRegisteredRetryService {
 
 			try {
 				await this.accountsService.createFromEvent(event);
+				this.logger.log(
+					`user.registered handled successfully for userId=${event.userId} on attempt ${attempt + 1}`
+				);
 				return;
 			} catch (error) {
 				lastError = error instanceof Error ? error : new Error(String(error));

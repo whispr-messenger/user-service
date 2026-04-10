@@ -1,7 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ConflictException } from '@nestjs/common';
+import { NotFoundException, ConflictException, Logger } from '@nestjs/common';
+import { of, throwError } from 'rxjs';
 import { AccountsService } from './accounts.service';
 import { UserRepository } from '../../common/repositories';
+import { SearchIndexService } from '../../cache/search-index.service';
 import { User } from '../../common/entities/user.entity';
 
 const mockUser = (): User =>
@@ -22,7 +24,7 @@ describe('AccountsService', () => {
 	let eventsClient: { emit: jest.Mock };
 
 	beforeEach(async () => {
-		eventsClient = { emit: jest.fn() };
+		eventsClient = { emit: jest.fn().mockReturnValue(of(undefined)) };
 
 		const module: TestingModule = await Test.createTestingModule({
 			providers: [
@@ -41,6 +43,12 @@ describe('AccountsService', () => {
 				{
 					provide: 'EVENTS_SERVICE',
 					useValue: eventsClient,
+				},
+				{
+					provide: SearchIndexService,
+					useValue: {
+						indexUser: jest.fn().mockResolvedValue(undefined),
+					},
 				},
 			],
 		}).compile();
@@ -96,6 +104,42 @@ describe('AccountsService', () => {
 			expect(eventsClient.emit).toHaveBeenCalledWith(
 				'user.created',
 				expect.objectContaining({ userId: created.id })
+			);
+		});
+
+		it('logs before and after emitting user.created event', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+
+			const logSpy = jest.spyOn(Logger.prototype, 'log');
+
+			await service.createFromEvent(event);
+
+			expect(logSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Emitting user.created for userId=uuid-1')
+			);
+			expect(logSpy).toHaveBeenCalledWith(
+				expect.stringContaining('user.created emitted successfully for userId=uuid-1')
+			);
+		});
+
+		it('logs error when emit observable fails', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+			eventsClient.emit.mockReturnValue(throwError(() => new Error('Transport error')));
+
+			const errorSpy = jest.spyOn(Logger.prototype, 'error');
+
+			const result = await service.createFromEvent(event);
+
+			expect(result).toBe(created);
+			expect(errorSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Failed to emit user.created for userId=uuid-1: Transport error'),
+				expect.any(String)
 			);
 		});
 	});

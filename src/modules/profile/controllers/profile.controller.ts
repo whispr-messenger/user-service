@@ -50,6 +50,7 @@ export class ProfileController {
 		if (req.user?.sub !== id) {
 			throw new ForbiddenException("Cannot update another user's profile");
 		}
-		return this.profileService.updateProfile(id, dto);
+		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
+		return this.profileService.updateProfile(id, dto, authorization);
 	}
 }

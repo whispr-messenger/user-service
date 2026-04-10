@@ -20,9 +20,9 @@ describe('MediaClientService', () => {
 				{
 					provide: ConfigService,
 					useValue: {
-						get: jest.fn((key: string, defaultValue?: string) => {
+						getOrThrow: jest.fn((key: string) => {
 							if (key === 'MEDIA_SERVICE_URL') return 'http://media-service:3000';
-							return defaultValue;
+							throw new Error(`Missing config: ${key}`);
 						}),
 					},
 				},

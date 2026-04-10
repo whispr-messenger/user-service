@@ -26,35 +26,58 @@ export class SearchIndexService {
 
 	async indexUser(user: User): Promise<void> {
 		try {
+			const normalizedUsername = user.username?.toLowerCase();
+			const normalizedFirstName = user.firstName?.toLowerCase();
+			const normalizedLastName = user.lastName?.toLowerCase();
+			const normalizedFullName = [user.firstName, user.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
+
 			const indexEntry: SearchIndexEntry = {
 				userId: user.id,
 				phoneNumber: user.phoneNumber,
 				username: user.username,
 				firstName: user.firstName,
 				lastName: user.lastName,
-				fullName: `${user.firstName} ${user.lastName}`.toLowerCase().trim(),
+				fullName: normalizedFullName,
 				isActive: user.isActive,
 				createdAt: user.createdAt,
 			};
 
 			const commands: Array<[string, ...any[]]> = [
 				['hset', this.PHONE_INDEX_KEY, user.phoneNumber, user.id],
-				['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id],
-				[
-					'zadd',
-					`${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`,
-					user.createdAt.getTime(),
-					user.id,
-				],
-				[
-					'zadd',
-					`${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`,
-					user.createdAt.getTime(),
-					user.id,
-				],
-				['zadd', `${this.NAME_INDEX_KEY}:${indexEntry.fullName}`, user.createdAt.getTime(), user.id],
 				['setex', `${this.USER_CACHE_PREFIX}:${user.id}`, this.CACHE_TTL, JSON.stringify(indexEntry)],
 			];
+
+			if (normalizedUsername) {
+				commands.push(['hset', this.USERNAME_INDEX_KEY, normalizedUsername, user.id]);
+			}
+			if (normalizedFirstName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${normalizedFirstName}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
+			if (normalizedLastName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${normalizedLastName}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
+			if (normalizedFullName) {
+				commands.push([
+					'zadd',
+					`${this.NAME_INDEX_KEY}:${normalizedFullName}`,
+					user.createdAt.getTime(),
+					user.id,
+				]);
+			}
 
 			await this.cacheService.pipeline(commands);
 			this.logger.debug(`Indexed user ${user.id} in search indexes`);
@@ -66,16 +89,32 @@ export class SearchIndexService {
 
 	async removeUserFromIndex(user: User): Promise<void> {
 		try {
-			const fullName = `${user.firstName} ${user.lastName}`.toLowerCase().trim();
+			const normalizedUsername = user.username?.toLowerCase();
+			const normalizedFirstName = user.firstName?.toLowerCase();
+			const normalizedLastName = user.lastName?.toLowerCase();
+			const fullName = [user.firstName, user.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
 
 			const commands: Array<[string, ...any[]]> = [
 				['hdel', this.PHONE_INDEX_KEY, user.phoneNumber],
-				['hdel', this.USERNAME_INDEX_KEY, user.username.toLowerCase()],
-				['zrem', `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`, user.id],
-				['zrem', `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`, user.id],
-				['zrem', `${this.NAME_INDEX_KEY}:${fullName}`, user.id],
 				['del', `${this.USER_CACHE_PREFIX}:${user.id}`],
 			];
+
+			if (normalizedUsername) {
+				commands.push(['hdel', this.USERNAME_INDEX_KEY, normalizedUsername]);
+			}
+			if (normalizedFirstName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${normalizedFirstName}`, user.id]);
+			}
+			if (normalizedLastName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${normalizedLastName}`, user.id]);
+			}
+			if (fullName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${fullName}`, user.id]);
+			}
 
 			await this.cacheService.pipeline(commands);
 			this.logger.debug(`Removed user ${user.id} from search indexes`);
@@ -87,7 +126,7 @@ export class SearchIndexService {
 
 	async searchByPhoneNumber(phoneNumber: string): Promise<string | null> {
 		try {
-			return await this.cacheService.get<string>(`${this.PHONE_INDEX_KEY}:${phoneNumber}`);
+			return await this.cacheService.hget(this.PHONE_INDEX_KEY, phoneNumber);
 		} catch (error) {
 			this.logger.error(`Failed to search by phone number ${phoneNumber}:`, error);
 			return null;
@@ -96,9 +135,7 @@ export class SearchIndexService {
 
 	async searchByUsername(username: string): Promise<string | null> {
 		try {
-			return await this.cacheService.get<string>(
-				`${this.USERNAME_INDEX_KEY}:${username.toLowerCase()}`
-			);
+			return await this.cacheService.hget(this.USERNAME_INDEX_KEY, username.toLowerCase());
 		} catch (error) {
 			this.logger.error(`Failed to search by username ${username}:`, error);
 			return null;
