@@ -158,7 +158,7 @@ describe('ProfileService', () => {
 
 			const result = await service.updateProfile('uuid-1', dto);
 
-			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1');
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
 			expect(result.profilePictureUrl).toBe(metadata.url);
 		});
 
