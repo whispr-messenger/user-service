@@ -124,18 +124,27 @@ export class UserRepository {
 	}
 
 	/**
-	 * Search users by display name (first name, last name, or full name)
+	 * Search users by display name (first name or last name)
 	 */
 	async searchByDisplayName(query: string, limit: number = 20): Promise<User[]> {
 		const pattern = `%${query}%`;
-		return this.repository.find({
+		const rows = await this.repository.find({
 			where: [
 				{ firstName: ILike(pattern), isActive: true },
 				{ lastName: ILike(pattern), isActive: true },
 			],
-			take: limit,
+			take: limit * 2,
 			order: { createdAt: 'DESC' },
 		});
+
+		const seen = new Set<string>();
+		return rows
+			.filter((u) => {
+				if (seen.has(u.id)) return false;
+				seen.add(u.id);
+				return true;
+			})
+			.slice(0, limit);
 	}
 
 	/**
