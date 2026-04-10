@@ -1,5 +1,6 @@
-import { Injectable, NotFoundException, ConflictException, Inject } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, ConflictException, Inject } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
+import { lastValueFrom } from 'rxjs';
 import { User } from '../../common/entities/user.entity';
 import { UserRegisteredEvent } from '../../shared/events';
 import { UserRepository } from '../../common/repositories';
@@ -17,6 +18,8 @@ import { SearchIndexService } from '../../cache/search-index.service';
  */
 @Injectable()
 export class AccountsService {
+	private readonly logger = new Logger(AccountsService.name);
+
 	constructor(
 		private readonly userRepository: UserRepository,
 		private readonly searchIndexService: SearchIndexService,
@@ -38,9 +41,6 @@ export class AccountsService {
 	 * Create a minimal user record from event
 	 * Used when receiving user.registered event from auth module
 	 * Only creates the record with id and phoneNumber, other fields can be filled later
-	 *
-	 * NOTE: Search index is NOT created at this stage.
-	 * User becomes searchable only after ProfileService.completeProfile() is called.
 	 */
 	public async createFromEvent(event: UserRegisteredEvent): Promise<User> {
 		const existingUser = await this.userRepository.findById(event.userId);
@@ -61,17 +61,35 @@ export class AccountsService {
 			isActive: true,
 		});
 
+		// Index user in search cache
+		await this.searchIndexService.indexUser(user);
+
 		// Publish user.created event for projections
-		this.eventsClient.emit(
-			'user.created',
-			new UserCreatedEvent(
-				user.id,
-				user.phoneNumber,
-				user.username || event.phoneNumber, // fallback to phoneNumber if username not set
-				user.firstName || '',
-				user.lastName
-			)
-		);
+		this.logger.log(`Emitting user.created for userId=${user.id}`);
+		try {
+			await lastValueFrom(
+				this.eventsClient.emit(
+					'user.created',
+					new UserCreatedEvent(
+						user.id,
+						user.phoneNumber,
+						user.username || event.phoneNumber, // fallback to phoneNumber if username not set
+						user.firstName || '',
+						user.lastName
+					)
+				)
+			);
+			this.logger.log(`user.created emitted successfully for userId=${user.id}`);
+		} catch (error) {
+			if (error instanceof Error) {
+				this.logger.error(
+					`Failed to emit user.created for userId=${user.id}: ${error.message}`,
+					error.stack
+				);
+			} else {
+				this.logger.error(`Failed to emit user.created for userId=${user.id}: ${String(error)}`);
+			}
+		}
 
 		await this.searchIndexService.indexUser(user);
 

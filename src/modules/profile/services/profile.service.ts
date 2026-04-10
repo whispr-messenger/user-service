@@ -1,16 +1,24 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+	Injectable,
+	Logger,
+	NotFoundException,
+	ConflictException,
+	BadRequestException,
+} from '@nestjs/common';
 import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { MediaClientService } from './media-client.service';
-import { UserSearchService } from '../../search/services/user-search.service';
+import { SearchIndexService } from '../../cache/search-index.service';
 
 @Injectable()
 export class ProfileService {
+	private readonly logger = new Logger(ProfileService.name);
+
 	constructor(
 		private readonly userRepository: UserRepository,
 		private readonly mediaClient: MediaClientService,
-		private readonly userSearchService: UserSearchService
+		private readonly searchIndexService: SearchIndexService
 	) {}
 
 	private async findOne(id: string): Promise<User> {
@@ -64,13 +72,19 @@ export class ProfileService {
 		Object.assign(user, fields);
 
 		const saved = await this.userRepository.save(user);
+
 		if (
 			saved.username !== previous.username ||
 			saved.firstName !== previous.firstName ||
 			saved.lastName !== previous.lastName
 		) {
-			await this.userSearchService.indexUser(id);
+			try {
+				await this.searchIndexService.indexUser(saved);
+			} catch (err) {
+				this.logger.warn(`Failed to index user ${saved.id} in search: ${err}`);
+			}
 		}
+
 		return saved;
 	}
 }

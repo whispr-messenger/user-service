@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { Logger } from '@nestjs/common';
 import { UserRegisteredRetryService } from './user-registered-retry.service';
 import { AccountsService } from './accounts.service';
 import { RedisConfig } from '../../../config/redis.config';
@@ -46,6 +47,17 @@ describe('UserRegisteredRetryService', () => {
 
 		expect(accountsService.createFromEvent).toHaveBeenCalledTimes(1);
 		expect(mockRedisPush).not.toHaveBeenCalled();
+	});
+
+	it('logs success with attempt number on first successful attempt', async () => {
+		accountsService.createFromEvent.mockResolvedValue({ id: 'uuid-1' } as any);
+		const logSpy = jest.spyOn(Logger.prototype, 'log');
+
+		await service.handleWithRetry(event);
+
+		expect(logSpy).toHaveBeenCalledWith(
+			expect.stringContaining('user.registered handled successfully for userId=uuid-1 on attempt 1')
+		);
 	});
 
 	it('retries and succeeds on the second attempt', async () => {
