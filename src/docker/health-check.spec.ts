@@ -153,7 +153,7 @@ describe('health-check', () => {
 		loadHealthCheck();
 
 		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining('Target: GET http://localhost:3011/user/health/ready')
+			expect.stringContaining('Target: GET http://localhost:3011/user/v1/health/ready')
 		);
 		expect(mockConsoleLog).toHaveBeenCalledWith(expect.stringContaining('Timeout: 3000ms'));
 	});
