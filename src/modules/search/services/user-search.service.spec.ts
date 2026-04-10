@@ -100,8 +100,6 @@ describe('UserSearchService', () => {
 		userRepository = module.get(UserRepository);
 	});
 
-	/* --- PLACEHOLDER_TESTS --- */
-
 	describe('searchByPhone', () => {
 		it('returns user when found in Redis index', async () => {
 			const user = mockUser();
