@@ -25,9 +25,9 @@ export class UserSearchService {
 		// Try Redis index first
 		let userId = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
 
-		// Fallback to database if not in Redis
+		// Fallback to database if not in Redis (active users only)
 		if (!userId) {
-			const user = await this.userRepository.findByPhoneNumber(phoneNumber);
+			const user = await this.userRepository.findByPhoneNumberWithFilter(phoneNumber);
 			if (!user) {
 				return null;
 			}
@@ -102,12 +102,14 @@ export class UserSearchService {
 	}
 
 	async searchByPhoneBatch(phoneNumbers: string[]): Promise<User[]> {
+		const CHUNK = 50;
 		const results: User[] = [];
 
-		for (const phoneNumber of phoneNumbers) {
-			const user = await this.searchByPhone(phoneNumber);
-			if (user) {
-				results.push(user);
+		for (let i = 0; i < phoneNumbers.length; i += CHUNK) {
+			const chunk = phoneNumbers.slice(i, i + CHUNK);
+			const settled = await Promise.allSettled(chunk.map((n) => this.searchByPhone(n)));
+			for (const r of settled) {
+				if (r.status === 'fulfilled' && r.value) results.push(r.value);
 			}
 		}
 
@@ -123,10 +125,9 @@ export class UserSearchService {
 	}
 
 	private reindexUser(user: User): void {
-		if (user.username && user.firstName) {
-			this.searchIndexService.indexUser(user).catch((err) => {
-				this.logger.warn(`Failed to re-index user ${user.id}: ${err}`);
-			});
-		}
+		if (!user.id) return;
+		this.searchIndexService.indexUser(user).catch((err) => {
+			this.logger.warn(`Failed to re-index user ${user.id}: ${err}`);
+		});
 	}
 }

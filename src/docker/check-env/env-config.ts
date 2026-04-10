@@ -32,5 +32,6 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		{ name: 'REDIS_SENTINELS', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_MASTER_NAME', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_SENTINEL_PASSWORD', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'CORS_ALLOWED_ORIGINS', default: '(CORS disabled when unset)' },
 	],
 };

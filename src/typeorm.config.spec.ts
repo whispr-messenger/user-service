@@ -104,12 +104,12 @@ describe('typeorm.config', () => {
 			expect(result.migrationsRun).toBe(true);
 		});
 
-		it('should include entities and migrations arrays in result', async () => {
+		it('should include migrations array and autoLoadEntities in result', async () => {
 			const configService = makeConfigService({});
 
 			const result = await factory(configService);
 
-			expect(result.entities).toBeDefined();
+			expect((result as any).autoLoadEntities).toBe(true);
 			expect(result.migrations).toBeDefined();
 			expect(result.type).toBe('postgres');
 		});
