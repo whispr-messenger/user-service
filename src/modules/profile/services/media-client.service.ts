@@ -27,7 +27,7 @@ export class MediaClientService {
 	private readonly baseUrl: string;
 
 	constructor(private readonly configService: ConfigService) {
-		this.baseUrl = this.configService.get<string>('MEDIA_SERVICE_URL', 'http://media-service:3003');
+		this.baseUrl = this.configService.getOrThrow<string>('MEDIA_SERVICE_URL');
 	}
 
 	/**
