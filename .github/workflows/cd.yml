@@ -124,7 +124,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_branch || 'main' }}
           token: ${{ steps.generate_token.outputs.token }}
 
-      - name: Validate deployment manifest path
+      - name: Validate deployment and migration-job manifest paths
         run: |
           MANIFEST_PATH="infrastructure/k8s/whispr/prod/user-service/deployment.yaml"
           if [ ! -f "$MANIFEST_PATH" ]; then
@@ -167,14 +167,14 @@ jobs:
           yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
 
           # Update the migration job manifest so PreSync always uses the same image
-          yq -i ".spec.template.spec.containers[0].image = \"${FULL_IMAGE}\"" infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
+          yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
 
       - name: Verify update
         run: |
           echo "Updated deployment manifest:"
           yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/deployment.yaml
           echo "Updated migration job manifest:"
-          yq '.spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
+          yq 'select(.kind == "Job").spec.template.spec.containers[0].image' infrastructure/k8s/whispr/prod/user-service/migration-job.yaml
 
       - name: Commit and push changes
         working-directory: infrastructure
