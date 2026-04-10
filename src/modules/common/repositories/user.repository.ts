@@ -124,7 +124,7 @@ export class UserRepository {
 	}
 
 	/**
-	 * Search users by display name (first name or last name)
+	 * Search users by first name or last name
 	 */
 	async searchByDisplayName(query: string, limit: number = 20): Promise<User[]> {
 		const pattern = `%${query}%`;

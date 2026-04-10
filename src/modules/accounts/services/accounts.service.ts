@@ -62,8 +62,12 @@ export class AccountsService {
 			isActive: true,
 		});
 
-		// Index user in search cache
-		await this.searchIndexService.indexUser(user);
+		// Index user in search cache (non-blocking — Redis failure must not abort account creation)
+		try {
+			await this.searchIndexService.indexUser(user);
+		} catch (err) {
+			this.logger.warn(`Failed to index user ${user.id} in search: ${err}`);
+		}
 
 		// Publish user.created event for projections
 		this.logger.log(`Emitting user.created for userId=${user.id}`);

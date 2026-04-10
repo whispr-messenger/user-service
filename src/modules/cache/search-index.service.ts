@@ -5,9 +5,9 @@ import { User } from '../common/entities/user.entity';
 export interface SearchIndexEntry {
 	userId: string;
 	phoneNumber: string;
-	username: string;
-	firstName: string;
-	lastName: string;
+	username: string | null;
+	firstName: string | null;
+	lastName: string | null;
 	fullName: string;
 	isActive: boolean;
 	createdAt: Date;
@@ -38,9 +38,9 @@ export class SearchIndexService {
 			const indexEntry: SearchIndexEntry = {
 				userId: user.id,
 				phoneNumber: user.phoneNumber,
-				username: user.username,
-				firstName: user.firstName,
-				lastName: user.lastName,
+				username: user.username ?? null,
+				firstName: user.firstName ?? null,
+				lastName: user.lastName ?? null,
 				fullName: normalizedFullName,
 				isActive: user.isActive,
 				createdAt: user.createdAt,
@@ -190,9 +190,9 @@ export class SearchIndexService {
 				const indexEntry: SearchIndexEntry = {
 					userId: user.id,
 					phoneNumber: user.phoneNumber,
-					username: user.username,
-					firstName: user.firstName,
-					lastName: user.lastName,
+					username: user.username ?? null,
+					firstName: user.firstName ?? null,
+					lastName: user.lastName ?? null,
 					fullName: `${user.firstName} ${user.lastName}`.toLowerCase().trim(),
 					isActive: user.isActive,
 					createdAt: user.createdAt,
