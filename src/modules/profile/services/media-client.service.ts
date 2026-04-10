@@ -5,10 +5,10 @@ import { ConfigService } from '@nestjs/config';
  * Lightweight HTTP client for the media-service.
  *
  * The media-service contract (see WHISPR-332):
- *   GET  /media/v1/:id          → { id, url, thumbnailUrl, context, mimeType, ... }
- *   POST /media/v1/upload       → multipart upload (handled by mobile/frontend)
+ *   GET  /media/:id          → { id, url, thumbnailUrl, context, mimeType, ... }
+ *   POST /media/upload       → multipart upload (handled by mobile/frontend)
  *
- * This client only needs to call GET /media/v1/:id to resolve a mediaId
+ * This client only needs to call GET /media/:id to resolve a mediaId
  * into a public URL for avatar storage.
  */
 export interface MediaMetadata {
@@ -39,7 +39,7 @@ export class MediaClientService {
 	 * @returns        MediaMetadata including the public URL
 	 */
 	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
-		const url = `${this.baseUrl}/media/v1/${mediaId}`;
+		const url = `${this.baseUrl}/media/${mediaId}`;
 		this.logger.debug(`Fetching media metadata: ${url}`);
 
 		let res: Response;
