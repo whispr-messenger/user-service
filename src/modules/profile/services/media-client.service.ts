@@ -27,9 +27,7 @@ export class MediaClientService {
 	private readonly baseUrl: string;
 
 	constructor(private readonly configService: ConfigService) {
-		const isKubernetes = !!process.env.KUBERNETES_SERVICE_HOST;
-		const defaultBaseUrl = isKubernetes ? 'http://media-service:3003' : 'http://media-service:3003';
-		this.baseUrl = this.configService.get<string>('MEDIA_SERVICE_URL', defaultBaseUrl);
+		this.baseUrl = this.configService.get<string>('MEDIA_SERVICE_URL', 'http://media-service:3003');
 	}
 
 	/**
