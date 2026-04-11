@@ -6,6 +6,7 @@ import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
 import { User } from '../../common/entities/user.entity';
 import { AddContactDto } from '../dto/add-contact.dto';
+import { UpdateContactDto } from '../dto/update-contact.dto';
 
 const mockUser = (id: string = 'uuid-1'): User =>
 	({
@@ -52,6 +53,7 @@ describe('ContactsService', () => {
 						findAllByOwner: jest.fn(),
 						findOne: jest.fn(),
 						create: jest.fn(),
+						save: jest.fn(),
 						remove: jest.fn(),
 					},
 				},
@@ -179,6 +181,71 @@ describe('ContactsService', () => {
 			contactsRepository.findOne.mockResolvedValue(null);
 
 			await expect(service.removeContact('uuid-1', 'uuid-2')).rejects.toThrow(NotFoundException);
+		});
+	});
+
+	describe('updateContact', () => {
+		it('updates the nickname when provided', async () => {
+			const owner = mockUser('uuid-1');
+			const existing = mockContact();
+			const updated = { ...existing, nickname: 'Alice' } as Contact;
+			const dto: UpdateContactDto = { nickname: 'Alice' };
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(existing);
+			contactsRepository.save.mockResolvedValue(updated);
+
+			const result = await service.updateContact('uuid-1', 'uuid-2', dto);
+
+			expect(existing.nickname).toBe('Alice');
+			expect(contactsRepository.save).toHaveBeenCalledWith(existing);
+			expect(result).toBe(updated);
+		});
+
+		it('clears the nickname when explicitly set to null', async () => {
+			const owner = mockUser('uuid-1');
+			const existing = { ...mockContact(), nickname: 'Alice' } as Contact;
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(existing);
+			contactsRepository.save.mockImplementation(async (c) => c);
+
+			await service.updateContact('uuid-1', 'uuid-2', { nickname: null });
+
+			expect(existing.nickname).toBeNull();
+		});
+
+		it('is a no-op when dto is empty (no save, nickname untouched)', async () => {
+			const owner = mockUser('uuid-1');
+			const existing = { ...mockContact(), nickname: 'Alice' } as Contact;
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(existing);
+
+			const result = await service.updateContact('uuid-1', 'uuid-2', {});
+
+			expect(existing.nickname).toBe('Alice');
+			expect(contactsRepository.save).not.toHaveBeenCalled();
+			expect(result).toBe(existing);
+		});
+
+		it('throws NotFoundException when owner does not exist', async () => {
+			userRepository.findById.mockResolvedValue(null);
+
+			await expect(service.updateContact('uuid-1', 'uuid-2', { nickname: 'Alice' })).rejects.toThrow(
+				NotFoundException
+			);
+		});
+
+		it('throws NotFoundException when contact does not exist', async () => {
+			const owner = mockUser('uuid-1');
+
+			userRepository.findById.mockResolvedValue(owner);
+			contactsRepository.findOne.mockResolvedValue(null);
+
+			await expect(service.updateContact('uuid-1', 'uuid-2', { nickname: 'Alice' })).rejects.toThrow(
+				NotFoundException
+			);
 		});
 	});
 });
