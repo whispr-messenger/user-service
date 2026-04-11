@@ -89,12 +89,14 @@ npm run test:e2e:docker:cleanup  # teardown when done
 npx jest --testPathPatterns="tokens" --no-coverage
 ```
 
-All unit tests must be green before committing. E2E tests require the
-`docker/test/compose.yml` stack — never run `npm run test:e2e` or
-`jest --config test/jest-e2e.json` directly against a bare host, the suite
-will fail with `ECONNREFUSED` on 5432/6379. The bare `test:e2e` script in
-`package.json` exists only so the docker test-runner can invoke it inside
-the container; treat it as internal.
+All unit tests must be green before committing. For local development,
+prefer the `docker/test/compose.yml` stack via `npm run test:e2e:docker`.
+You may run `npm run test:e2e` (or `jest --config test/jest-e2e.json`)
+directly on the host only when Postgres and Redis are already listening on
+the expected ports (`5432` / `6379`) and the environment variables match the
+suite's expectations — this is how CI runs them. Outside of that setup the
+suite fails with `ECONNREFUSED`, so the docker stack is the safer default
+for local agents.
 
 ---
 
@@ -108,8 +110,7 @@ npx prettier --write "src/**/*.ts" "test/**/*.ts"
 The husky pre-commit hook runs eslint + prettier automatically on staged files,
 so manual runs are only needed if husky is not installed.
 
-If git reports `Le crochet '.husky/pre-commit' a été ignoré parce qu'il n'est
-pas marqué comme exécutable` (or the English equivalent), fix it once with:
+If git reports `Le crochet '.husky/pre-commit' a été ignoré parce qu'il n'est pas marqué comme exécutable` (or the English equivalent), fix it once with:
 
 ```bash
 chmod +x .husky/pre-commit .husky/pre-push
