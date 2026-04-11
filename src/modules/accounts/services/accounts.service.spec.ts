@@ -95,7 +95,7 @@ describe('AccountsService', () => {
 			expect(result).toBe(created);
 		});
 
-		it('indexes user in search cache after creation', async () => {
+		it('indexes user exactly once in search cache after creation', async () => {
 			const created = mockUser();
 			userRepository.findById.mockResolvedValue(null);
 			userRepository.findByPhoneNumber.mockResolvedValue(null);
@@ -103,6 +103,7 @@ describe('AccountsService', () => {
 
 			await service.createFromEvent(event);
 
+			expect(searchIndexService.indexUser).toHaveBeenCalledTimes(1);
 			expect(searchIndexService.indexUser).toHaveBeenCalledWith(created);
 		});
 

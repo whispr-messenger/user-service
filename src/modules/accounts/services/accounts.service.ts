@@ -95,8 +95,6 @@ export class AccountsService {
 			}
 		}
 
-		await this.searchIndexService.indexUser(user);
-
 		return user;
 	}
 
