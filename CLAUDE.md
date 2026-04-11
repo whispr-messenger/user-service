@@ -90,8 +90,11 @@ npx jest --testPathPatterns="tokens" --no-coverage
 ```
 
 All unit tests must be green before committing. E2E tests require the
-`docker/test/compose.yml` stack — never run `jest --config test/jest-e2e.json`
-directly against a bare host, the suite will fail with `ECONNREFUSED` on 5432.
+`docker/test/compose.yml` stack — never run `npm run test:e2e` or
+`jest --config test/jest-e2e.json` directly against a bare host, the suite
+will fail with `ECONNREFUSED` on 5432/6379. The bare `test:e2e` script in
+`package.json` exists only so the docker test-runner can invoke it inside
+the container; treat it as internal.
 
 ---
 
@@ -218,6 +221,13 @@ This applies both to the initial push and to any subsequent push that addresses 
 Use `mcp__github__create_pull_request`. The PR title **must** be prefixed with
 the Jira ticket key in square brackets so the ticket is discoverable from the
 GitHub side: `[WHISPR-XXX] <conventional commit summary>`.
+
+**Exception for unticketed chores:** pure maintenance PRs that are not tied to
+a Jira ticket (documentation refreshes, tooling cleanups, etc.) may omit the
+bracket prefix and start directly with the conventional commit summary
+(e.g. `chore(docs): ...`). Note this explicitly in the PR body so reviewers
+know the absence of a ticket is intentional. Anything tied to a ticket — bug
+fix, feature, refactor — must keep the `[WHISPR-XXX]` prefix.
 
 ```json
 {
