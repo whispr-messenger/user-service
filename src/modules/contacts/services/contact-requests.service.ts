@@ -15,7 +15,7 @@ export class ContactRequestsService {
 	constructor(
 		private readonly userRepository: UserRepository,
 		private readonly contactRequestsRepository: ContactRequestsRepository,
-		private readonly contactsRepository: ContactsRepository,
+		private readonly contactsRepository: ContactsRepository
 	) {}
 
 	private async ensureUserExists(userId: string): Promise<void> {
@@ -42,7 +42,7 @@ export class ContactRequestsService {
 		// Check for existing pending request in either direction
 		const existingRequest = await this.contactRequestsRepository.findPendingBetween(
 			requesterId,
-			recipientId,
+			recipientId
 		);
 		if (existingRequest) {
 			throw new ConflictException('A pending contact request already exists');
@@ -67,7 +67,7 @@ export class ContactRequestsService {
 					requester: requester ?? undefined,
 					recipient: recipient ?? undefined,
 				} as ContactRequest;
-			}),
+			})
 		);
 
 		return enriched;

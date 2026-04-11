@@ -44,7 +44,7 @@ export class CreateContactRequests1744364400000 implements MigrationInterface {
 					},
 				],
 			}),
-			true,
+			true
 		);
 
 		await queryRunner.createForeignKey(
@@ -55,7 +55,7 @@ export class CreateContactRequests1744364400000 implements MigrationInterface {
 				referencedSchema: 'users',
 				referencedColumnNames: ['id'],
 				onDelete: 'CASCADE',
-			}),
+			})
 		);
 
 		await queryRunner.createForeignKey(
@@ -66,14 +66,14 @@ export class CreateContactRequests1744364400000 implements MigrationInterface {
 				referencedSchema: 'users',
 				referencedColumnNames: ['id'],
 				onDelete: 'CASCADE',
-			}),
+			})
 		);
 
 		await queryRunner.createUniqueConstraint(
 			'users.contact_requests',
 			new TableUnique({
 				columnNames: ['requester_id', 'recipient_id'],
-			}),
+			})
 		);
 	}
 
