@@ -60,7 +60,7 @@ describe('AccountsService', () => {
 	});
 
 	describe('createFromEvent', () => {
-		const event = { userId: 'uuid-1', phoneNumber: '+33600000001', registeredAt: new Date() };
+		const event = { userId: 'uuid-1', phoneNumber: '+33600000001', timestamp: new Date() };
 
 		it('returns existing user if already present', async () => {
 			const existing = mockUser();
