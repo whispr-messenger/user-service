@@ -397,19 +397,12 @@ Then pass it as a number in `createJiraIssue`:
 
 ### Current sprint
 
-The active sprint ID rotates every two weeks; query it at the start of a session
-instead of relying on a hardcoded table:
-
-```json
-// mcp__atlassian__searchJiraIssuesUsingJql
-{
-  "jql": "project = WHISPR AND sprint in openSprints()",
-  "fields": ["customfield_10020"],
-  "maxResults": 1
-}
-```
-
-The board ID is stable at `34`.
+The active sprint ID rotates every two weeks; query it at the start of a
+session instead of relying on a hardcoded table. Reuse the same
+`mcp__atlassian__searchJiraIssuesUsingJql` snippet shown above in
+**Fetching the sprint ID for issue creation** — it already returns
+`customfield_10020[0].id` for the current sprint. The board ID is stable
+at `34`.
 
 ### Tools that do NOT work
 
