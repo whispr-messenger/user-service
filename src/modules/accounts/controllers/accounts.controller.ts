@@ -2,7 +2,7 @@ import { Controller, Patch, Param, Delete, ParseUUIDPipe, HttpStatus, Logger } f
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
 import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from '../../shared/events';
 
 /**
@@ -32,7 +32,7 @@ export class AccountsController {
 	 * Creates a minimal user record in the users schema
 	 * This allows the auth module to create users without depending on the users module
 	 */
-	@MessagePattern(USER_REGISTERED_PATTERN)
+	@EventPattern(USER_REGISTERED_PATTERN)
 	async createUserAccount(@Payload() event: UserRegisteredEvent): Promise<void> {
 		this.logger.log(`Received ${USER_REGISTERED_PATTERN} event for user ${event.userId}`);
 		await this.userRegisteredRetryService.handleWithRetry(event);

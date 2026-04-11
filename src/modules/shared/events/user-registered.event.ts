@@ -4,6 +4,6 @@ export class UserRegisteredEvent {
 	constructor(
 		public readonly userId: string,
 		public readonly phoneNumber: string,
-		public readonly registeredAt: Date = new Date()
+		public readonly timestamp: Date = new Date()
 	) {}
 }
