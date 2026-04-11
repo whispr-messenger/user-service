@@ -1,8 +1,10 @@
-import { IsOptional, IsString, MaxLength, Matches } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength, Matches } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AddContactDto {
 	@ApiProperty({ description: 'UUID of the user to add as contact', format: 'uuid' })
+	@IsString()
+	@IsNotEmpty({ message: 'contactId is required' })
 	@Matches(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, {
 		message: 'contactId must be a valid UUID',
 	})
