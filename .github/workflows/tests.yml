@@ -128,17 +128,16 @@ jobs:
       ####################################################################################################
       # SonarCloud Analysis (all branches — enables PR decoration and quality gate enforcement)
       ####################################################################################################
-      - name: Check SonarCloud secrets
+      - name: Check SonarCloud token
         id: check-secrets
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          if [[ -n "$SONAR_TOKEN" && -n "$SONAR_HOST_URL" ]]; then
+          if [[ -n "$SONAR_TOKEN" ]]; then
             echo "secrets-available=true" >> $GITHUB_OUTPUT
           else
             echo "secrets-available=false" >> $GITHUB_OUTPUT
-            echo "⚠️ SonarCloud secrets not configured. Skipping SonarCloud analysis."
+            echo "⚠️ SONAR_TOKEN not configured. Skipping SonarCloud analysis."
           fi
 
       - name: SonarCloud Analysis
@@ -147,7 +146,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
       - name: SonarCloud Quality Gate
         if: ${{ steps.check-secrets.outputs.secrets-available == 'true' }}
@@ -155,7 +154,7 @@ jobs:
         timeout-minutes: 5
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: https://sonarcloud.io
 
       # - name: Upload coverage to Codecov
       #   uses: codecov/codecov-action@v3
