@@ -111,7 +111,7 @@ describe('AccountsService', () => {
 			userRepository.findById.mockResolvedValue(null);
 			userRepository.findByPhoneNumber.mockResolvedValue(null);
 			userRepository.create.mockResolvedValue(created);
-			searchIndexService.indexUser.mockRejectedValue(new Error('Redis down'));
+			searchIndexService.indexUser.mockRejectedValueOnce(new Error('Redis down'));
 
 			const result = await service.createFromEvent(event);
 
