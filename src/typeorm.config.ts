@@ -4,7 +4,7 @@ import { DataSourceOptions } from 'typeorm';
 
 const DEFAULT_POSTGRES_PORT = 5432;
 
-interface DatabaseConfig {
+export interface DatabaseConfig {
 	host: string;
 	port: number;
 	username: string;
@@ -15,7 +15,7 @@ interface DatabaseConfig {
 /**
  * Parses a database connection URL into config components
  */
-function parseDatabaseUrl(url: string): DatabaseConfig {
+export function parseDatabaseUrl(url: string): DatabaseConfig {
 	const parsed = new URL(url);
 	return {
 		host: parsed.hostname,
