@@ -29,9 +29,7 @@ export class SearchIndexService {
 			const firstName = user.firstName ?? null;
 			const lastName = user.lastName ?? null;
 			const fullName =
-				firstName || lastName
-					? `${firstName ?? ''} ${lastName ?? ''}`.toLowerCase().trim()
-					: null;
+				firstName || lastName ? `${firstName ?? ''} ${lastName ?? ''}`.toLowerCase().trim() : null;
 
 			const indexEntry: SearchIndexEntry = {
 				userId: user.id,
