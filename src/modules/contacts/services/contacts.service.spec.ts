@@ -215,18 +215,18 @@ describe('ContactsService', () => {
 			expect(existing.nickname).toBeNull();
 		});
 
-		it('leaves the nickname untouched when dto is empty', async () => {
+		it('is a no-op when dto is empty (no save, nickname untouched)', async () => {
 			const owner = mockUser('uuid-1');
 			const existing = { ...mockContact(), nickname: 'Alice' } as Contact;
 
 			userRepository.findById.mockResolvedValue(owner);
 			contactsRepository.findOne.mockResolvedValue(existing);
-			contactsRepository.save.mockImplementation(async (c) => c);
 
-			await service.updateContact('uuid-1', 'uuid-2', {});
+			const result = await service.updateContact('uuid-1', 'uuid-2', {});
 
 			expect(existing.nickname).toBe('Alice');
-			expect(contactsRepository.save).toHaveBeenCalledWith(existing);
+			expect(contactsRepository.save).not.toHaveBeenCalled();
+			expect(result).toBe(existing);
 		});
 
 		it('throws NotFoundException when owner does not exist', async () => {

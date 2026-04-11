@@ -59,9 +59,11 @@ export class ContactsService {
 			throw new NotFoundException('Contact not found');
 		}
 
-		if (dto.nickname !== undefined) {
-			contact.nickname = dto.nickname;
+		if (dto.nickname === undefined) {
+			return contact;
 		}
+
+		contact.nickname = dto.nickname;
 		return this.contactsRepository.save(contact);
 	}
 }
