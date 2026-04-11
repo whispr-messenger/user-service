@@ -28,10 +28,7 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Cannot send request to yourself' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Already contacts or pending request exists' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async sendRequest(
-		@Request() req: any,
-		@Body() dto: SendContactRequestDto,
-	): Promise<ContactRequest> {
+	async sendRequest(@Request() req: any, @Body() dto: SendContactRequestDto): Promise<ContactRequest> {
 		const requesterId = req.user.sub ?? req.user.id;
 		return this.contactRequestsService.sendRequest(requesterId, dto.contactId);
 	}
@@ -41,9 +38,7 @@ export class ContactRequestsController {
 	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async getRequests(
-		@Param('userId', ParseUUIDPipe) userId: string,
-	): Promise<ContactRequest[]> {
+	async getRequests(@Param('userId', ParseUUIDPipe) userId: string): Promise<ContactRequest[]> {
 		return this.contactRequestsService.getRequestsForUser(userId);
 	}
 
@@ -56,7 +51,7 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
 	async acceptRequest(
 		@Request() req: any,
-		@Param('requestId', ParseUUIDPipe) requestId: string,
+		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<ContactRequest> {
 		const userId = req.user.sub ?? req.user.id;
 		return this.contactRequestsService.acceptRequest(requestId, userId);
@@ -71,7 +66,7 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
 	async rejectRequest(
 		@Request() req: any,
-		@Param('requestId', ParseUUIDPipe) requestId: string,
+		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<ContactRequest> {
 		const userId = req.user.sub ?? req.user.id;
 		return this.contactRequestsService.rejectRequest(requestId, userId);
@@ -87,7 +82,7 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
 	async cancelRequest(
 		@Request() req: any,
-		@Param('requestId', ParseUUIDPipe) requestId: string,
+		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<void> {
 		const userId = req.user.sub ?? req.user.id;
 		return this.contactRequestsService.cancelRequest(requestId, userId);

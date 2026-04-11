@@ -7,7 +7,7 @@ import { ContactRequest, ContactRequestStatus } from '../entities/contact-reques
 export class ContactRequestsRepository {
 	constructor(
 		@InjectRepository(ContactRequest)
-		private readonly repo: Repository<ContactRequest>,
+		private readonly repo: Repository<ContactRequest>
 	) {}
 
 	async findById(id: string): Promise<ContactRequest | null> {
@@ -16,15 +16,12 @@ export class ContactRequestsRepository {
 
 	async findByRequesterAndRecipient(
 		requesterId: string,
-		recipientId: string,
+		recipientId: string
 	): Promise<ContactRequest | null> {
 		return this.repo.findOne({ where: { requesterId, recipientId } });
 	}
 
-	async findPendingBetween(
-		userA: string,
-		userB: string,
-	): Promise<ContactRequest | null> {
+	async findPendingBetween(userA: string, userB: string): Promise<ContactRequest | null> {
 		return this.repo.findOne({
 			where: [
 				{ requesterId: userA, recipientId: userB, status: ContactRequestStatus.PENDING },
@@ -35,10 +32,7 @@ export class ContactRequestsRepository {
 
 	async findAllForUser(userId: string): Promise<ContactRequest[]> {
 		return this.repo.find({
-			where: [
-				{ requesterId: userId },
-				{ recipientId: userId },
-			],
+			where: [{ requesterId: userId }, { recipientId: userId }],
 			order: { createdAt: 'DESC' },
 		});
 	}
