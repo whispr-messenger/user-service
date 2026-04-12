@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { typeOrmModuleAsyncOptions } from '../typeorm.config';
 import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
@@ -22,6 +23,7 @@ import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 			envFilePath: ['.env.development', '.env.local', '.env'],
 		}),
 		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
+		ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
 		CacheModule,
 		JwtAuthModule,
 		HealthModule,
@@ -37,6 +39,10 @@ import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 		{
 			provide: APP_GUARD,
 			useClass: JwtAuthGuard,
+		},
+		{
+			provide: APP_GUARD,
+			useClass: ThrottlerGuard,
 		},
 	],
 })

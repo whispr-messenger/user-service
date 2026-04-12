@@ -1,6 +1,7 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { HealthCheck, HealthCheckService, TypeOrmHealthIndicator } from '@nestjs/terminus';
+import { SkipThrottle } from '@nestjs/throttler';
 import { Public } from '../jwt-auth/public.decorator';
 import { JwksHealthIndicator } from '../jwt-auth/jwks-health.indicator';
 import { RedisHealthIndicator } from './redis-health.indicator';
@@ -8,6 +9,7 @@ import { RedisHealthIndicator } from './redis-health.indicator';
 const DB_TIMEOUT_MS = 3_000;
 
 @Public()
+@SkipThrottle()
 @ApiTags('Health')
 @Controller('health')
 export class HealthController {

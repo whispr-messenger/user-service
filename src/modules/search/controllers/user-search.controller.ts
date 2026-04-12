@@ -1,11 +1,13 @@
 import { Controller, Get, Post, Query, Body, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UserSearchService, UserSearchResult } from '../services/user-search.service';
 import { User } from '../../common/entities/user.entity';
 import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
 
 @ApiTags('Search')
 @ApiBearerAuth()
+@Throttle({ default: { ttl: 60000, limit: 20 } })
 @Controller('search')
 export class UserSearchController {
 	constructor(private readonly userSearchService: UserSearchService) {}
