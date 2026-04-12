@@ -6,7 +6,6 @@ import {
 	UpdateDateColumn,
 	ManyToOne,
 	JoinColumn,
-	Unique,
 	Index,
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
@@ -18,7 +17,6 @@ export enum ContactRequestStatus {
 }
 
 @Entity({ name: 'contact_requests', schema: 'users' })
-@Unique('UQ_contact_requests_requester_recipient', ['requesterId', 'recipientId'])
 @Index('IDX_contact_requests_recipient_status', ['recipientId', 'status'])
 @Index('IDX_contact_requests_requester_status', ['requesterId', 'status'])
 export class ContactRequest {
