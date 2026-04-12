@@ -1,6 +1,5 @@
 import {
 	Controller,
-	ForbiddenException,
 	Get,
 	Post,
 	Patch,
@@ -19,12 +18,7 @@ import { AddContactDto } from '../dto/add-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
 import { Contact } from '../entities/contact.entity';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
-
-function assertOwnership(req: ExpressRequest & { user?: JwtPayload }, ownerId: string): void {
-	if (req.user?.sub !== ownerId) {
-		throw new ForbiddenException("Cannot access another user's contacts");
-	}
-}
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contacts')
 @ApiBearerAuth()
@@ -43,7 +37,7 @@ export class ContactsController {
 		@Param('ownerId', ParseUUIDPipe) ownerId: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact[]> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.getContacts(ownerId);
 	}
 
@@ -61,7 +55,7 @@ export class ContactsController {
 		@Body() dto: AddContactDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.addContact(ownerId, dto);
 	}
 
@@ -79,7 +73,7 @@ export class ContactsController {
 		@Body() dto: UpdateContactDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.updateContact(ownerId, contactId, dto);
 	}
 
@@ -97,7 +91,7 @@ export class ContactsController {
 		@Param('contactId', ParseUUIDPipe) contactId: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<void> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.removeContact(ownerId, contactId);
 	}
 }

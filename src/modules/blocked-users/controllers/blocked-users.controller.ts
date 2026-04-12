@@ -8,11 +8,15 @@ import {
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
+	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { BlockedUsersService } from '../services/blocked-users.service';
 import { BlockUserDto } from '../dto/block-user.dto';
 import { BlockedUser } from '../entities/blocked-user.entity';
+import type { Request as ExpressRequest } from 'express';
+import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Blocked Users')
 @ApiBearerAuth()
@@ -25,7 +29,11 @@ export class BlockedUsersController {
 	@ApiParam({ name: 'blockerId', type: 'string', format: 'uuid', description: 'Blocker user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Blocked users retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async getBlockedUsers(@Param('blockerId', ParseUUIDPipe) blockerId: string): Promise<BlockedUser[]> {
+	async getBlockedUsers(
+		@Param('blockerId', ParseUUIDPipe) blockerId: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<BlockedUser[]> {
+		assertOwnership(req, blockerId);
 		return this.blockedUsersService.getBlockedUsers(blockerId);
 	}
 
@@ -38,8 +46,10 @@ export class BlockedUsersController {
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Cannot block yourself' })
 	async blockUser(
 		@Param('blockerId', ParseUUIDPipe) blockerId: string,
-		@Body() dto: BlockUserDto
+		@Body() dto: BlockUserDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<BlockedUser> {
+		assertOwnership(req, blockerId);
 		return this.blockedUsersService.blockUser(blockerId, dto);
 	}
 
@@ -52,8 +62,10 @@ export class BlockedUsersController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or blocked entry not found' })
 	async unblockUser(
 		@Param('blockerId', ParseUUIDPipe) blockerId: string,
-		@Param('blockedId', ParseUUIDPipe) blockedId: string
+		@Param('blockedId', ParseUUIDPipe) blockedId: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<void> {
+		assertOwnership(req, blockerId);
 		return this.blockedUsersService.unblockUser(blockerId, blockedId);
 	}
 }
