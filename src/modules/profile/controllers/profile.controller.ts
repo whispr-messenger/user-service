@@ -1,20 +1,11 @@
-import {
-	Controller,
-	ForbiddenException,
-	Get,
-	Patch,
-	Param,
-	Body,
-	ParseUUIDPipe,
-	HttpStatus,
-	Request,
-} from '@nestjs/common';
+import { Controller, Get, Patch, Param, Body, ParseUUIDPipe, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { User } from '../../common/entities/user.entity';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Profile')
 @ApiBearerAuth()
@@ -45,11 +36,7 @@ export class ProfileController {
 		@Body() dto: UpdateProfileDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<User> {
-		// The JWT sub claim is the authoritative user identity — prevent users from
-		// updating each other's profiles by comparing the route param to the caller.
-		if (req.user?.sub !== id) {
-			throw new ForbiddenException("Cannot update another user's profile");
-		}
+		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
 		return this.profileService.updateProfile(id, dto, authorization);
 	}

@@ -9,6 +9,7 @@ import {
 	ParseUUIDPipe,
 	Patch,
 	Post,
+	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
@@ -17,6 +18,9 @@ import { EventPattern, Payload } from '@nestjs/microservices';
 import { USER_REGISTERED_PATTERN, UserRegisteredEvent } from '../../shared/events';
 import { Public } from '../../jwt-auth/public.decorator';
 import { IsString, IsUUID } from 'class-validator';
+import type { Request as ExpressRequest } from 'express';
+import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 class BootstrapAccountDto {
 	@IsUUID()
@@ -84,7 +88,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'Last seen updated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async updateLastSeen(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async updateLastSeen(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.updateLastSeen(id);
 	}
 
@@ -97,7 +105,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User deactivated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async deactivate(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.deactivate(id);
 	}
 
@@ -110,7 +122,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User activated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async activate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async activate(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.activate(id);
 	}
 
@@ -124,7 +140,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User deleted successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async remove(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.remove(id);
 	}
 }
