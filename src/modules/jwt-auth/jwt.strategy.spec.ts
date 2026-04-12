@@ -1,6 +1,6 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Test, TestingModule } from '@nestjs/testing';
+import { Test } from '@nestjs/testing';
 import { UserRepository } from '../common/repositories/user.repository';
 import { User } from '../common/entities/user.entity';
 
@@ -24,6 +24,8 @@ import type { JwtPayload } from './jwt.strategy';
 describe('JwtStrategy', () => {
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let strategy: any;
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+	let module: any;
 	let userRepository: jest.Mocked<Pick<UserRepository, 'findById'>>;
 
 	const mockUser: Partial<User> = {
@@ -37,7 +39,7 @@ describe('JwtStrategy', () => {
 			findById: jest.fn(),
 		};
 
-		const module: TestingModule = await Test.createTestingModule({
+		module = await Test.createTestingModule({
 			providers: [
 				JwtStrategy,
 				{
@@ -66,6 +68,7 @@ describe('JwtStrategy', () => {
 		}).compile();
 
 		strategy = module.get(JwtStrategy);
+		// keep module reference for constructor tests
 	});
 
 	const validPayload: JwtPayload = {
@@ -73,6 +76,14 @@ describe('JwtStrategy', () => {
 		iat: 1700000000,
 		exp: 1700003600,
 	};
+
+	describe('constructor', () => {
+		it('should call ConfigService.getOrThrow for JWT_ISSUER and JWT_AUDIENCE', () => {
+			const configService = module.get(ConfigService);
+			expect(configService.getOrThrow).toHaveBeenCalledWith('JWT_ISSUER');
+			expect(configService.getOrThrow).toHaveBeenCalledWith('JWT_AUDIENCE');
+		});
+	});
 
 	describe('validate', () => {
 		it('should return the payload when user exists and is active', async () => {
@@ -88,7 +99,6 @@ describe('JwtStrategy', () => {
 			userRepository.findById.mockResolvedValue(null);
 
 			await expect(strategy.validate(validPayload)).rejects.toThrow(UnauthorizedException);
-			await expect(strategy.validate(validPayload)).rejects.toThrow('User not found');
 		});
 
 		it('should throw UnauthorizedException when user is inactive', async () => {
@@ -98,7 +108,6 @@ describe('JwtStrategy', () => {
 			} as User);
 
 			await expect(strategy.validate(validPayload)).rejects.toThrow(UnauthorizedException);
-			await expect(strategy.validate(validPayload)).rejects.toThrow('User account is inactive');
 		});
 	});
 });
