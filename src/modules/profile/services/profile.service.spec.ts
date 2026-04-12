@@ -192,18 +192,6 @@ describe('ProfileService', () => {
 			expect(result.profilePictureUrl).toBe(metadata.url);
 		});
 
-		it('throws BadRequestException when both avatarMediaId and profilePictureUrl are provided', async () => {
-			const user = mockUser();
-			const dto: UpdateProfileDto = {
-				avatarMediaId: 'media-uuid-1',
-				profilePictureUrl: 'https://example.com/photo.jpg',
-			};
-
-			userRepository.findById.mockResolvedValue(user);
-
-			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
-		});
-
 		it('throws BadRequestException when media context is not avatar', async () => {
 			const user = mockUser();
 			const metadata = mockMediaMetadata({ context: 'message' });

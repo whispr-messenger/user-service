@@ -52,9 +52,6 @@ export class ProfileService {
 
 		// Resolve avatarMediaId → profilePictureUrl via media-service
 		if (dto.avatarMediaId) {
-			if (dto.profilePictureUrl) {
-				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
-			}
 			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
 				throw new BadRequestException(
@@ -64,7 +61,7 @@ export class ProfileService {
 			if (media.ownerId !== id) {
 				throw new BadRequestException('Media does not belong to this user');
 			}
-			dto.profilePictureUrl = media.url;
+			user.profilePictureUrl = media.url;
 		}
 
 		// Remove avatarMediaId before saving — it's not a DB column
