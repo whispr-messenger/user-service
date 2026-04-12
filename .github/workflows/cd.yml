@@ -150,11 +150,11 @@ jobs:
           echo "✅ Deployment manifest found at $MANIFEST_PATH"
 
           MIGRATION_PATH="${BASE}/preprod/user-service/migration-job.yaml"
-          if [ ! -f "$MIGRATION_PATH" ]; then
-            echo "❌ Error: Migration job manifest not found at $MIGRATION_PATH"
-            exit 1
+          if [ -f "$MIGRATION_PATH" ]; then
+            echo "✅ Migration job manifest found at $MIGRATION_PATH"
+          else
+            echo "ℹ️ No migration-job.yaml in preprod/ — skipping"
           fi
-          echo "✅ Migration job manifest found at $MIGRATION_PATH"
 
           # Validate prod and production dirs only on main
           if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
@@ -193,7 +193,9 @@ jobs:
 
           # Always update preprod
           yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/preprod/user-service/deployment.yaml"
-          yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/preprod/user-service/migration-job.yaml"
+          if [ -f "${BASE}/preprod/user-service/migration-job.yaml" ]; then
+            yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/preprod/user-service/migration-job.yaml"
+          fi
 
           # On main, also update prod and production
           if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
@@ -212,8 +214,10 @@ jobs:
           echo "=== preprod ==="
           echo "Deployment:"
           yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${BASE}/preprod/user-service/deployment.yaml"
-          echo "Migration job:"
-          yq 'select(.kind == "Job").spec.template.spec.containers[0].image' "${BASE}/preprod/user-service/migration-job.yaml"
+          if [ -f "${BASE}/preprod/user-service/migration-job.yaml" ]; then
+            echo "Migration job:"
+            yq 'select(.kind == "Job").spec.template.spec.containers[0].image' "${BASE}/preprod/user-service/migration-job.yaml"
+          fi
 
           if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
             echo "=== prod ==="
