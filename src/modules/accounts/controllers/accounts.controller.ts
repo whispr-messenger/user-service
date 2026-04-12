@@ -1,9 +1,34 @@
-import { Controller, Patch, Param, Delete, ParseUUIDPipe, HttpStatus, Logger } from '@nestjs/common';
+import {
+	Body,
+	Controller,
+	Delete,
+	ForbiddenException,
+	HttpStatus,
+	Logger,
+	Param,
+	ParseUUIDPipe,
+	Patch,
+	Post,
+	Request,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
 import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
 import { EventPattern, Payload } from '@nestjs/microservices';
-import { USER_REGISTERED_PATTERN, type UserRegisteredEvent } from '../../shared/events';
+import { USER_REGISTERED_PATTERN, UserRegisteredEvent } from '../../shared/events';
+import { Public } from '../../jwt-auth/public.decorator';
+import { IsString, IsUUID } from 'class-validator';
+import type { Request as ExpressRequest } from 'express';
+import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
+
+class BootstrapAccountDto {
+	@IsUUID()
+	userId: string;
+
+	@IsString()
+	phoneNumber: string;
+}
 
 /**
  * AccountsController - Manages core user identity and lifecycle endpoints
@@ -38,6 +63,22 @@ export class AccountsController {
 		await this.userRegisteredRetryService.handleWithRetry(event);
 	}
 
+	@Post('bootstrap')
+	@Public()
+	@ApiOperation({
+		summary: 'Bootstrap a user account (dev-only)',
+		description:
+			'Creates the minimal user record when projections are not yet wired (development helper).',
+	})
+	@ApiResponse({ status: HttpStatus.CREATED, description: 'Account created or already exists' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Forbidden in production' })
+	async bootstrap(@Body() dto: BootstrapAccountDto): Promise<void> {
+		if (process.env.NODE_ENV === 'production') {
+			throw new ForbiddenException();
+		}
+		await this.accountsService.createFromEvent(new UserRegisteredEvent(dto.userId, dto.phoneNumber));
+	}
+
 	@Patch(':id/last-seen')
 	@ApiOperation({
 		summary: 'Update user last seen timestamp',
@@ -47,7 +88,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'Last seen updated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async updateLastSeen(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async updateLastSeen(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.updateLastSeen(id);
 	}
 
@@ -60,7 +105,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User deactivated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async deactivate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async deactivate(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.deactivate(id);
 	}
 
@@ -73,7 +122,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User activated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async activate(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async activate(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.activate(id);
 	}
 
@@ -87,7 +140,11 @@ export class AccountsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'User deleted successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
+	async remove(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<void> {
+		assertOwnership(req, id);
 		return this.accountsService.remove(id);
 	}
 }

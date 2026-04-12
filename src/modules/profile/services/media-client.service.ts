@@ -5,10 +5,10 @@ import { ConfigService } from '@nestjs/config';
  * Lightweight HTTP client for the media-service.
  *
  * The media-service contract (see WHISPR-332):
- *   GET  /media/v1/:id          → { id, url, thumbnailUrl, context, mimeType, ... }
- *   POST /media/v1/upload       → multipart upload (handled by mobile/frontend)
+ *   GET  /media/:id          → { id, url, thumbnailUrl, context, mimeType, ... }
+ *   POST /media/upload       → multipart upload (handled by mobile/frontend)
  *
- * This client only needs to call GET /media/v1/:id to resolve a mediaId
+ * This client only needs to call GET /media/:id to resolve a mediaId
  * into a public URL for avatar storage.
  */
 export interface MediaMetadata {
@@ -27,14 +27,7 @@ export class MediaClientService {
 	private readonly baseUrl: string;
 
 	constructor(private readonly configService: ConfigService) {
-		// MEDIA_SERVICE_URL must be set explicitly in all environments.
-		// The fallback is the in-cluster DNS name for the k8s whispr-dev namespace
-		// and is intentionally specific so a missing env var fails visibly rather
-		// than silently calling a wrong endpoint.
-		this.baseUrl = this.configService.get<string>(
-			'MEDIA_SERVICE_URL',
-			'http://media-service.whispr.svc.cluster.local'
-		);
+		this.baseUrl = this.configService.getOrThrow<string>('MEDIA_SERVICE_URL');
 	}
 
 	/**
@@ -42,20 +35,25 @@ export class MediaClientService {
 	 *
 	 * @param mediaId  UUID of the uploaded media
 	 * @param userId   UUID of the requesting user (forwarded as x-user-id)
+	 * @param authorization Optional Authorization header from the caller ("Bearer ...")
 	 * @returns        MediaMetadata including the public URL
 	 */
-	async getMediaMetadata(mediaId: string, userId: string): Promise<MediaMetadata> {
-		const url = `${this.baseUrl}/media/v1/${mediaId}`;
+	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
+		const url = `${this.baseUrl}/media/${mediaId}`;
 		this.logger.debug(`Fetching media metadata: ${url}`);
 
 		let res: Response;
 		try {
+			const headers: Record<string, string> = {
+				'x-user-id': userId,
+				Accept: 'application/json',
+			};
+			if (authorization) {
+				headers['Authorization'] = authorization;
+			}
 			res = await fetch(url, {
 				method: 'GET',
-				headers: {
-					'x-user-id': userId,
-					Accept: 'application/json',
-				},
+				headers,
 				signal: AbortSignal.timeout(5_000),
 			});
 		} catch (err) {

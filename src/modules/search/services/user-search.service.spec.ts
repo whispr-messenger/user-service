@@ -87,6 +87,7 @@ describe('UserSearchService', () => {
 					useValue: {
 						findById: jest.fn(),
 						findByPhoneNumber: jest.fn(),
+						findByPhoneNumberWithFilter: jest.fn(),
 						findByUsernameInsensitive: jest.fn(),
 						searchByDisplayName: jest.fn(),
 					},
@@ -115,7 +116,7 @@ describe('UserSearchService', () => {
 		it('falls back to database when not in Redis', async () => {
 			const user = mockUser();
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(user);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(user);
 			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
 			userRepository.findById.mockResolvedValue(user);
 			searchIndexService.indexUser.mockResolvedValue(undefined);
@@ -123,7 +124,7 @@ describe('UserSearchService', () => {
 			const result = await service.searchByPhone('+33600000001');
 
 			expect(result).toBe(user);
-			expect(userRepository.findByPhoneNumber).toHaveBeenCalledWith('+33600000001');
+			expect(userRepository.findByPhoneNumberWithFilter).toHaveBeenCalledWith('+33600000001');
 		});
 
 		it('returns null when user has disabled searchByPhone', async () => {
@@ -137,7 +138,7 @@ describe('UserSearchService', () => {
 
 		it('returns null when not found in Redis or database', async () => {
 			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
-			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(null);
 
 			const result = await service.searchByPhone('+33600000001');
 
@@ -245,6 +246,94 @@ describe('UserSearchService', () => {
 			const result = await service.searchByDisplayName('NoMatch');
 
 			expect(result).toEqual([]);
+		});
+	});
+
+	describe('searchByPhoneBatch', () => {
+		it('returns empty array for empty input', async () => {
+			const result = await service.searchByPhoneBatch([]);
+
+			expect(result).toEqual([]);
+			expect(searchIndexService.searchByPhoneNumber).not.toHaveBeenCalled();
+		});
+
+		it('returns matched users for multiple phone numbers', async () => {
+			const userA = { ...mockUser(), id: 'uuid-a', phoneNumber: '+33600000001' } as User;
+			const userB = { ...mockUser(), id: 'uuid-b', phoneNumber: '+33600000002' } as User;
+
+			searchIndexService.searchByPhoneNumber.mockImplementation(async (n) =>
+				n === '+33600000001' ? 'uuid-a' : n === '+33600000002' ? 'uuid-b' : null
+			);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
+			userRepository.findById.mockImplementation(async (id) =>
+				id === 'uuid-a' ? userA : id === 'uuid-b' ? userB : null
+			);
+
+			const result = await service.searchByPhoneBatch(['+33600000001', '+33600000002']);
+
+			expect(result).toHaveLength(2);
+			expect(result).toEqual(expect.arrayContaining([userA, userB]));
+		});
+
+		it('filters out numbers with no match', async () => {
+			const userA = { ...mockUser(), id: 'uuid-a' } as User;
+			searchIndexService.searchByPhoneNumber.mockImplementation(async (n) =>
+				n === '+33600000001' ? 'uuid-a' : null
+			);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(null);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
+			userRepository.findById.mockResolvedValue(userA);
+
+			const result = await service.searchByPhoneBatch(['+33600000001', '+33699999999']);
+
+			expect(result).toEqual([userA]);
+		});
+
+		it('filters out users with searchByPhone disabled', async () => {
+			const userA = { ...mockUser(), id: 'uuid-a' } as User;
+			const userB = { ...mockUser(), id: 'uuid-b' } as User;
+
+			searchIndexService.searchByPhoneNumber.mockImplementation(async (n) =>
+				n === '+33600000001' ? 'uuid-a' : 'uuid-b'
+			);
+			privacyService.getSettings.mockImplementation(async (id) =>
+				mockPrivacySettings({ searchByPhone: id === 'uuid-a' })
+			);
+			userRepository.findById.mockImplementation(async (id) => (id === 'uuid-a' ? userA : userB));
+
+			const result = await service.searchByPhoneBatch(['+33600000001', '+33600000002']);
+
+			expect(result).toEqual([userA]);
+		});
+
+		it('tolerates individual failures without aborting the batch', async () => {
+			const userB = { ...mockUser(), id: 'uuid-b' } as User;
+
+			searchIndexService.searchByPhoneNumber.mockImplementation(async (n) => {
+				if (n === '+33600000001') throw new Error('Redis error');
+				return 'uuid-b';
+			});
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings({ searchByPhone: true }));
+			userRepository.findById.mockResolvedValue(userB);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(null);
+
+			const result = await service.searchByPhoneBatch(['+33600000001', '+33600000002']);
+
+			expect(result).toEqual([userB]);
+		});
+
+		it('processes more than 50 numbers via chunking', async () => {
+			const phoneNumbers = Array.from(
+				{ length: 120 },
+				(_, i) => `+3360000${String(i).padStart(4, '0')}`
+			);
+			searchIndexService.searchByPhoneNumber.mockResolvedValue(null);
+			userRepository.findByPhoneNumberWithFilter.mockResolvedValue(null);
+
+			const result = await service.searchByPhoneBatch(phoneNumbers);
+
+			expect(result).toEqual([]);
+			expect(searchIndexService.searchByPhoneNumber).toHaveBeenCalledTimes(120);
 		});
 	});
 

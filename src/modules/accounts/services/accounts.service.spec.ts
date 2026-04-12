@@ -22,6 +22,7 @@ describe('AccountsService', () => {
 	let service: AccountsService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let eventsClient: { emit: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock };
 
 	beforeEach(async () => {
 		eventsClient = { emit: jest.fn().mockReturnValue(of(undefined)) };
@@ -55,6 +56,7 @@ describe('AccountsService', () => {
 
 		service = module.get<AccountsService>(AccountsService);
 		userRepository = module.get(UserRepository);
+		searchIndexService = module.get(SearchIndexService);
 	});
 
 	describe('createFromEvent', () => {
@@ -90,6 +92,30 @@ describe('AccountsService', () => {
 				phoneNumber: event.phoneNumber,
 				isActive: true,
 			});
+			expect(result).toBe(created);
+		});
+
+		it('indexes user exactly once in search cache after creation', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+
+			await service.createFromEvent(event);
+
+			expect(searchIndexService.indexUser).toHaveBeenCalledTimes(1);
+			expect(searchIndexService.indexUser).toHaveBeenCalledWith(created);
+		});
+
+		it('still creates user when search indexing fails', async () => {
+			const created = mockUser();
+			userRepository.findById.mockResolvedValue(null);
+			userRepository.findByPhoneNumber.mockResolvedValue(null);
+			userRepository.create.mockResolvedValue(created);
+			searchIndexService.indexUser.mockRejectedValueOnce(new Error('Redis down'));
+
+			const result = await service.createFromEvent(event);
+
 			expect(result).toBe(created);
 		});
 

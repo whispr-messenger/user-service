@@ -25,9 +25,9 @@ export class UserSearchService {
 		// Try Redis index first
 		let userId = await this.searchIndexService.searchByPhoneNumber(phoneNumber);
 
-		// Fallback to database if not in Redis
+		// Fallback to database if not in Redis (active users only)
 		if (!userId) {
-			const user = await this.userRepository.findByPhoneNumber(phoneNumber);
+			const user = await this.userRepository.findByPhoneNumberWithFilter(phoneNumber);
 			if (!user) {
 				return null;
 			}

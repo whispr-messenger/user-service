@@ -20,7 +20,6 @@ services:
       POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./config/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - whispr-network-prod
     healthcheck:

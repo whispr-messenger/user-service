@@ -2,17 +2,23 @@ import {
 	Controller,
 	Get,
 	Post,
+	Patch,
 	Delete,
 	Param,
 	Body,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
+	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import type { Request as ExpressRequest } from 'express';
 import { ContactsService } from '../services/contacts.service';
 import { AddContactDto } from '../dto/add-contact.dto';
+import { UpdateContactDto } from '../dto/update-contact.dto';
 import { Contact } from '../entities/contact.entity';
+import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contacts')
 @ApiBearerAuth()
@@ -25,7 +31,13 @@ export class ContactsController {
 	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contacts retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async getContacts(@Param('ownerId', ParseUUIDPipe) ownerId: string): Promise<Contact[]> {
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot access another user's contacts" })
+	async getContacts(
+		@Param('ownerId', ParseUUIDPipe) ownerId: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<Contact[]> {
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.getContacts(ownerId);
 	}
 
@@ -36,11 +48,33 @@ export class ContactsController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Contact already exists' })
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Cannot add yourself as a contact' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot access another user's contacts" })
 	async addContact(
 		@Param('ownerId', ParseUUIDPipe) ownerId: string,
-		@Body() dto: AddContactDto
+		@Body() dto: AddContactDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact> {
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.addContact(ownerId, dto);
+	}
+
+	@Patch(':ownerId/:contactId')
+	@ApiOperation({ summary: 'Update a contact for a user' })
+	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })
+	@ApiParam({ name: 'contactId', type: 'string', format: 'uuid', description: 'Contact user ID' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Contact updated successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or contact not found' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot access another user's contacts" })
+	async updateContact(
+		@Param('ownerId', ParseUUIDPipe) ownerId: string,
+		@Param('contactId', ParseUUIDPipe) contactId: string,
+		@Body() dto: UpdateContactDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<Contact> {
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
+		return this.contactsService.updateContact(ownerId, contactId, dto);
 	}
 
 	@Delete(':ownerId/:contactId')
@@ -50,10 +84,14 @@ export class ContactsController {
 	@ApiParam({ name: 'contactId', type: 'string', format: 'uuid', description: 'Contact user ID' })
 	@ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Contact removed successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or contact not found' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot access another user's contacts" })
 	async removeContact(
 		@Param('ownerId', ParseUUIDPipe) ownerId: string,
-		@Param('contactId', ParseUUIDPipe) contactId: string
+		@Param('contactId', ParseUUIDPipe) contactId: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<void> {
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.removeContact(ownerId, contactId);
 	}
 }

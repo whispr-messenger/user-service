@@ -35,8 +35,13 @@ export class ProfileService {
 		return this.findOne(id);
 	}
 
-	public async updateProfile(id: string, dto: UpdateProfileDto): Promise<User> {
+	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
+		const previous = {
+			username: user.username,
+			firstName: user.firstName,
+			lastName: user.lastName,
+		};
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -50,7 +55,7 @@ export class ProfileService {
 			if (dto.profilePictureUrl) {
 				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
 			}
-			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id);
+			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
 				throw new BadRequestException(
 					`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
@@ -68,7 +73,11 @@ export class ProfileService {
 
 		const saved = await this.userRepository.save(user);
 
-		if (saved.username || saved.firstName) {
+		if (
+			saved.username !== previous.username ||
+			saved.firstName !== previous.firstName ||
+			saved.lastName !== previous.lastName
+		) {
 			try {
 				await this.searchIndexService.indexUser(saved);
 			} catch (err) {

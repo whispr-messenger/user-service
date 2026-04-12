@@ -12,9 +12,12 @@ import {
 	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import type { Request as ExpressRequest } from 'express';
 import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
+import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contact Requests')
 @ApiBearerAuth()
@@ -26,11 +29,17 @@ export class ContactRequestsController {
 	@ApiOperation({ summary: 'Send a contact request' })
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Contact request sent successfully' })
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Cannot send request to yourself' })
-	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Already contacts or pending request exists' })
+	@ApiResponse({
+		status: HttpStatus.CONFLICT,
+		description: 'Already contacts or pending request exists',
+	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async sendRequest(@Request() req: any, @Body() dto: SendContactRequestDto): Promise<ContactRequest> {
-		const requesterId = req.user.sub ?? req.user.id;
-		return this.contactRequestsService.sendRequest(requesterId, dto.contactId);
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	async sendRequest(
+		@Request() req: ExpressRequest & { user: JwtPayload },
+		@Body() dto: SendContactRequestDto
+	): Promise<ContactRequest> {
+		return this.contactRequestsService.sendRequest(req.user.sub, dto.contactId);
 	}
 
 	@Get(':userId')
@@ -38,7 +47,16 @@ export class ContactRequestsController {
 	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
-	async getRequests(@Param('userId', ParseUUIDPipe) userId: string): Promise<ContactRequest[]> {
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({
+		status: HttpStatus.FORBIDDEN,
+		description: "Cannot access another user's contact requests",
+	})
+	async getRequests(
+		@Param('userId', ParseUUIDPipe) userId: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<ContactRequest[]> {
+		assertOwnership(req, userId, "Cannot access another user's contact requests");
 		return this.contactRequestsService.getRequestsForUser(userId);
 	}
 
@@ -49,12 +67,12 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Contact request not found' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Only the recipient can accept' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async acceptRequest(
-		@Request() req: any,
+		@Request() req: ExpressRequest & { user: JwtPayload },
 		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<ContactRequest> {
-		const userId = req.user.sub ?? req.user.id;
-		return this.contactRequestsService.acceptRequest(requestId, userId);
+		return this.contactRequestsService.acceptRequest(requestId, req.user.sub);
 	}
 
 	@Patch(':requestId/reject')
@@ -64,12 +82,12 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Contact request not found' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Only the recipient can reject' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async rejectRequest(
-		@Request() req: any,
+		@Request() req: ExpressRequest & { user: JwtPayload },
 		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<ContactRequest> {
-		const userId = req.user.sub ?? req.user.id;
-		return this.contactRequestsService.rejectRequest(requestId, userId);
+		return this.contactRequestsService.rejectRequest(requestId, req.user.sub);
 	}
 
 	@Delete(':requestId')
@@ -80,11 +98,11 @@ export class ContactRequestsController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Contact request not found' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Only the requester can cancel' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Request is not pending' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async cancelRequest(
-		@Request() req: any,
+		@Request() req: ExpressRequest & { user: JwtPayload },
 		@Param('requestId', ParseUUIDPipe) requestId: string
 	): Promise<void> {
-		const userId = req.user.sub ?? req.user.id;
-		return this.contactRequestsService.cancelRequest(requestId, userId);
+		return this.contactRequestsService.cancelRequest(requestId, req.user.sub);
 	}
 }

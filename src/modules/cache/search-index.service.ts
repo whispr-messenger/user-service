@@ -5,9 +5,9 @@ import { User } from '../common/entities/user.entity';
 export interface SearchIndexEntry {
 	userId: string;
 	phoneNumber: string;
-	username: string;
-	firstName: string;
-	lastName: string;
+	username: string | null;
+	firstName: string | null;
+	lastName: string | null;
 	fullName: string;
 	isActive: boolean;
 	createdAt: Date;
@@ -26,59 +26,58 @@ export class SearchIndexService {
 
 	async indexUser(user: User): Promise<void> {
 		try {
-			const firstName = user.firstName ?? null;
-			const lastName = user.lastName ?? null;
-			const fullName =
-				firstName || lastName ? `${firstName ?? ''} ${lastName ?? ''}`.toLowerCase().trim() : null;
+			const normalizedUsername = user.username?.toLowerCase();
+			const normalizedFirstName = user.firstName?.toLowerCase();
+			const normalizedLastName = user.lastName?.toLowerCase();
+			const normalizedFullName = [user.firstName, user.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
 
 			const indexEntry: SearchIndexEntry = {
 				userId: user.id,
 				phoneNumber: user.phoneNumber,
-				username: user.username,
-				firstName,
-				lastName,
-				fullName: fullName ?? '',
+				username: user.username ?? null,
+				firstName: user.firstName ?? null,
+				lastName: user.lastName ?? null,
+				fullName: normalizedFullName,
 				isActive: user.isActive,
 				createdAt: user.createdAt,
 			};
 
 			const commands: Array<[string, ...any[]]> = [
 				['hset', this.PHONE_INDEX_KEY, user.phoneNumber, user.id],
+				['setex', `${this.USER_CACHE_PREFIX}:${user.id}`, this.CACHE_TTL, JSON.stringify(indexEntry)],
 			];
 
-			if (user.username) {
-				commands.push(['hset', this.USERNAME_INDEX_KEY, user.username.toLowerCase(), user.id]);
+			if (normalizedUsername) {
+				commands.push(['hset', this.USERNAME_INDEX_KEY, normalizedUsername, user.id]);
 			}
-			if (firstName) {
+			if (normalizedFirstName) {
 				commands.push([
 					'zadd',
-					`${this.NAME_INDEX_KEY}:${firstName.toLowerCase()}`,
+					`${this.NAME_INDEX_KEY}:${normalizedFirstName}`,
 					user.createdAt.getTime(),
 					user.id,
 				]);
 			}
-			if (lastName) {
+			if (normalizedLastName) {
 				commands.push([
 					'zadd',
-					`${this.NAME_INDEX_KEY}:${lastName.toLowerCase()}`,
+					`${this.NAME_INDEX_KEY}:${normalizedLastName}`,
 					user.createdAt.getTime(),
 					user.id,
 				]);
 			}
-			if (fullName) {
+			if (normalizedFullName) {
 				commands.push([
 					'zadd',
-					`${this.NAME_INDEX_KEY}:${fullName}`,
+					`${this.NAME_INDEX_KEY}:${normalizedFullName}`,
 					user.createdAt.getTime(),
 					user.id,
 				]);
 			}
-			commands.push([
-				'setex',
-				`${this.USER_CACHE_PREFIX}:${user.id}`,
-				this.CACHE_TTL,
-				JSON.stringify(indexEntry),
-			]);
 
 			await this.cacheService.pipeline(commands);
 			this.logger.debug(`Indexed user ${user.id} in search indexes`);
@@ -90,16 +89,32 @@ export class SearchIndexService {
 
 	async removeUserFromIndex(user: User): Promise<void> {
 		try {
-			const fullName = `${user.firstName} ${user.lastName}`.toLowerCase().trim();
+			const normalizedUsername = user.username?.toLowerCase();
+			const normalizedFirstName = user.firstName?.toLowerCase();
+			const normalizedLastName = user.lastName?.toLowerCase();
+			const fullName = [user.firstName, user.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
 
 			const commands: Array<[string, ...any[]]> = [
 				['hdel', this.PHONE_INDEX_KEY, user.phoneNumber],
-				['hdel', this.USERNAME_INDEX_KEY, user.username.toLowerCase()],
-				['zrem', `${this.NAME_INDEX_KEY}:${user.firstName.toLowerCase()}`, user.id],
-				['zrem', `${this.NAME_INDEX_KEY}:${user.lastName.toLowerCase()}`, user.id],
-				['zrem', `${this.NAME_INDEX_KEY}:${fullName}`, user.id],
 				['del', `${this.USER_CACHE_PREFIX}:${user.id}`],
 			];
+
+			if (normalizedUsername) {
+				commands.push(['hdel', this.USERNAME_INDEX_KEY, normalizedUsername]);
+			}
+			if (normalizedFirstName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${normalizedFirstName}`, user.id]);
+			}
+			if (normalizedLastName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${normalizedLastName}`, user.id]);
+			}
+			if (fullName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${fullName}`, user.id]);
+			}
 
 			await this.cacheService.pipeline(commands);
 			this.logger.debug(`Removed user ${user.id} from search indexes`);
@@ -175,9 +190,9 @@ export class SearchIndexService {
 				const indexEntry: SearchIndexEntry = {
 					userId: user.id,
 					phoneNumber: user.phoneNumber,
-					username: user.username,
-					firstName: user.firstName,
-					lastName: user.lastName,
+					username: user.username ?? null,
+					firstName: user.firstName ?? null,
+					lastName: user.lastName ?? null,
 					fullName: `${user.firstName} ${user.lastName}`.toLowerCase().trim(),
 					isActive: user.isActive,
 					createdAt: user.createdAt,

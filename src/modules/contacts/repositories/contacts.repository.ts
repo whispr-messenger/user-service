@@ -11,16 +11,21 @@ export class ContactsRepository {
 	) {}
 
 	async findAllByOwner(ownerId: string): Promise<Contact[]> {
-		return this.repo.find({ where: { ownerId } });
+		return this.repo.find({ where: { ownerId }, relations: ['contact'] });
 	}
 
 	async findOne(ownerId: string, contactId: string): Promise<Contact | null> {
-		return this.repo.findOne({ where: { ownerId, contactId } });
+		return this.repo.findOne({ where: { ownerId, contactId }, relations: ['contact'] });
 	}
 
 	async create(ownerId: string, contactId: string, nickname?: string): Promise<Contact> {
 		const contact = this.repo.create({ ownerId, contactId, nickname: nickname ?? null });
-		return this.repo.save(contact);
+		const saved = await this.repo.save(contact);
+		const withRelations = await this.repo.findOne({
+			where: { id: saved.id },
+			relations: ['contact'],
+		});
+		return withRelations ?? saved;
 	}
 
 	async save(contact: Contact): Promise<Contact> {
