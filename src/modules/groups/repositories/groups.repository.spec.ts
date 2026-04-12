@@ -118,4 +118,54 @@ describe('GroupsRepository', () => {
 			expect(mockTypeormRepo.remove).toHaveBeenCalledWith(group);
 		});
 	});
+
+	describe('findAllByOwnerPaginated', () => {
+		const mockQb = {
+			leftJoinAndSelect: jest.fn().mockReturnThis(),
+			where: jest.fn().mockReturnThis(),
+			andWhere: jest.fn().mockReturnThis(),
+			orderBy: jest.fn().mockReturnThis(),
+			addOrderBy: jest.fn().mockReturnThis(),
+			take: jest.fn().mockReturnThis(),
+			getMany: jest.fn(),
+		};
+
+		beforeEach(() => {
+			(mockTypeormRepo as any).createQueryBuilder = jest.fn().mockReturnValue(mockQb);
+			Object.values(mockQb).forEach((fn) => {
+				if (typeof fn === 'function' && 'mockClear' in fn) (fn as jest.Mock).mockClear();
+			});
+			mockQb.leftJoinAndSelect.mockReturnValue(mockQb);
+			mockQb.where.mockReturnValue(mockQb);
+			mockQb.andWhere.mockReturnValue(mockQb);
+			mockQb.orderBy.mockReturnValue(mockQb);
+			mockQb.addOrderBy.mockReturnValue(mockQb);
+			mockQb.take.mockReturnValue(mockQb);
+		});
+
+		it('returns data with hasMore=false when results fit within limit', async () => {
+			const items = [{ id: 'g1' }, { id: 'g2' }] as any[];
+			mockQb.getMany.mockResolvedValue(items);
+
+			const result = await repo.findAllByOwnerPaginated('owner-1', 10);
+
+			expect(result).toEqual({ data: items, nextCursor: null, hasMore: false });
+			expect(mockQb.andWhere).not.toHaveBeenCalled();
+		});
+
+		it('returns hasMore=true and nextCursor when results exceed limit', async () => {
+			const items = [{ id: 'g1' }, { id: 'g2' }, { id: 'g3' }] as any[];
+			mockQb.getMany.mockResolvedValue(items);
+
+			const result = await repo.findAllByOwnerPaginated('owner-1', 2, 'cursor-id');
+
+			expect(result).toEqual({
+				data: [{ id: 'g1' }, { id: 'g2' }],
+				nextCursor: 'g2',
+				hasMore: true,
+			});
+			expect(mockQb.andWhere).toHaveBeenCalledWith('group.id > :cursor', { cursor: 'cursor-id' });
+		});
+	});
+
 });

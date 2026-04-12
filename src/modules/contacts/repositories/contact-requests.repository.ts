@@ -42,8 +42,7 @@ export class ContactRequestsRepository {
 			.leftJoinAndSelect('request.requester', 'requester')
 			.leftJoinAndSelect('request.recipient', 'recipient')
 			.where('(request.requesterId = :userId OR request.recipientId = :userId)', { userId })
-			.orderBy('request.createdAt', 'DESC')
-			.addOrderBy('request.id', 'DESC')
+			.orderBy('request.id', 'DESC')
 			.take(limit + 1);
 
 		if (cursor) {
