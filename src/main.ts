@@ -3,6 +3,8 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
@@ -23,6 +25,9 @@ async function bootstrap() {
 	const bootstrapLogger = new Logger('Bootstrap');
 	const port = configService.get<number>('HTTP_PORT', 3002);
 	const globalPrefix = 'user';
+
+	app.use(helmet());
+	app.use(compression());
 
 	app.setGlobalPrefix(globalPrefix);
 
