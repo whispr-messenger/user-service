@@ -44,9 +44,9 @@ export class User {
 	@UpdateDateColumn()
 	updatedAt: Date;
 
-	@DeleteDateColumn({ name: 'deleted_at' })
+	@DeleteDateColumn({ name: 'deletedAt' })
 	deletedAt: Date | null;
 
 	@OneToOne(() => PrivacySettings, (ps) => ps.user)
-	privacySettings: PrivacySettings;
+	privacySettings?: PrivacySettings | null;
 }
