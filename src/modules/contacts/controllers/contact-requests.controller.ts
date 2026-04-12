@@ -56,7 +56,7 @@ export class ContactRequestsController {
 		@Param('userId', ParseUUIDPipe) userId: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<ContactRequest[]> {
-		assertOwnership(req, userId);
+		assertOwnership(req, userId, "Cannot access another user's contact requests");
 		return this.contactRequestsService.getRequestsForUser(userId);
 	}
 

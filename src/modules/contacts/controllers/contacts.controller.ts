@@ -37,7 +37,7 @@ export class ContactsController {
 		@Param('ownerId', ParseUUIDPipe) ownerId: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact[]> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.getContacts(ownerId);
 	}
 
@@ -55,7 +55,7 @@ export class ContactsController {
 		@Body() dto: AddContactDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.addContact(ownerId, dto);
 	}
 
@@ -73,7 +73,7 @@ export class ContactsController {
 		@Body() dto: UpdateContactDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<Contact> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.updateContact(ownerId, contactId, dto);
 	}
 
@@ -91,7 +91,7 @@ export class ContactsController {
 		@Param('contactId', ParseUUIDPipe) contactId: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<void> {
-		assertOwnership(req, ownerId);
+		assertOwnership(req, ownerId, "Cannot access another user's contacts");
 		return this.contactsService.removeContact(ownerId, contactId);
 	}
 }

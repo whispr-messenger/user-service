@@ -36,7 +36,7 @@ export class ProfileController {
 		@Body() dto: UpdateProfileDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<User> {
-		assertOwnership(req, id);
+		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
 		return this.profileService.updateProfile(id, dto, authorization);
 	}
