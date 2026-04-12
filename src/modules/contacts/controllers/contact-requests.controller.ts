@@ -1,6 +1,5 @@
 import {
 	Controller,
-	ForbiddenException,
 	Get,
 	Post,
 	Patch,
@@ -18,12 +17,7 @@ import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
-
-function assertOwnership(req: ExpressRequest & { user?: JwtPayload }, ownerId: string): void {
-	if (req.user?.sub !== ownerId) {
-		throw new ForbiddenException("Cannot access another user's contact requests");
-	}
-}
+import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contact Requests')
 @ApiBearerAuth()
