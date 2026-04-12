@@ -12,10 +12,11 @@ export class ReplaceContactRequestUniqueWithPartialIndex1775500100000 implements
 		);
 	}
 
-	public async down(queryRunner: QueryRunner): Promise<void> {
-		await queryRunner.query(`DROP INDEX "users"."UQ_contact_requests_pending"`);
-		await queryRunner.query(
-			`ALTER TABLE "users"."contact_requests" ADD CONSTRAINT "UQ_contact_requests_requester_recipient" UNIQUE ("requester_id", "recipient_id")`
+	public async down(): Promise<void> {
+		throw new Error(
+			'Irreversible migration: the database may now contain multiple contact_requests rows ' +
+				'for the same (requester_id, recipient_id) pair. Restoring the old unique constraint ' +
+				'requires manual data cleanup before rollback.'
 		);
 	}
 }
