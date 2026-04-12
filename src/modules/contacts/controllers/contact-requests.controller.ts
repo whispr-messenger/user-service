@@ -17,7 +17,6 @@ import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
-import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contact Requests')
 @ApiBearerAuth()
@@ -42,22 +41,12 @@ export class ContactRequestsController {
 		return this.contactRequestsService.sendRequest(req.user.sub, dto.contactId);
 	}
 
-	@Get(':userId')
-	@ApiOperation({ summary: 'Get all contact requests for a user (incoming + outgoing)' })
-	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'User ID' })
+	@Get()
+	@ApiOperation({ summary: 'Get all contact requests for the authenticated user (incoming + outgoing)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
-	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	@ApiResponse({
-		status: HttpStatus.FORBIDDEN,
-		description: "Cannot access another user's contact requests",
-	})
-	async getRequests(
-		@Param('userId', ParseUUIDPipe) userId: string,
-		@Request() req: ExpressRequest & { user: JwtPayload }
-	): Promise<ContactRequest[]> {
-		assertOwnership(req, userId, "Cannot access another user's contact requests");
-		return this.contactRequestsService.getRequestsForUser(userId);
+	async getRequests(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<ContactRequest[]> {
+		return this.contactRequestsService.getRequestsForUser(req.user.sub);
 	}
 
 	@Patch(':requestId/accept')
