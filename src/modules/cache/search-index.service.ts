@@ -144,12 +144,13 @@ export class SearchIndexService {
 
 	async searchByName(query: string, limit: number = 20): Promise<string[]> {
 		try {
+			const safeLimit = Math.max(1, limit);
 			const normalizedQuery = query.toLowerCase().trim();
 
 			const ids = await this.cacheService.zrange(
 				`${this.NAME_INDEX_KEY}:${normalizedQuery}`,
 				0,
-				limit - 1
+				safeLimit - 1
 			);
 
 			return ids;
