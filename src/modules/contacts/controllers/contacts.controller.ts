@@ -6,6 +6,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -17,6 +18,7 @@ import { ContactsService } from '../services/contacts.service';
 import { AddContactDto } from '../dto/add-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
 import { Contact } from '../entities/contact.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
 
@@ -27,7 +29,7 @@ export class ContactsController {
 	constructor(private readonly contactsService: ContactsService) {}
 
 	@Get(':ownerId')
-	@ApiOperation({ summary: 'Get all contacts for a user' })
+	@ApiOperation({ summary: 'Get contacts for a user (paginated)' })
 	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contacts retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
@@ -35,10 +37,11 @@ export class ContactsController {
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: "Cannot access another user's contacts" })
 	async getContacts(
 		@Param('ownerId', ParseUUIDPipe) ownerId: string,
+		@Query() pagination: CursorPaginationDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
-	): Promise<Contact[]> {
+	): Promise<CursorPaginatedResult<Contact>> {
 		assertOwnership(req, ownerId, "Cannot access another user's contacts");
-		return this.contactsService.getContacts(ownerId);
+		return this.contactsService.getContacts(ownerId, pagination.limit, pagination.cursor);
 	}
 
 	@Post(':ownerId')

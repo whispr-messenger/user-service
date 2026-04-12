@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contact } from '../entities/contact.entity';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 
 @Injectable()
 export class ContactsRepository {
@@ -12,6 +13,33 @@ export class ContactsRepository {
 
 	async findAllByOwner(ownerId: string): Promise<Contact[]> {
 		return this.repo.find({ where: { ownerId }, relations: ['contact'] });
+	}
+
+	async findAllByOwnerPaginated(
+		ownerId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<Contact>> {
+		const qb = this.repo
+			.createQueryBuilder('contact')
+			.leftJoinAndSelect('contact.contact', 'user')
+			.where('contact.ownerId = :ownerId', { ownerId })
+			.orderBy('contact.id', 'ASC')
+			.take(limit + 1);
+
+		if (cursor) {
+			qb.andWhere('contact.id > :cursor', { cursor });
+		}
+
+		const results = await qb.getMany();
+		const hasMore = results.length > limit;
+		const data = hasMore ? results.slice(0, limit) : results;
+
+		return {
+			data,
+			nextCursor: hasMore ? data[data.length - 1].id : null,
+			hasMore,
+		};
 	}
 
 	async findOne(ownerId: string, contactId: string): Promise<Contact | null> {

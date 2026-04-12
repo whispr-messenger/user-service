@@ -6,6 +6,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -16,6 +17,7 @@ import type { Request as ExpressRequest } from 'express';
 import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
 
@@ -54,10 +56,11 @@ export class ContactRequestsController {
 	})
 	async getRequests(
 		@Param('userId', ParseUUIDPipe) userId: string,
+		@Query() pagination: CursorPaginationDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
-	): Promise<ContactRequest[]> {
+	): Promise<CursorPaginatedResult<ContactRequest>> {
 		assertOwnership(req, userId, "Cannot access another user's contact requests");
-		return this.contactRequestsService.getRequestsForUser(userId);
+		return this.contactRequestsService.getRequestsForUser(userId, pagination.limit, pagination.cursor);
 	}
 
 	@Patch(':requestId/accept')

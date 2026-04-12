@@ -37,17 +37,17 @@ describe('ContactsController', () => {
 
 	describe('getContacts', () => {
 		it('returns the contacts when the caller owns them', async () => {
-			const contacts = [{ id: 'c1' }] as Contact[];
-			service.getContacts.mockResolvedValue(contacts);
+			const paginated = { data: [{ id: 'c1' }] as Contact[], nextCursor: null, hasMore: false };
+			service.getContacts.mockResolvedValue(paginated);
 
-			const result = await controller.getContacts('owner-1', makeReq('owner-1'));
+			const result = await controller.getContacts('owner-1', {}, makeReq('owner-1'));
 
-			expect(result).toBe(contacts);
-			expect(service.getContacts).toHaveBeenCalledWith('owner-1');
+			expect(result).toEqual(paginated);
+			expect(service.getContacts).toHaveBeenCalledWith('owner-1', undefined, undefined);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {
-			await expect(controller.getContacts('owner-1', makeReq('other'))).rejects.toThrow(
+			await expect(controller.getContacts('owner-1', {}, makeReq('other'))).rejects.toThrow(
 				ForbiddenException
 			);
 			expect(service.getContacts).not.toHaveBeenCalled();

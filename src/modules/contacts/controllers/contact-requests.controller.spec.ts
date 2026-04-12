@@ -58,17 +58,17 @@ describe('ContactRequestsController', () => {
 
 	describe('getRequests', () => {
 		it('returns requests when the caller owns them', async () => {
-			const requests = [mockRequest()];
-			service.getRequestsForUser.mockResolvedValue(requests);
+			const paginated = { data: [mockRequest()], nextCursor: null, hasMore: false };
+			service.getRequestsForUser.mockResolvedValue(paginated);
 
-			const result = await controller.getRequests('uuid-a', makeReq('uuid-a'));
+			const result = await controller.getRequests('uuid-a', {}, makeReq('uuid-a'));
 
-			expect(result).toBe(requests);
-			expect(service.getRequestsForUser).toHaveBeenCalledWith('uuid-a');
+			expect(result).toEqual(paginated);
+			expect(service.getRequestsForUser).toHaveBeenCalledWith('uuid-a', undefined, undefined);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {
-			await expect(controller.getRequests('uuid-a', makeReq('uuid-b'))).rejects.toThrow(
+			await expect(controller.getRequests('uuid-a', {}, makeReq('uuid-b'))).rejects.toThrow(
 				ForbiddenException
 			);
 			expect(service.getRequestsForUser).not.toHaveBeenCalled();

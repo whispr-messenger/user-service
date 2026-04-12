@@ -5,6 +5,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -14,6 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@ne
 import { BlockedUsersService } from '../services/blocked-users.service';
 import { BlockUserDto } from '../dto/block-user.dto';
 import { BlockedUser } from '../entities/blocked-user.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
@@ -31,10 +33,11 @@ export class BlockedUsersController {
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	async getBlockedUsers(
 		@Param('blockerId', ParseUUIDPipe) blockerId: string,
+		@Query() pagination: CursorPaginationDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
-	): Promise<BlockedUser[]> {
+	): Promise<CursorPaginatedResult<BlockedUser>> {
 		assertOwnership(req, blockerId);
-		return this.blockedUsersService.getBlockedUsers(blockerId);
+		return this.blockedUsersService.getBlockedUsers(blockerId, pagination.limit, pagination.cursor);
 	}
 
 	@Post(':blockerId')

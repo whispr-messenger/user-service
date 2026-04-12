@@ -32,17 +32,17 @@ describe('BlockedUsersController', () => {
 
 	describe('getBlockedUsers', () => {
 		it('delegates to the service', async () => {
-			const rows = [{ id: 'b1' }] as BlockedUser[];
-			service.getBlockedUsers.mockResolvedValue(rows);
+			const paginated = { data: [{ id: 'b1' }] as BlockedUser[], nextCursor: null, hasMore: false };
+			service.getBlockedUsers.mockResolvedValue(paginated);
 
-			const result = await controller.getBlockedUsers('blocker-1', makeReq('blocker-1'));
+			const result = await controller.getBlockedUsers('blocker-1', {}, makeReq('blocker-1'));
 
-			expect(result).toBe(rows);
-			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1');
+			expect(result).toEqual(paginated);
+			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1', undefined, undefined);
 		});
 
 		it('throws ForbiddenException when caller is not the owner', async () => {
-			await expect(controller.getBlockedUsers('blocker-1', makeReq('attacker'))).rejects.toThrow(
+			await expect(controller.getBlockedUsers('blocker-1', {}, makeReq('attacker'))).rejects.toThrow(
 				ForbiddenException
 			);
 		});
