@@ -113,8 +113,13 @@ export class AccountsService {
 	}
 
 	public async activate(id: string): Promise<void> {
-		await this.findOne(id);
+		const user = await this.findOne(id);
 		await this.userRepository.updateStatus(id, true);
+		try {
+			await this.searchIndexService.indexUser(user);
+		} catch (err) {
+			this.logger.warn(`Failed to re-index user ${id} in search: ${err}`);
+		}
 	}
 
 	public async remove(id: string): Promise<void> {

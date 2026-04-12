@@ -191,6 +191,16 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', false);
 		});
 
+		it('removes user from search index on deactivation', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.updateStatus.mockResolvedValue(undefined);
+
+			await service.deactivate('uuid-1');
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(user);
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
@@ -208,6 +218,16 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', true);
 		});
 
+		it('re-indexes user in search on activation', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.updateStatus.mockResolvedValue(undefined);
+
+			await service.activate('uuid-1');
+
+			expect(searchIndexService.indexUser).toHaveBeenCalledWith(user);
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
@@ -223,6 +243,16 @@ describe('AccountsService', () => {
 			await service.remove('uuid-1');
 
 			expect(userRepository.softDelete).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('removes user from search index on deletion', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.softDelete.mockResolvedValue(undefined);
+
+			await service.remove('uuid-1');
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(user);
 		});
 
 		it('throws NotFoundException when user does not exist', async () => {
