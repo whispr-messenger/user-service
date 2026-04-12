@@ -22,7 +22,7 @@ describe('AccountsService', () => {
 	let service: AccountsService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let eventsClient: { emit: jest.Mock };
-	let searchIndexService: { indexUser: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
 
 	beforeEach(async () => {
 		eventsClient = { emit: jest.fn().mockReturnValue(of(undefined)) };
@@ -49,6 +49,7 @@ describe('AccountsService', () => {
 					provide: SearchIndexService,
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
+						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],

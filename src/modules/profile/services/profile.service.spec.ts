@@ -36,7 +36,7 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -60,6 +60,7 @@ describe('ProfileService', () => {
 					provide: SearchIndexService,
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
+						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
