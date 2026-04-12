@@ -28,6 +28,7 @@ export class ContactsController {
 	@Get()
 	@ApiOperation({ summary: 'Get all contacts for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contacts retrieved successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async getContacts(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<Contact[]> {
 		return this.contactsService.getContacts(req.user.sub);

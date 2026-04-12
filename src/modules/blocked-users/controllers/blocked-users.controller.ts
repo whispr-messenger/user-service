@@ -26,6 +26,7 @@ export class BlockedUsersController {
 	@Get()
 	@ApiOperation({ summary: 'Get all blocked users for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Blocked users retrieved successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async getBlockedUsers(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<BlockedUser[]> {
 		return this.blockedUsersService.getBlockedUsers(req.user.sub);

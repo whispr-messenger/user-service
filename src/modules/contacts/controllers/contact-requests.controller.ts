@@ -44,6 +44,7 @@ export class ContactRequestsController {
 	@Get()
 	@ApiOperation({ summary: 'Get all contact requests for the authenticated user (incoming + outgoing)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async getRequests(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<ContactRequest[]> {
 		return this.contactRequestsService.getRequestsForUser(req.user.sub);

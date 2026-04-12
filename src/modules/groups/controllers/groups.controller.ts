@@ -28,6 +28,7 @@ export class GroupsController {
 	@Get()
 	@ApiOperation({ summary: 'Get all groups for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Groups retrieved successfully' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async getGroups(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<Group[]> {
 		return this.groupsService.getGroups(req.user.sub);
