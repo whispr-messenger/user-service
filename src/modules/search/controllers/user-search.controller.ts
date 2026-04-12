@@ -5,9 +5,12 @@ import { UserSearchService, UserSearchResult } from '../services/user-search.ser
 import { User } from '../../common/entities/user.entity';
 import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
 
+const SEARCH_THROTTLE_TTL_MS = 60_000;
+const SEARCH_THROTTLE_LIMIT = 20;
+
 @ApiTags('Search')
 @ApiBearerAuth()
-@Throttle({ default: { ttl: 60000, limit: 20 } })
+@Throttle({ default: { ttl: SEARCH_THROTTLE_TTL_MS, limit: SEARCH_THROTTLE_LIMIT } })
 @Controller('search')
 export class UserSearchController {
 	constructor(private readonly userSearchService: UserSearchService) {}
