@@ -61,6 +61,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: test-jwt-secret
       JWT_JWKS_URL: http://localhost/.well-known/jwks.json
+      JWT_ISSUER: https://auth.whispr.test
+      JWT_AUDIENCE: whispr-user-service
       HTTP_PORT: 3000
     networks:
       - test-network
