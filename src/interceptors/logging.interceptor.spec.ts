@@ -95,6 +95,29 @@ describe('LoggingInterceptor', () => {
 			await lastValueFrom(interceptor.intercept(context, next));
 
 			expect(loggerSpy).toHaveBeenCalledWith(expect.stringMatching(/\[.+\] Incoming Request/));
+			const mockResponse = context.switchToHttp().getResponse();
+			expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+		});
+
+		it('should reject invalid X-Request-Id and generate a new one', async () => {
+			const malicious = 'invalid!@#$%header';
+			(context.switchToHttp().getRequest as jest.Mock).mockReturnValue({
+				method: 'GET',
+				url: '/test',
+				ip: '127.0.0.1',
+				get: jest.fn((header: string) => {
+					if (header === 'X-Request-Id') return malicious;
+					return undefined;
+				}),
+			});
+			(next.handle as jest.Mock).mockReturnValue(of('data'));
+
+			await lastValueFrom(interceptor.intercept(context, next));
+
+			const mockResponse = context.switchToHttp().getResponse();
+			expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
+			const setHeaderCall = (mockResponse.setHeader as jest.Mock).mock.calls[0];
+			expect(setHeaderCall[1]).not.toBe(malicious);
 		});
 
 		it('should log error on failure', async () => {

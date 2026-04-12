@@ -13,7 +13,8 @@ export class LoggingInterceptor implements NestInterceptor {
 		const response = context.switchToHttp().getResponse<Response>();
 		const { method, url, ip } = request;
 		const userAgent = request.get('User-Agent') || '';
-		const requestId = request.get('X-Request-Id') || randomUUID();
+		const raw = request.get('X-Request-Id') || '';
+		const requestId = /^[a-zA-Z0-9-]{1,64}$/.test(raw) ? raw : randomUUID();
 		const startTime = Date.now();
 
 		response.setHeader('X-Request-Id', requestId);
