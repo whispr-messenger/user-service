@@ -7,6 +7,7 @@ import {
 	ManyToOne,
 	JoinColumn,
 	Unique,
+	Index,
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
@@ -17,29 +18,32 @@ export enum ContactRequestStatus {
 }
 
 @Entity({ name: 'contact_requests', schema: 'users' })
-@Unique(['requesterId', 'recipientId'])
+@Unique('UQ_contact_requests_requester_recipient', ['requesterId', 'recipientId'])
+@Index('IDX_contact_requests_recipient_status', ['recipientId', 'status'])
+@Index('IDX_contact_requests_requester_status', ['requesterId', 'status'])
 export class ContactRequest {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;
-
-	@ManyToOne(() => User, { onDelete: 'CASCADE' })
-	@JoinColumn({ name: 'requester_id' })
-	requester: User;
 
 	@Column({ name: 'requester_id', type: 'uuid' })
 	requesterId: string;
 
 	@ManyToOne(() => User, { onDelete: 'CASCADE' })
-	@JoinColumn({ name: 'recipient_id' })
-	recipient: User;
+	@JoinColumn({ name: 'requester_id' })
+	requester: User;
 
 	@Column({ name: 'recipient_id', type: 'uuid' })
 	recipientId: string;
+
+	@ManyToOne(() => User, { onDelete: 'CASCADE' })
+	@JoinColumn({ name: 'recipient_id' })
+	recipient: User;
 
 	@Column({
 		name: 'status',
 		type: 'enum',
 		enum: ContactRequestStatus,
+		enumName: 'contact_requests_status_enum',
 		default: ContactRequestStatus.PENDING,
 	})
 	status: ContactRequestStatus;

@@ -20,9 +20,9 @@ describe('MediaClientService', () => {
 				{
 					provide: ConfigService,
 					useValue: {
-						get: jest.fn((key: string, defaultValue?: string) => {
+						getOrThrow: jest.fn((key: string) => {
 							if (key === 'MEDIA_SERVICE_URL') return 'http://media-service:3000';
-							return defaultValue;
+							throw new Error(`Missing config: ${key}`);
 						}),
 					},
 				},
@@ -58,7 +58,7 @@ describe('MediaClientService', () => {
 
 			expect(result).toEqual(validBody);
 			expect(mockFetch).toHaveBeenCalledWith(
-				'http://media-service:3000/media/v1/media-1',
+				'http://media-service:3000/media/media-1',
 				expect.objectContaining({
 					method: 'GET',
 					headers: { 'x-user-id': 'user-1', Accept: 'application/json' },

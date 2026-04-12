@@ -36,6 +36,7 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
+	let searchIndexService: { indexUser: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -67,6 +68,7 @@ describe('ProfileService', () => {
 		service = module.get<ProfileService>(ProfileService);
 		userRepository = module.get(UserRepository);
 		mediaClient = module.get(MediaClientService);
+		searchIndexService = module.get(SearchIndexService);
 	});
 
 	describe('getProfile', () => {
@@ -132,6 +134,34 @@ describe('ProfileService', () => {
 			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
 		});
 
+		it('indexes user in search when username is updated', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { username: 'alice' };
+			const saved = { ...user, username: 'alice' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
+		});
+
+		it('swallows search indexing errors without failing the update', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { firstName: 'Alice' };
+			const saved = { ...user, firstName: 'Alice' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+			searchIndexService.indexUser.mockRejectedValue(new Error('Redis down'));
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(result).toBe(saved);
+		});
+
 		it('does not check username uniqueness when dto has no username', async () => {
 			const user = mockUser();
 			const dto: UpdateProfileDto = { biography: 'Hello world' };
@@ -158,7 +188,7 @@ describe('ProfileService', () => {
 
 			const result = await service.updateProfile('uuid-1', dto);
 
-			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1');
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
 			expect(result.profilePictureUrl).toBe(metadata.url);
 		});
 

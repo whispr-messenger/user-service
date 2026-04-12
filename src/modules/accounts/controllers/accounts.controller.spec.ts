@@ -1,9 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AccountsController } from './accounts.controller';
 import { AccountsService } from '../services/accounts.service';
 import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
 import { UserRegisteredEvent } from 'src/modules/shared/events';
+
+const makeReq = (sub: string) => ({ user: { sub } }) as any;
 
 const mockAccountsService = (): jest.Mocked<AccountsService> =>
 	({
@@ -59,9 +61,15 @@ describe('AccountsController', () => {
 		it('delegates to accountsService.updateLastSeen', async () => {
 			accountsService.updateLastSeen.mockResolvedValue(undefined);
 
-			await controller.updateLastSeen('uuid-1');
+			await controller.updateLastSeen('uuid-1', makeReq('uuid-1'));
 
 			expect(accountsService.updateLastSeen).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('throws ForbiddenException when caller is not the owner', async () => {
+			await expect(controller.updateLastSeen('uuid-1', makeReq('attacker'))).rejects.toThrow(
+				ForbiddenException
+			);
 		});
 	});
 
@@ -69,15 +77,23 @@ describe('AccountsController', () => {
 		it('delegates to accountsService.deactivate', async () => {
 			accountsService.deactivate.mockResolvedValue(undefined);
 
-			await controller.deactivate('uuid-1');
+			await controller.deactivate('uuid-1', makeReq('uuid-1'));
 
 			expect(accountsService.deactivate).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('throws ForbiddenException when caller is not the owner', async () => {
+			await expect(controller.deactivate('uuid-1', makeReq('attacker'))).rejects.toThrow(
+				ForbiddenException
+			);
 		});
 
 		it('propagates NotFoundException from service', async () => {
 			accountsService.deactivate.mockRejectedValue(new NotFoundException());
 
-			await expect(controller.deactivate('uuid-404')).rejects.toThrow(NotFoundException);
+			await expect(controller.deactivate('uuid-404', makeReq('uuid-404'))).rejects.toThrow(
+				NotFoundException
+			);
 		});
 	});
 
@@ -85,15 +101,23 @@ describe('AccountsController', () => {
 		it('delegates to accountsService.activate', async () => {
 			accountsService.activate.mockResolvedValue(undefined);
 
-			await controller.activate('uuid-1');
+			await controller.activate('uuid-1', makeReq('uuid-1'));
 
 			expect(accountsService.activate).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('throws ForbiddenException when caller is not the owner', async () => {
+			await expect(controller.activate('uuid-1', makeReq('attacker'))).rejects.toThrow(
+				ForbiddenException
+			);
 		});
 
 		it('propagates NotFoundException from service', async () => {
 			accountsService.activate.mockRejectedValue(new NotFoundException());
 
-			await expect(controller.activate('uuid-404')).rejects.toThrow(NotFoundException);
+			await expect(controller.activate('uuid-404', makeReq('uuid-404'))).rejects.toThrow(
+				NotFoundException
+			);
 		});
 	});
 
@@ -101,15 +125,23 @@ describe('AccountsController', () => {
 		it('delegates to accountsService.remove', async () => {
 			accountsService.remove.mockResolvedValue(undefined);
 
-			await controller.remove('uuid-1');
+			await controller.remove('uuid-1', makeReq('uuid-1'));
 
 			expect(accountsService.remove).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('throws ForbiddenException when caller is not the owner', async () => {
+			await expect(controller.remove('uuid-1', makeReq('attacker'))).rejects.toThrow(
+				ForbiddenException
+			);
 		});
 
 		it('propagates NotFoundException from service', async () => {
 			accountsService.remove.mockRejectedValue(new NotFoundException());
 
-			await expect(controller.remove('uuid-404')).rejects.toThrow(NotFoundException);
+			await expect(controller.remove('uuid-404', makeReq('uuid-404'))).rejects.toThrow(
+				NotFoundException
+			);
 		});
 	});
 });

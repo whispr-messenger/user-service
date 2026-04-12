@@ -263,6 +263,47 @@ describe('UserRepository', () => {
 		});
 	});
 
+	describe('searchByDisplayName', () => {
+		it('searches by firstName OR lastName with the default limit and deduplicates results', async () => {
+			const rows = [
+				{ id: 'u1', firstName: 'Alice' },
+				{ id: 'u2', firstName: 'Alicia' },
+				{ id: 'u1', firstName: 'Alice' },
+			] as User[];
+			mockTypeormRepo.find.mockResolvedValue(rows);
+
+			const result = await repo.searchByDisplayName('ali');
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				where: [
+					{ firstName: ILike('%ali%'), isActive: true },
+					{ lastName: ILike('%ali%'), isActive: true },
+				],
+				take: 40,
+				order: { createdAt: 'DESC' },
+			});
+			expect(result).toHaveLength(2);
+			expect(result.map((u) => u.id)).toEqual(['u1', 'u2']);
+		});
+
+		it('respects the limit parameter', async () => {
+			const rows = [{ id: 'u1' }, { id: 'u2' }, { id: 'u3' }] as User[];
+			mockTypeormRepo.find.mockResolvedValue(rows);
+
+			const result = await repo.searchByDisplayName('ali', 2);
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				where: [
+					{ firstName: ILike('%ali%'), isActive: true },
+					{ lastName: ILike('%ali%'), isActive: true },
+				],
+				take: 4,
+				order: { createdAt: 'DESC' },
+			});
+			expect(result).toHaveLength(2);
+		});
+	});
+
 	describe('updateLastSeen', () => {
 		it('should update lastSeen with provided date', async () => {
 			const date = new Date('2024-01-01T00:00:00Z');

@@ -54,11 +54,18 @@ async function bootstrap() {
 
 	app.useGlobalInterceptors(new LoggingInterceptor());
 
-	const allowedOrigins = configService.get<string>('CORS_ALLOWED_ORIGINS');
-	app.enableCors({
-		origin: allowedOrigins ? allowedOrigins.split(',') : false,
-		credentials: true,
-	});
+	const corsEnabled = configService.get<string>('ENABLE_CORS') === 'true';
+	if (corsEnabled) {
+		const rawOrigins = configService.get<string>('CORS_ALLOWED_ORIGINS', '');
+		const allowedOrigins = rawOrigins
+			.split(',')
+			.map((o) => o.trim())
+			.filter(Boolean);
+		app.enableCors({
+			origin: allowedOrigins.length > 0 ? allowedOrigins : false,
+			credentials: true,
+		});
+	}
 
 	app.enableShutdownHooks();
 

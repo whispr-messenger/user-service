@@ -5,9 +5,12 @@ import {
 	BadRequestException,
 	ForbiddenException,
 } from '@nestjs/common';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { UserRepository } from '../../common/repositories';
 import { ContactRequestsRepository } from '../repositories/contact-requests.repository';
 import { ContactsRepository } from '../repositories/contacts.repository';
+import { Contact } from '../entities/contact.entity';
 import { ContactRequest, ContactRequestStatus } from '../entities/contact-request.entity';
 
 @Injectable()
@@ -15,7 +18,9 @@ export class ContactRequestsService {
 	constructor(
 		private readonly userRepository: UserRepository,
 		private readonly contactRequestsRepository: ContactRequestsRepository,
-		private readonly contactsRepository: ContactsRepository
+		private readonly contactsRepository: ContactsRepository,
+		@InjectDataSource()
+		private readonly dataSource: DataSource
 	) {}
 
 	private async ensureUserExists(userId: string): Promise<void> {
@@ -33,13 +38,11 @@ export class ContactRequestsService {
 		await this.ensureUserExists(requesterId);
 		await this.ensureUserExists(recipientId);
 
-		// Check if already contacts
 		const existingContact = await this.contactsRepository.findOne(requesterId, recipientId);
 		if (existingContact) {
 			throw new ConflictException('Already in contacts');
 		}
 
-		// Check for existing pending request in either direction
 		const existingRequest = await this.contactRequestsRepository.findPendingBetween(
 			requesterId,
 			recipientId
@@ -53,24 +56,7 @@ export class ContactRequestsService {
 
 	async getRequestsForUser(userId: string): Promise<ContactRequest[]> {
 		await this.ensureUserExists(userId);
-		const requests = await this.contactRequestsRepository.findAllForUser(userId);
-
-		// Enrich with user data
-		const enriched = await Promise.all(
-			requests.map(async (request) => {
-				const [requester, recipient] = await Promise.all([
-					this.userRepository.findById(request.requesterId),
-					this.userRepository.findById(request.recipientId),
-				]);
-				return {
-					...request,
-					requester: requester ?? undefined,
-					recipient: recipient ?? undefined,
-				} as ContactRequest;
-			})
-		);
-
-		return enriched;
+		return this.contactRequestsRepository.findAllForUser(userId);
 	}
 
 	async acceptRequest(requestId: string, userId: string): Promise<ContactRequest> {
@@ -87,19 +73,51 @@ export class ContactRequestsService {
 			throw new ConflictException('Contact request is not pending');
 		}
 
-		// Create bidirectional contacts
-		const existingAB = await this.contactsRepository.findOne(request.requesterId, request.recipientId);
-		if (!existingAB) {
-			await this.contactsRepository.create(request.requesterId, request.recipientId);
-		}
+		const queryRunner = this.dataSource.createQueryRunner();
+		await queryRunner.connect();
+		await queryRunner.startTransaction();
 
-		const existingBA = await this.contactsRepository.findOne(request.recipientId, request.requesterId);
-		if (!existingBA) {
-			await this.contactsRepository.create(request.recipientId, request.requesterId);
-		}
+		try {
+			const contactRepo = queryRunner.manager.getRepository(Contact);
+			const requestRepo = queryRunner.manager.getRepository(ContactRequest);
 
-		request.status = ContactRequestStatus.ACCEPTED;
-		return this.contactRequestsRepository.save(request);
+			const existingAB = await contactRepo.findOne({
+				where: { ownerId: request.requesterId, contactId: request.recipientId },
+			});
+			if (!existingAB) {
+				await contactRepo.save(
+					contactRepo.create({
+						ownerId: request.requesterId,
+						contactId: request.recipientId,
+						nickname: null,
+					})
+				);
+			}
+
+			const existingBA = await contactRepo.findOne({
+				where: { ownerId: request.recipientId, contactId: request.requesterId },
+			});
+			if (!existingBA) {
+				await contactRepo.save(
+					contactRepo.create({
+						ownerId: request.recipientId,
+						contactId: request.requesterId,
+						nickname: null,
+					})
+				);
+			}
+
+			request.status = ContactRequestStatus.ACCEPTED;
+			const saved = await requestRepo.save(request);
+
+			await queryRunner.commitTransaction();
+			return saved;
+		} catch (err) {
+			await queryRunner.rollbackTransaction();
+			throw err;
+		} finally {
+			await queryRunner.release();
+		}
 	}
 
 	async rejectRequest(requestId: string, userId: string): Promise<ContactRequest> {

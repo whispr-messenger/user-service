@@ -14,13 +14,6 @@ export class ContactRequestsRepository {
 		return this.repo.findOne({ where: { id } });
 	}
 
-	async findByRequesterAndRecipient(
-		requesterId: string,
-		recipientId: string
-	): Promise<ContactRequest | null> {
-		return this.repo.findOne({ where: { requesterId, recipientId } });
-	}
-
 	async findPendingBetween(userA: string, userB: string): Promise<ContactRequest | null> {
 		return this.repo.findOne({
 			where: [
@@ -33,6 +26,7 @@ export class ContactRequestsRepository {
 	async findAllForUser(userId: string): Promise<ContactRequest[]> {
 		return this.repo.find({
 			where: [{ requesterId: userId }, { recipientId: userId }],
+			relations: ['requester', 'recipient'],
 			order: { createdAt: 'DESC' },
 		});
 	}
