@@ -192,9 +192,9 @@ describe('Functional E2E Scenarios', () => {
 		});
 	});
 
-	// Scenario 4: Blocked user prevents contact addition
-	describe('Scenario 4: Blocked user prevents contact addition', () => {
-		it('should allow blocking a user', async () => {
+	// Scenario 4: Blocking a user and retrieving the blocked users list
+	describe('Scenario 4: Blocking a user and retrieving the blocked users list', () => {
+		it('should block a user and list them in the blocked users', async () => {
 			await createUser(USER_A_ID, '+33600000001', 'alice');
 			await createUser(USER_B_ID, '+33600000002', 'bob');
 
@@ -224,18 +224,8 @@ describe('Functional E2E Scenarios', () => {
 	describe('Scenario 5: Privacy settings CRUD', () => {
 		it('should create default privacy settings and allow updates', async () => {
 			await createUser(USER_A_ID, '+33600000001', 'alice');
-			// Insert default privacy settings
-			const queryRunner = dataSource.createQueryRunner();
-			await queryRunner.connect();
-			try {
-				await queryRunner.query(`INSERT INTO "users"."privacy_settings" ("user_id") VALUES ($1)`, [
-					USER_A_ID,
-				]);
-			} finally {
-				await queryRunner.release();
-			}
 
-			// Get privacy settings
+			// Get privacy settings (service creates defaults automatically)
 			const getRes = await request(app.getHttpServer())
 				.get(`/user/v1/privacy/${USER_A_ID}`)
 				.set(asUser(USER_A_ID))
@@ -252,6 +242,14 @@ describe('Functional E2E Scenarios', () => {
 				.expect(200);
 
 			expect(patchRes.body.searchByPhone).toBe(false);
+
+			// Verify persistence with a follow-up GET
+			const verifyRes = await request(app.getHttpServer())
+				.get(`/user/v1/privacy/${USER_A_ID}`)
+				.set(asUser(USER_A_ID))
+				.expect(200);
+
+			expect(verifyRes.body.searchByPhone).toBe(false);
 		});
 	});
 });
