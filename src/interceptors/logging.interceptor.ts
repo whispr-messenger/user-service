@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { Injectable, NestInterceptor, ExecutionContext, CallHandler, Logger } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
@@ -12,26 +13,28 @@ export class LoggingInterceptor implements NestInterceptor {
 		const response = context.switchToHttp().getResponse<Response>();
 		const { method, url, ip } = request;
 		const userAgent = request.get('User-Agent') || '';
+		const requestId = request.get('X-Request-Id') || randomUUID();
 		const startTime = Date.now();
 
-		// Log request
-		this.logger.log(`Incoming Request: ${method} ${url} - IP: ${ip} - User-Agent: ${userAgent}`);
+		response.setHeader('X-Request-Id', requestId);
+
+		this.logger.log(
+			`[${requestId}] Incoming Request: ${method} ${url} - IP: ${ip} - User-Agent: ${userAgent}`
+		);
 
 		return next.handle().pipe(
 			tap({
 				next: () => {
 					const duration = Date.now() - startTime;
-					const outgoingMsg = `Outgoing Response: ${method} ${url}`;
-					const statusMsg = `Status: ${response.statusCode}`;
-					const durationMsg = `Duration: ${duration}ms`;
-					this.logger.log(`${outgoingMsg} - ${statusMsg} - ${durationMsg}`);
+					this.logger.log(
+						`[${requestId}] Outgoing Response: ${method} ${url} - Status: ${response.statusCode} - Duration: ${duration}ms`
+					);
 				},
 				error: (error) => {
 					const duration = Date.now() - startTime;
-					const requestMsg = `Request Error: ${method} ${url}`;
-					const statusMsg = `Status: ${error.status || 500}`;
-					const durationMsg = `Duration: ${duration}ms - Error: ${error.message}`;
-					this.logger.error(`${requestMsg} - ${statusMsg}  - ${durationMsg}`);
+					this.logger.error(
+						`[${requestId}] Request Error: ${method} ${url} - Status: ${error.status || 500} - Duration: ${duration}ms - Error: ${error.message}`
+					);
 				},
 			})
 		);

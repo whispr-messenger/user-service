@@ -35,11 +35,16 @@ describe('LoggingInterceptor', () => {
 				method: 'GET',
 				url: '/test',
 				ip: '127.0.0.1',
-				get: jest.fn().mockReturnValue('TestAgent'),
+				get: jest.fn((header: string) => {
+					if (header === 'User-Agent') return 'TestAgent';
+					if (header === 'X-Request-Id') return 'test-request-id';
+					return undefined;
+				}),
 			};
 
 			const mockResponse = {
 				statusCode: 200,
+				setHeader: jest.fn(),
 			};
 
 			context = {
@@ -54,20 +59,31 @@ describe('LoggingInterceptor', () => {
 			};
 		});
 
-		it('should log incoming request and outgoing response on success', async () => {
+		it('should log incoming request and outgoing response with request-id', async () => {
 			(next.handle as jest.Mock).mockReturnValue(of('data'));
 
 			await lastValueFrom(interceptor.intercept(context, next));
 
 			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Incoming Request: GET /test - IP: 127.0.0.1 - User-Agent: TestAgent')
+				expect.stringContaining(
+					'[test-request-id] Incoming Request: GET /test - IP: 127.0.0.1 - User-Agent: TestAgent'
+				)
 			);
 			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.stringContaining('Outgoing Response: GET /test - Status: 200')
+				expect.stringContaining('[test-request-id] Outgoing Response: GET /test - Status: 200')
 			);
 		});
 
-		it('should use empty string for User-Agent if not present', async () => {
+		it('should set X-Request-Id response header', async () => {
+			(next.handle as jest.Mock).mockReturnValue(of('data'));
+
+			await lastValueFrom(interceptor.intercept(context, next));
+
+			const mockResponse = context.switchToHttp().getResponse();
+			expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Request-Id', 'test-request-id');
+		});
+
+		it('should generate a request-id when X-Request-Id header is absent', async () => {
 			(context.switchToHttp().getRequest as jest.Mock).mockReturnValue({
 				method: 'GET',
 				url: '/test',
@@ -78,7 +94,7 @@ describe('LoggingInterceptor', () => {
 
 			await lastValueFrom(interceptor.intercept(context, next));
 
-			expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('User-Agent: '));
+			expect(loggerSpy).toHaveBeenCalledWith(expect.stringMatching(/\[.+\] Incoming Request/));
 		});
 
 		it('should log error on failure', async () => {
