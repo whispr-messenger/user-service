@@ -5,22 +5,22 @@ export class UserResponseDto {
 	@ApiProperty()
 	id: string;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	username: string | null;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	firstName: string | null;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	lastName: string | null;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	biography: string | null;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	profilePictureUrl: string | null;
 
-	@ApiPropertyOptional()
+	@ApiPropertyOptional({ nullable: true })
 	lastSeen: Date | null;
 
 	@ApiProperty()
