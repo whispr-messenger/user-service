@@ -21,7 +21,7 @@ export enum ContactRequestStatus {
 @Index('IDX_contact_requests_requester_status', ['requesterId', 'status'])
 @Index('UQ_contact_requests_pending', ['requesterId', 'recipientId'], {
 	unique: true,
-	where: `"status" = 'pending'`,
+	where: `"status" = '${ContactRequestStatus.PENDING}'`,
 })
 export class ContactRequest {
 	@PrimaryGeneratedColumn('uuid')

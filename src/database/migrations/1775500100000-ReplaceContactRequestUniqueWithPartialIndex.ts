@@ -12,7 +12,7 @@ export class ReplaceContactRequestUniqueWithPartialIndex1775500100000 implements
 		);
 	}
 
-	public async down(): Promise<void> {
+	public async down(_queryRunner: QueryRunner): Promise<void> {
 		throw new Error(
 			'Irreversible migration: the database may now contain multiple contact_requests rows ' +
 				'for the same (requester_id, recipient_id) pair. Restoring the old unique constraint ' +
