@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
 import { BlockedUsersController } from './blocked-users.controller';
 import { BlockedUsersService } from '../services/blocked-users.service';
 import { BlockedUser } from '../entities/blocked-user.entity';
@@ -31,56 +30,37 @@ describe('BlockedUsersController', () => {
 	});
 
 	describe('getBlockedUsers', () => {
-		it('delegates to the service', async () => {
-			const rows = [{ id: 'b1' }] as BlockedUser[];
-			service.getBlockedUsers.mockResolvedValue(rows);
+		it('delegates to the service using req.user.sub as blockerId', async () => {
+			const paginated = { data: [{ id: 'b1' }] as BlockedUser[], nextCursor: null, hasMore: false };
+			service.getBlockedUsers.mockResolvedValue(paginated);
 
-			const result = await controller.getBlockedUsers('blocker-1', makeReq('blocker-1'));
+			const result = await controller.getBlockedUsers({}, makeReq('blocker-1'));
 
-			expect(result).toBe(rows);
-			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1');
-		});
-
-		it('throws ForbiddenException when caller is not the owner', async () => {
-			await expect(controller.getBlockedUsers('blocker-1', makeReq('attacker'))).rejects.toThrow(
-				ForbiddenException
-			);
+			expect(result).toEqual(paginated);
+			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1', undefined, undefined);
 		});
 	});
 
 	describe('blockUser', () => {
-		it('delegates to the service', async () => {
+		it('delegates to the service using req.user.sub as blockerId', async () => {
 			const dto: BlockUserDto = { blockedId: 'blocked-1' } as BlockUserDto;
 			const created = { id: 'b1' } as BlockedUser;
 			service.blockUser.mockResolvedValue(created);
 
-			const result = await controller.blockUser('blocker-1', dto, makeReq('blocker-1'));
+			const result = await controller.blockUser(dto, makeReq('blocker-1'));
 
 			expect(result).toBe(created);
 			expect(service.blockUser).toHaveBeenCalledWith('blocker-1', dto);
 		});
-
-		it('throws ForbiddenException when caller is not the owner', async () => {
-			const dto: BlockUserDto = { blockedId: 'blocked-1' } as BlockUserDto;
-			await expect(controller.blockUser('blocker-1', dto, makeReq('attacker'))).rejects.toThrow(
-				ForbiddenException
-			);
-		});
 	});
 
 	describe('unblockUser', () => {
-		it('delegates to the service', async () => {
+		it('delegates to the service using req.user.sub as blockerId', async () => {
 			service.unblockUser.mockResolvedValue(undefined);
 
-			await controller.unblockUser('blocker-1', 'blocked-1', makeReq('blocker-1'));
+			await controller.unblockUser('blocked-1', makeReq('blocker-1'));
 
 			expect(service.unblockUser).toHaveBeenCalledWith('blocker-1', 'blocked-1');
-		});
-
-		it('throws ForbiddenException when caller is not the owner', async () => {
-			await expect(
-				controller.unblockUser('blocker-1', 'blocked-1', makeReq('attacker'))
-			).rejects.toThrow(ForbiddenException);
 		});
 	});
 });

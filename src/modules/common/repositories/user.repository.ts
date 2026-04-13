@@ -127,7 +127,8 @@ export class UserRepository {
 	 * Search users by first name or last name
 	 */
 	async searchByDisplayName(query: string, limit: number = 20): Promise<User[]> {
-		const pattern = `%${query}%`;
+		const escaped = query.replace(/[%_\\]/g, (c) => '\\' + c);
+		const pattern = `%${escaped}%`;
 		const rows = await this.repository.find({
 			where: [
 				{ firstName: ILike(pattern), isActive: true },

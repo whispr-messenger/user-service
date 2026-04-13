@@ -1,7 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
-
-// Relations to PrivacySettings, Contact, BlockedUser, Group, GroupMember and UserSearchIndex
-// are restored incrementally as each module is integrated (WHISPR-319 to WHISPR-324).
+import {
+	Entity,
+	PrimaryGeneratedColumn,
+	Column,
+	CreateDateColumn,
+	UpdateDateColumn,
+	DeleteDateColumn,
+	OneToOne,
+} from 'typeorm';
+import { PrivacySettings } from '../../privacy/entities/privacy-settings.entity';
 
 @Entity({ name: 'users', schema: 'users' })
 export class User {
@@ -21,13 +27,13 @@ export class User {
 	lastName: string | null;
 
 	@Column({ type: 'text', nullable: true })
-	biography: string;
+	biography: string | null;
 
 	@Column({ type: 'varchar', length: 500, nullable: true })
-	profilePictureUrl: string;
+	profilePictureUrl: string | null;
 
 	@Column({ type: 'timestamp', nullable: true })
-	lastSeen: Date;
+	lastSeen: Date | null;
 
 	@Column({ type: 'boolean', default: true })
 	isActive: boolean;
@@ -37,4 +43,10 @@ export class User {
 
 	@UpdateDateColumn()
 	updatedAt: Date;
+
+	@DeleteDateColumn({ name: 'deletedAt' })
+	deletedAt: Date | null;
+
+	@OneToOne(() => PrivacySettings, (ps) => ps.user)
+	privacySettings?: PrivacySettings | null;
 }

@@ -4,6 +4,7 @@ import { GroupsRepository } from '../repositories/groups.repository';
 import { Group } from '../entities/group.entity';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 
 @Injectable()
 export class GroupsService {
@@ -19,9 +20,13 @@ export class GroupsService {
 		}
 	}
 
-	async getGroups(ownerId: string): Promise<Group[]> {
+	async getGroups(
+		ownerId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<Group>> {
 		await this.ensureUserExists(ownerId);
-		return this.groupsRepository.findAllByOwner(ownerId);
+		return this.groupsRepository.findAllByOwnerPaginated(ownerId, limit, cursor);
 	}
 
 	async createGroup(ownerId: string, dto: CreateGroupDto): Promise<Group> {

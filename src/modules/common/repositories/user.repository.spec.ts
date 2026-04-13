@@ -302,6 +302,21 @@ describe('UserRepository', () => {
 			});
 			expect(result).toHaveLength(2);
 		});
+
+		it('escapes SQL wildcard characters in the query', async () => {
+			mockTypeormRepo.find.mockResolvedValue([]);
+
+			await repo.searchByDisplayName('%_test');
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				where: [
+					{ firstName: ILike('%\\%\\_test%'), isActive: true },
+					{ lastName: ILike('%\\%\\_test%'), isActive: true },
+				],
+				take: 40,
+				order: { createdAt: 'DESC' },
+			});
+		});
 	});
 
 	describe('updateLastSeen', () => {

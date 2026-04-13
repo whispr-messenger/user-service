@@ -3,6 +3,7 @@ import { UserRepository } from '../../common/repositories';
 import { BlockedUsersRepository } from '../repositories/blocked-users.repository';
 import { BlockedUser } from '../entities/blocked-user.entity';
 import { BlockUserDto } from '../dto/block-user.dto';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 
 @Injectable()
 export class BlockedUsersService {
@@ -18,9 +19,13 @@ export class BlockedUsersService {
 		}
 	}
 
-	async getBlockedUsers(blockerId: string): Promise<BlockedUser[]> {
+	async getBlockedUsers(
+		blockerId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<BlockedUser>> {
 		await this.ensureUserExists(blockerId);
-		return this.blockedUsersRepository.findAllByBlocker(blockerId);
+		return this.blockedUsersRepository.findAllByBlockerPaginated(blockerId, limit, cursor);
 	}
 
 	async blockUser(blockerId: string, dto: BlockUserDto): Promise<BlockedUser> {
