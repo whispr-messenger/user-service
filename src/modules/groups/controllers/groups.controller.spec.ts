@@ -33,13 +33,13 @@ describe('GroupsController', () => {
 
 	describe('getGroups', () => {
 		it('delegates to the service using req.user.sub as ownerId', async () => {
-			const groups = [{ id: 'g1' }] as Group[];
-			service.getGroups.mockResolvedValue(groups);
+			const paginated = { data: [{ id: 'g1' }] as Group[], nextCursor: null, hasMore: false };
+			service.getGroups.mockResolvedValue(paginated);
 
-			const result = await controller.getGroups(makeReq('owner-1'));
+			const result = await controller.getGroups({}, makeReq('owner-1'));
 
-			expect(result).toBe(groups);
-			expect(service.getGroups).toHaveBeenCalledWith('owner-1');
+			expect(result).toEqual(paginated);
+			expect(service.getGroups).toHaveBeenCalledWith('owner-1', undefined, undefined);
 		});
 	});
 

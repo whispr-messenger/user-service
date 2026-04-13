@@ -4,6 +4,7 @@ import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
 import { AddContactDto } from '../dto/add-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 
 @Injectable()
 export class ContactsService {
@@ -19,9 +20,13 @@ export class ContactsService {
 		}
 	}
 
-	async getContacts(ownerId: string): Promise<Contact[]> {
+	async getContacts(
+		ownerId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<Contact>> {
 		await this.ensureUserExists(ownerId);
-		return this.contactsRepository.findAllByOwner(ownerId);
+		return this.contactsRepository.findAllByOwnerPaginated(ownerId, limit, cursor);
 	}
 
 	async addContact(ownerId: string, dto: AddContactDto): Promise<Contact> {

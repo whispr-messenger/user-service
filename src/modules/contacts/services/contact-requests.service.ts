@@ -12,6 +12,7 @@ import { ContactRequestsRepository } from '../repositories/contact-requests.repo
 import { ContactsRepository } from '../repositories/contacts.repository';
 import { Contact } from '../entities/contact.entity';
 import { ContactRequest, ContactRequestStatus } from '../entities/contact-request.entity';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 
 @Injectable()
 export class ContactRequestsService {
@@ -54,9 +55,13 @@ export class ContactRequestsService {
 		return this.contactRequestsRepository.create(requesterId, recipientId);
 	}
 
-	async getRequestsForUser(userId: string): Promise<ContactRequest[]> {
+	async getRequestsForUser(
+		userId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<ContactRequest>> {
 		await this.ensureUserExists(userId);
-		return this.contactRequestsRepository.findAllForUser(userId);
+		return this.contactRequestsRepository.findAllForUserPaginated(userId, limit, cursor);
 	}
 
 	async acceptRequest(requestId: string, userId: string): Promise<ContactRequest> {

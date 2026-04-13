@@ -6,6 +6,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -16,6 +17,7 @@ import type { Request as ExpressRequest } from 'express';
 import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
 @ApiTags('Contact Requests')
@@ -42,12 +44,21 @@ export class ContactRequestsController {
 	}
 
 	@Get()
-	@ApiOperation({ summary: 'Get all contact requests for the authenticated user (incoming + outgoing)' })
+	@ApiOperation({
+		summary: 'Get paginated contact requests for the authenticated user (incoming + outgoing)',
+	})
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getRequests(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<ContactRequest[]> {
-		return this.contactRequestsService.getRequestsForUser(req.user.sub);
+	async getRequests(
+		@Query() pagination: CursorPaginationDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<CursorPaginatedResult<ContactRequest>> {
+		return this.contactRequestsService.getRequestsForUser(
+			req.user.sub,
+			pagination.limit,
+			pagination.cursor
+		);
 	}
 
 	@Patch(':requestId/accept')

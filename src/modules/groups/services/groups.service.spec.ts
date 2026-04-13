@@ -51,7 +51,7 @@ describe('GroupsService', () => {
 				{
 					provide: GroupsRepository,
 					useValue: {
-						findAllByOwner: jest.fn(),
+						findAllByOwnerPaginated: jest.fn(),
 						findOneById: jest.fn(),
 						findOneByOwnerAndId: jest.fn(),
 						create: jest.fn(),
@@ -71,13 +71,33 @@ describe('GroupsService', () => {
 		it('returns groups for a valid owner', async () => {
 			const user = mockUser();
 			const groups = [mockGroup()];
+			const paginated = { data: groups, nextCursor: null, hasMore: false };
 			userRepository.findById.mockResolvedValue(user);
-			groupsRepository.findAllByOwner.mockResolvedValue(groups);
+			groupsRepository.findAllByOwnerPaginated.mockResolvedValue(paginated);
 
 			const result = await service.getGroups('user-uuid-1');
 
-			expect(result).toBe(groups);
-			expect(groupsRepository.findAllByOwner).toHaveBeenCalledWith('user-uuid-1');
+			expect(result).toEqual(paginated);
+			expect(groupsRepository.findAllByOwnerPaginated).toHaveBeenCalledWith(
+				'user-uuid-1',
+				50,
+				undefined
+			);
+		});
+
+		it('passes limit and cursor to repository', async () => {
+			const user = mockUser();
+			const paginated = { data: [], nextCursor: null, hasMore: false };
+			userRepository.findById.mockResolvedValue(user);
+			groupsRepository.findAllByOwnerPaginated.mockResolvedValue(paginated);
+
+			await service.getGroups('user-uuid-1', 10, 'some-cursor');
+
+			expect(groupsRepository.findAllByOwnerPaginated).toHaveBeenCalledWith(
+				'user-uuid-1',
+				10,
+				'some-cursor'
+			);
 		});
 
 		it('throws NotFoundException when owner does not exist', async () => {

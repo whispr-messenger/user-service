@@ -31,13 +31,13 @@ describe('BlockedUsersController', () => {
 
 	describe('getBlockedUsers', () => {
 		it('delegates to the service using req.user.sub as blockerId', async () => {
-			const rows = [{ id: 'b1' }] as BlockedUser[];
-			service.getBlockedUsers.mockResolvedValue(rows);
+			const paginated = { data: [{ id: 'b1' }] as BlockedUser[], nextCursor: null, hasMore: false };
+			service.getBlockedUsers.mockResolvedValue(paginated);
 
-			const result = await controller.getBlockedUsers(makeReq('blocker-1'));
+			const result = await controller.getBlockedUsers({}, makeReq('blocker-1'));
 
-			expect(result).toBe(rows);
-			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1');
+			expect(result).toEqual(paginated);
+			expect(service.getBlockedUsers).toHaveBeenCalledWith('blocker-1', undefined, undefined);
 		});
 	});
 

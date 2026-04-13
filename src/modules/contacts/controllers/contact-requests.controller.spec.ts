@@ -56,14 +56,14 @@ describe('ContactRequestsController', () => {
 	});
 
 	describe('getRequests', () => {
-		it('returns requests for the authenticated user', async () => {
-			const requests = [mockRequest()];
-			service.getRequestsForUser.mockResolvedValue(requests);
+		it('returns paginated requests for the authenticated user', async () => {
+			const paginated = { data: [mockRequest()], nextCursor: null, hasMore: false };
+			service.getRequestsForUser.mockResolvedValue(paginated);
 
-			const result = await controller.getRequests(makeReq('uuid-a'));
+			const result = await controller.getRequests({}, makeReq('uuid-a'));
 
-			expect(result).toBe(requests);
-			expect(service.getRequestsForUser).toHaveBeenCalledWith('uuid-a');
+			expect(result).toEqual(paginated);
+			expect(service.getRequestsForUser).toHaveBeenCalledWith('uuid-a', undefined, undefined);
 		});
 	});
 
