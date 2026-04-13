@@ -5,6 +5,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -14,6 +15,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@ne
 import { BlockedUsersService } from '../services/blocked-users.service';
 import { BlockUserDto } from '../dto/block-user.dto';
 import { BlockedUser } from '../entities/blocked-user.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -24,12 +26,15 @@ export class BlockedUsersController {
 	constructor(private readonly blockedUsersService: BlockedUsersService) {}
 
 	@Get()
-	@ApiOperation({ summary: 'Get all blocked users for the authenticated user' })
+	@ApiOperation({ summary: 'Get paginated blocked users for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Blocked users retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getBlockedUsers(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<BlockedUser[]> {
-		return this.blockedUsersService.getBlockedUsers(req.user.sub);
+	async getBlockedUsers(
+		@Query() pagination: CursorPaginationDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<CursorPaginatedResult<BlockedUser>> {
+		return this.blockedUsersService.getBlockedUsers(req.user.sub, pagination.limit, pagination.cursor);
 	}
 
 	@Post()

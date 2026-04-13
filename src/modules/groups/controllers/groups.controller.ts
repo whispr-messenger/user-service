@@ -6,6 +6,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -16,6 +17,7 @@ import { GroupsService } from '../services/groups.service';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
 import { Group } from '../entities/group.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -26,12 +28,15 @@ export class GroupsController {
 	constructor(private readonly groupsService: GroupsService) {}
 
 	@Get()
-	@ApiOperation({ summary: 'Get all groups for the authenticated user' })
+	@ApiOperation({ summary: 'Get paginated groups for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Groups retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getGroups(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<Group[]> {
-		return this.groupsService.getGroups(req.user.sub);
+	async getGroups(
+		@Query() pagination: CursorPaginationDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<CursorPaginatedResult<Group>> {
+		return this.groupsService.getGroups(req.user.sub, pagination.limit, pagination.cursor);
 	}
 
 	@Post()

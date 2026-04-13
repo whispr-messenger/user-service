@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactRequest, ContactRequestStatus } from '../entities/contact-request.entity';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
+import { applyCursorPagination } from '../../common/utils/cursor-pagination.util';
 
 @Injectable()
 export class ContactRequestsRepository {
@@ -28,6 +30,25 @@ export class ContactRequestsRepository {
 			where: [{ requesterId: userId }, { recipientId: userId }],
 			relations: ['requester', 'recipient'],
 			order: { createdAt: 'DESC' },
+		});
+	}
+
+	async findAllForUserPaginated(
+		userId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<ContactRequest>> {
+		const qb = this.repo
+			.createQueryBuilder('request')
+			.leftJoinAndSelect('request.requester', 'requester')
+			.leftJoinAndSelect('request.recipient', 'recipient')
+			.where('(request.requesterId = :userId OR request.recipientId = :userId)', { userId });
+
+		return applyCursorPagination(qb, {
+			alias: 'request',
+			limit,
+			cursor,
+			direction: 'DESC',
 		});
 	}
 

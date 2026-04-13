@@ -6,6 +6,7 @@ import {
 	Delete,
 	Param,
 	Body,
+	Query,
 	ParseUUIDPipe,
 	HttpCode,
 	HttpStatus,
@@ -17,6 +18,7 @@ import { ContactsService } from '../services/contacts.service';
 import { AddContactDto } from '../dto/add-contact.dto';
 import { UpdateContactDto } from '../dto/update-contact.dto';
 import { Contact } from '../entities/contact.entity';
+import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
 @ApiTags('Contacts')
@@ -26,12 +28,15 @@ export class ContactsController {
 	constructor(private readonly contactsService: ContactsService) {}
 
 	@Get()
-	@ApiOperation({ summary: 'Get all contacts for the authenticated user' })
+	@ApiOperation({ summary: 'Get paginated contacts for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contacts retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getContacts(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<Contact[]> {
-		return this.contactsService.getContacts(req.user.sub);
+	async getContacts(
+		@Query() pagination: CursorPaginationDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<CursorPaginatedResult<Contact>> {
+		return this.contactsService.getContacts(req.user.sub, pagination.limit, pagination.cursor);
 	}
 
 	@Post()

@@ -50,7 +50,7 @@ describe('ContactsService', () => {
 				{
 					provide: ContactsRepository,
 					useValue: {
-						findAllByOwner: jest.fn(),
+						findAllByOwnerPaginated: jest.fn(),
 						findOne: jest.fn(),
 						create: jest.fn(),
 						save: jest.fn(),
@@ -69,13 +69,29 @@ describe('ContactsService', () => {
 		it('returns contacts for a valid owner', async () => {
 			const user = mockUser();
 			const contacts = [mockContact()];
+			const paginated = { data: contacts, nextCursor: null, hasMore: false };
 			userRepository.findById.mockResolvedValue(user);
-			contactsRepository.findAllByOwner.mockResolvedValue(contacts);
+			contactsRepository.findAllByOwnerPaginated.mockResolvedValue(paginated);
 
 			const result = await service.getContacts('uuid-1');
 
-			expect(result).toBe(contacts);
-			expect(contactsRepository.findAllByOwner).toHaveBeenCalledWith('uuid-1');
+			expect(result).toEqual(paginated);
+			expect(contactsRepository.findAllByOwnerPaginated).toHaveBeenCalledWith('uuid-1', 50, undefined);
+		});
+
+		it('passes limit and cursor to repository', async () => {
+			const user = mockUser();
+			const paginated = { data: [], nextCursor: null, hasMore: false };
+			userRepository.findById.mockResolvedValue(user);
+			contactsRepository.findAllByOwnerPaginated.mockResolvedValue(paginated);
+
+			await service.getContacts('uuid-1', 10, 'some-cursor');
+
+			expect(contactsRepository.findAllByOwnerPaginated).toHaveBeenCalledWith(
+				'uuid-1',
+				10,
+				'some-cursor'
+			);
 		});
 
 		it('throws NotFoundException when owner does not exist', async () => {

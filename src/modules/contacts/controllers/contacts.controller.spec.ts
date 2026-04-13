@@ -35,14 +35,14 @@ describe('ContactsController', () => {
 	});
 
 	describe('getContacts', () => {
-		it('returns the contacts for the authenticated user', async () => {
-			const contacts = [{ id: 'c1' }] as Contact[];
-			service.getContacts.mockResolvedValue(contacts);
+		it('returns the paginated contacts for the authenticated user', async () => {
+			const paginated = { data: [{ id: 'c1' }] as Contact[], nextCursor: null, hasMore: false };
+			service.getContacts.mockResolvedValue(paginated);
 
-			const result = await controller.getContacts(makeReq('owner-1'));
+			const result = await controller.getContacts({}, makeReq('owner-1'));
 
-			expect(result).toBe(contacts);
-			expect(service.getContacts).toHaveBeenCalledWith('owner-1');
+			expect(result).toEqual(paginated);
+			expect(service.getContacts).toHaveBeenCalledWith('owner-1', undefined, undefined);
 		});
 	});
 

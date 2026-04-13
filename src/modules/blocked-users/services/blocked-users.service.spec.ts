@@ -47,7 +47,7 @@ describe('BlockedUsersService', () => {
 				{
 					provide: BlockedUsersRepository,
 					useValue: {
-						findAllByBlocker: jest.fn(),
+						findAllByBlockerPaginated: jest.fn(),
 						findOne: jest.fn(),
 						create: jest.fn(),
 						remove: jest.fn(),
@@ -65,13 +65,33 @@ describe('BlockedUsersService', () => {
 		it('returns blocked users for a valid blocker', async () => {
 			const user = mockUser();
 			const blocked = [mockBlockedUser()];
+			const paginated = { data: blocked, nextCursor: null, hasMore: false };
 			userRepository.findById.mockResolvedValue(user);
-			blockedUsersRepository.findAllByBlocker.mockResolvedValue(blocked);
+			blockedUsersRepository.findAllByBlockerPaginated.mockResolvedValue(paginated);
 
 			const result = await service.getBlockedUsers('uuid-1');
 
-			expect(result).toBe(blocked);
-			expect(blockedUsersRepository.findAllByBlocker).toHaveBeenCalledWith('uuid-1');
+			expect(result).toEqual(paginated);
+			expect(blockedUsersRepository.findAllByBlockerPaginated).toHaveBeenCalledWith(
+				'uuid-1',
+				50,
+				undefined
+			);
+		});
+
+		it('passes limit and cursor to repository', async () => {
+			const user = mockUser();
+			const paginated = { data: [], nextCursor: null, hasMore: false };
+			userRepository.findById.mockResolvedValue(user);
+			blockedUsersRepository.findAllByBlockerPaginated.mockResolvedValue(paginated);
+
+			await service.getBlockedUsers('uuid-1', 10, 'some-cursor');
+
+			expect(blockedUsersRepository.findAllByBlockerPaginated).toHaveBeenCalledWith(
+				'uuid-1',
+				10,
+				'some-cursor'
+			);
 		});
 
 		it('throws NotFoundException when blocker does not exist', async () => {
