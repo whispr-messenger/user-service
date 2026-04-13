@@ -96,4 +96,4 @@ export async function bootstrap() {
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
-bootstrap();
+export { bootstrap };
