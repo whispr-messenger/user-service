@@ -30,7 +30,16 @@ async function bootstrap() {
 
 	app.use(
 		helmet({
-			contentSecurityPolicy: swaggerEnabled ? false : undefined,
+			contentSecurityPolicy: swaggerEnabled
+				? {
+						directives: {
+							defaultSrc: ["'self'"],
+							scriptSrc: ["'self'", "'unsafe-inline'"],
+							styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+							imgSrc: ["'self'", 'data:'],
+						},
+					}
+				: undefined,
 			crossOriginEmbedderPolicy: swaggerEnabled ? false : undefined,
 		})
 	);
