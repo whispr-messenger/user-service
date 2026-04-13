@@ -2,7 +2,7 @@ import { Controller, Get, Patch, Param, Body, ParseUUIDPipe, HttpStatus, Request
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
-import { User } from '../../common/entities/user.entity';
+import { UserResponseDto } from '../../common/dto/user-response.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
@@ -16,17 +16,26 @@ export class ProfileController {
 	@Get(':id')
 	@ApiOperation({ summary: 'Get user profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
-	@ApiResponse({ status: HttpStatus.OK, description: 'Profile retrieved successfully' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Profile retrieved successfully',
+		type: UserResponseDto,
+	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<User> {
-		return this.profileService.getProfile(id);
+	async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
+		const user = await this.profileService.getProfile(id);
+		return UserResponseDto.fromEntity(user);
 	}
 
 	@Patch(':id')
 	@ApiOperation({ summary: 'Update own profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
-	@ApiResponse({ status: HttpStatus.OK, description: 'Profile updated successfully' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Profile updated successfully',
+		type: UserResponseDto,
+	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.CONFLICT, description: 'Username already taken' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -35,9 +44,10 @@ export class ProfileController {
 		@Param('id', ParseUUIDPipe) id: string,
 		@Body() dto: UpdateProfileDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
-	): Promise<User> {
+	): Promise<UserResponseDto> {
 		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
-		return this.profileService.updateProfile(id, dto, authorization);
+		const user = await this.profileService.updateProfile(id, dto, authorization);
+		return UserResponseDto.fromEntity(user);
 	}
 }

@@ -11,20 +11,6 @@ export class CacheService {
 		this.redis = this.redisConfig.getClient();
 	}
 
-	async set(key: string, value: any, ttl?: number): Promise<void> {
-		try {
-			const serializedValue = JSON.stringify(value);
-			if (ttl) {
-				await this.redis.setex(key, ttl, serializedValue);
-			} else {
-				await this.redis.set(key, serializedValue);
-			}
-		} catch (error) {
-			this.logger.error(`Failed to set cache key ${key}:`, error);
-			throw error;
-		}
-	}
-
 	async get<T>(key: string): Promise<T | null> {
 		try {
 			const value = await this.redis.get(key);
@@ -44,40 +30,12 @@ export class CacheService {
 		}
 	}
 
-	async del(key: string): Promise<void> {
-		try {
-			await this.redis.del(key);
-		} catch (error) {
-			this.logger.error(`Failed to delete cache key ${key}:`, error);
-			throw error;
-		}
-	}
-
 	async delMany(keys: string[]): Promise<void> {
 		if (keys.length === 0) return;
 		try {
 			await this.redis.del(...keys);
 		} catch (error) {
 			this.logger.error(`Failed to delete cache keys:`, error);
-			throw error;
-		}
-	}
-
-	async exists(key: string): Promise<boolean> {
-		try {
-			const result = await this.redis.exists(key);
-			return result === 1;
-		} catch (error) {
-			this.logger.error(`Failed to check existence of cache key ${key}:`, error);
-			return false;
-		}
-	}
-
-	async expire(key: string, ttl: number): Promise<void> {
-		try {
-			await this.redis.expire(key, ttl);
-		} catch (error) {
-			this.logger.error(`Failed to set TTL for cache key ${key}:`, error);
 			throw error;
 		}
 	}
@@ -91,85 +49,12 @@ export class CacheService {
 		}
 	}
 
-	async sadd(key: string, ...members: string[]): Promise<number> {
-		try {
-			return await this.redis.sadd(key, ...members);
-		} catch (error) {
-			this.logger.error(`Failed to add to set ${key}:`, error);
-			throw error;
-		}
-	}
-
-	async srem(key: string, ...members: string[]): Promise<number> {
-		try {
-			return await this.redis.srem(key, ...members);
-		} catch (error) {
-			this.logger.error(`Failed to remove from set ${key}:`, error);
-			throw error;
-		}
-	}
-
-	async smembers(key: string): Promise<string[]> {
-		try {
-			return await this.redis.smembers(key);
-		} catch (error) {
-			this.logger.error(`Failed to get members of set ${key}:`, error);
-			return [];
-		}
-	}
-
-	async sismember(key: string, member: string): Promise<boolean> {
-		try {
-			const result = await this.redis.sismember(key, member);
-			return result === 1;
-		} catch (error) {
-			this.logger.error(`Failed to check membership in set ${key}:`, error);
-			return false;
-		}
-	}
-
-	async zadd(key: string, score: number, member: string): Promise<number> {
-		try {
-			return await this.redis.zadd(key, score, member);
-		} catch (error) {
-			this.logger.error(`Failed to add to sorted set ${key}:`, error);
-			throw error;
-		}
-	}
-
 	async zrange(key: string, start: number, stop: number): Promise<string[]> {
 		try {
 			return await this.redis.zrange(key, start, stop);
 		} catch (error) {
 			this.logger.error(`Failed to get range from sorted set ${key}:`, error);
 			return [];
-		}
-	}
-
-	async zrem(key: string, ...members: string[]): Promise<number> {
-		try {
-			return await this.redis.zrem(key, ...members);
-		} catch (error) {
-			this.logger.error(`Failed to remove from sorted set ${key}:`, error);
-			throw error;
-		}
-	}
-
-	async incr(key: string): Promise<number> {
-		try {
-			return await this.redis.incr(key);
-		} catch (error) {
-			this.logger.error(`Failed to increment counter ${key}:`, error);
-			throw error;
-		}
-	}
-
-	async decr(key: string): Promise<number> {
-		try {
-			return await this.redis.decr(key);
-		} catch (error) {
-			this.logger.error(`Failed to decrement counter ${key}:`, error);
-			throw error;
 		}
 	}
 
@@ -188,15 +73,6 @@ export class CacheService {
 			);
 		} catch (error) {
 			this.logger.error('Failed to execute pipeline:', error);
-			throw error;
-		}
-	}
-
-	async flushall(): Promise<void> {
-		try {
-			await this.redis.flushall();
-		} catch (error) {
-			this.logger.error('Failed to flush all cache:', error);
 			throw error;
 		}
 	}

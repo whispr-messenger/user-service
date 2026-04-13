@@ -1,11 +1,18 @@
 import { Controller, Get, Post, Query, Body, HttpStatus } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiQuery, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { UserSearchService, UserSearchResult } from '../services/user-search.service';
 import { User } from '../../common/entities/user.entity';
 import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
+import { PhoneSearchQueryDto } from '../dto/phone-search-query.dto';
+import { NameSearchQueryDto } from '../dto/name-search-query.dto';
+
+const SEARCH_THROTTLE_TTL_MS = 60_000;
+const SEARCH_THROTTLE_LIMIT = 20;
 
 @ApiTags('Search')
 @ApiBearerAuth()
+@Throttle({ default: { ttl: SEARCH_THROTTLE_TTL_MS, limit: SEARCH_THROTTLE_LIMIT } })
 @Controller('search')
 export class UserSearchController {
 	constructor(private readonly userSearchService: UserSearchService) {}
@@ -15,8 +22,8 @@ export class UserSearchController {
 	@ApiQuery({ name: 'phoneNumber', type: 'string', description: 'E.164 phone number' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'User found or null' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async searchByPhone(@Query('phoneNumber') phoneNumber: string): Promise<User | null> {
-		return this.userSearchService.searchByPhone(phoneNumber);
+	async searchByPhone(@Query() dto: PhoneSearchQueryDto): Promise<User | null> {
+		return this.userSearchService.searchByPhone(dto.phoneNumber);
 	}
 
 	@Post('phone/batch')
@@ -39,13 +46,15 @@ export class UserSearchController {
 	@Get('name')
 	@ApiOperation({ summary: 'Search users by display name' })
 	@ApiQuery({ name: 'query', type: 'string', description: 'Name search query' })
-	@ApiQuery({ name: 'limit', type: 'number', required: false, description: 'Max results (default 20)' })
+	@ApiQuery({
+		name: 'limit',
+		required: false,
+		description: 'Max results (default 20, maximum 100)',
+		schema: { type: 'number', default: 20, maximum: 100 },
+	})
 	@ApiResponse({ status: HttpStatus.OK, description: 'List of matching users' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async searchByName(
-		@Query('query') query: string,
-		@Query('limit') limit?: number
-	): Promise<UserSearchResult[]> {
-		return this.userSearchService.searchByDisplayName(query, limit);
+	async searchByName(@Query() dto: NameSearchQueryDto): Promise<UserSearchResult[]> {
+		return this.userSearchService.searchByDisplayName(dto.query, dto.limit);
 	}
 }

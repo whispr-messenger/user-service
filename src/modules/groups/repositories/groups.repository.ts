@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Group } from '../entities/group.entity';
+import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
+import { applyCursorPagination } from '../../common/utils/cursor-pagination.util';
 
 @Injectable()
 export class GroupsRepository {
@@ -12,6 +14,16 @@ export class GroupsRepository {
 
 	async findAllByOwner(ownerId: string): Promise<Group[]> {
 		return this.repo.find({ where: { ownerId } });
+	}
+
+	async findAllByOwnerPaginated(
+		ownerId: string,
+		limit: number = 50,
+		cursor?: string
+	): Promise<CursorPaginatedResult<Group>> {
+		const qb = this.repo.createQueryBuilder('group').where('group.ownerId = :ownerId', { ownerId });
+
+		return applyCursorPagination(qb, { alias: 'group', limit, cursor });
 	}
 
 	async findOneById(id: string): Promise<Group | null> {

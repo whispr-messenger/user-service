@@ -3,6 +3,8 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
@@ -17,12 +19,31 @@ process.on('uncaughtException', (error: Error) => {
 	logger.error('Uncaught Exception:', error.stack);
 });
 
-async function bootstrap() {
+export async function bootstrap() {
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
 	const port = configService.get<number>('HTTP_PORT', 3002);
 	const globalPrefix = 'user';
+
+	const swaggerEnabled = configService.get<string>('SWAGGER_ENABLED', 'true') !== 'false';
+
+	app.use(
+		helmet({
+			contentSecurityPolicy: swaggerEnabled
+				? {
+						directives: {
+							defaultSrc: ["'self'"],
+							scriptSrc: ["'self'", "'unsafe-inline'"],
+							styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+							imgSrc: ["'self'", 'data:'],
+						},
+					}
+				: undefined,
+			crossOriginEmbedderPolicy: swaggerEnabled ? false : undefined,
+		})
+	);
+	app.use(compression());
 
 	app.setGlobalPrefix(globalPrefix);
 
@@ -75,5 +96,8 @@ async function bootstrap() {
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
-bootstrap();
-// triggered rebuild
+/* istanbul ignore next -- entry point guard */
+// eslint-disable-next-line no-undef
+if (require.main === module) {
+	bootstrap();
+}

@@ -36,13 +36,20 @@ describe('ProfileController', () => {
 	});
 
 	describe('getProfile', () => {
-		it('delegates to the service', async () => {
-			const user = { id: 'user-1' } as User;
+		it('delegates to the service and returns a UserResponseDto', async () => {
+			const user = {
+				id: 'user-1',
+				username: 'alice',
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
 			service.getProfile.mockResolvedValue(user);
 
 			const result = await controller.getProfile('user-1');
 
-			expect(result).toBe(user);
+			expect(result.id).toBe('user-1');
+			expect(result.username).toBe('alice');
+			expect((result as any).phoneNumber).toBeUndefined();
 			expect(service.getProfile).toHaveBeenCalledWith('user-1');
 		});
 	});
@@ -50,12 +57,18 @@ describe('ProfileController', () => {
 	describe('updateProfile', () => {
 		it('updates the profile when the caller is the owner and forwards the authorization header', async () => {
 			const dto: UpdateProfileDto = { username: 'alice' } as UpdateProfileDto;
-			const updated = { id: 'user-1' } as User;
+			const updated = {
+				id: 'user-1',
+				username: 'alice',
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
 			service.updateProfile.mockResolvedValue(updated);
 
 			const result = await controller.updateProfile('user-1', dto, makeReq('user-1', 'Bearer token'));
 
-			expect(result).toBe(updated);
+			expect(result.id).toBe('user-1');
+			expect((result as any).phoneNumber).toBeUndefined();
 			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, 'Bearer token');
 		});
 
