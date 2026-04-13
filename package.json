@@ -113,7 +113,6 @@
 			"**/*.(t|j)s",
 			"!**/*.interface.ts",
 			"!**/*.enum.ts",
-			"!**/*.dto.ts",
 			"!**/main.ts",
 			"!**/*.module.ts"
 		],
