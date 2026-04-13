@@ -167,5 +167,4 @@ describe('GroupsRepository', () => {
 			expect(mockQb.andWhere).toHaveBeenCalledWith('group.id > :cursor', { cursor: 'cursor-id' });
 		});
 	});
-
 });

@@ -168,5 +168,4 @@ describe('ContactsRepository', () => {
 			expect(mockQb.andWhere).toHaveBeenCalledWith('contact.id > :cursor', { cursor: 'cursor-id' });
 		});
 	});
-
 });

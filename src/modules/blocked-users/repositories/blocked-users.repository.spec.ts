@@ -128,5 +128,4 @@ describe('BlockedUsersRepository', () => {
 			expect(mockQb.andWhere).toHaveBeenCalledWith('blocked.id > :cursor', { cursor: 'cursor-id' });
 		});
 	});
-
 });
