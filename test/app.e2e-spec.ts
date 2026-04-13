@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import { AppModule } from '../src/modules/app.module';
 import { JwksService } from '../src/modules/jwt-auth/jwks.service';
 
@@ -11,6 +12,22 @@ describe('HealthController (e2e)', () => {
 
 	beforeAll(async () => {
 		try {
+			// Drop stale enum types that cause TypeORM synchronize failures
+			// when another test suite already created the schema
+			const tmpDs = new DataSource({
+				type: 'postgres',
+				host: process.env.DB_HOST || 'localhost',
+				port: parseInt(process.env.DB_PORT || '5432', 10),
+				username: process.env.DB_USERNAME || 'test',
+				password: process.env.DB_PASSWORD || 'test',
+				database: process.env.DB_NAME || 'test_db',
+				schema: 'users',
+			});
+			await tmpDs.initialize();
+			await tmpDs.query('DROP SCHEMA IF EXISTS users CASCADE');
+			await tmpDs.query('CREATE SCHEMA users');
+			await tmpDs.destroy();
+
 			const moduleFixture: TestingModule = await Test.createTestingModule({
 				imports: [AppModule],
 			})
