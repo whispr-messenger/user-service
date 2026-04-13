@@ -9,9 +9,9 @@ export function runEntrypoint() {
 			console.log('Starting User Service...\n');
 		}
 
-		// eslint-disable-next-line @typescript-eslint/no-require-imports
-		const { bootstrap } = require('../main');
-		bootstrap();
+		// Dynamic import to load main.js, then call exported bootstrap()
+		// At runtime: dist/docker/entrypoint.js → dist/main.js
+		import('../main.js').then((m) => m.bootstrap());
 	} catch (err) {
 		// If environment checks failed, log and exit non-zero so container fails fast
 		console.error('Entrypoint failed:', err instanceof Error ? err.message : err);
