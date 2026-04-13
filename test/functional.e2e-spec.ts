@@ -174,7 +174,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// Both users now have each other as contacts
 			const contactsA = await request(app.getHttpServer())
-				.get(`/user/v1/contacts/${USER_A_ID}`)
+				.get('/user/v1/contacts')
 				.set(asUser(USER_A_ID))
 				.expect(200);
 
@@ -183,7 +183,7 @@ describe('Functional E2E Scenarios', () => {
 			expect(contactsA.body[0].contactId).toBe(USER_B_ID);
 
 			const contactsB = await request(app.getHttpServer())
-				.get(`/user/v1/contacts/${USER_B_ID}`)
+				.get('/user/v1/contacts')
 				.set(asUser(USER_B_ID))
 				.expect(200);
 
@@ -201,7 +201,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// User A blocks User B
 			const blockRes = await request(app.getHttpServer())
-				.post(`/user/v1/blocked-users/${USER_A_ID}`)
+				.post('/user/v1/blocked-users')
 				.set(asUser(USER_A_ID))
 				.send({ blockedId: USER_B_ID })
 				.expect(201);
@@ -211,7 +211,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// Verify blocked users list
 			const blockedList = await request(app.getHttpServer())
-				.get(`/user/v1/blocked-users/${USER_A_ID}`)
+				.get('/user/v1/blocked-users')
 				.set(asUser(USER_A_ID))
 				.expect(200);
 
@@ -228,7 +228,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// Get privacy settings (service creates defaults automatically)
 			const getRes = await request(app.getHttpServer())
-				.get(`/user/v1/privacy/${USER_A_ID}`)
+				.get('/user/v1/privacy')
 				.set(asUser(USER_A_ID))
 				.expect(200);
 
@@ -237,7 +237,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// Update privacy settings
 			const patchRes = await request(app.getHttpServer())
-				.patch(`/user/v1/privacy/${USER_A_ID}`)
+				.patch('/user/v1/privacy')
 				.set(asUser(USER_A_ID))
 				.send({ searchByPhone: false })
 				.expect(200);
@@ -246,7 +246,7 @@ describe('Functional E2E Scenarios', () => {
 
 			// Verify persistence with a follow-up GET
 			const verifyRes = await request(app.getHttpServer())
-				.get(`/user/v1/privacy/${USER_A_ID}`)
+				.get('/user/v1/privacy')
 				.set(asUser(USER_A_ID))
 				.expect(200);
 
