@@ -144,7 +144,7 @@ export class SearchIndexService {
 
 	async searchByName(query: string, limit: number = 20): Promise<string[]> {
 		try {
-			const safeLimit = Math.max(1, limit);
+			const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 20;
 			const normalizedQuery = query.toLowerCase().trim();
 
 			const ids = await this.cacheService.zrange(

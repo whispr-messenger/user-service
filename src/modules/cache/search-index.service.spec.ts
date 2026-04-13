@@ -127,6 +127,30 @@ describe('SearchIndexService', () => {
 			expect(result).toEqual(['user-1', 'user-2']);
 		});
 
+		it('should clamp limit to 1 when zero or negative', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue(['user-1']);
+
+			await service.searchByName('Alice', 0);
+
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 0);
+		});
+
+		it('should floor fractional limit', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue(['user-1', 'user-2']);
+
+			await service.searchByName('Alice', 2.7);
+
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 1);
+		});
+
+		it('should fall back to default limit when NaN', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue([]);
+
+			await service.searchByName('Alice', NaN);
+
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 19);
+		});
+
 		it('should return [] when an error occurs', async () => {
 			mockCacheService.zrange = jest.fn().mockRejectedValue(new Error('Redis error'));
 
