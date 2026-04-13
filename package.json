@@ -114,7 +114,7 @@
 			"!**/*.interface.ts",
 			"!**/*.enum.ts",
 			"!**/*.dto.ts",
-			"!**/main.ts",
+
 			"!**/*.module.ts"
 		],
 		"coverageDirectory": "../coverage",

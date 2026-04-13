@@ -3,8 +3,8 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import * as helmet from 'helmet';
-import * as compression from 'compression';
+import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
@@ -19,7 +19,7 @@ process.on('uncaughtException', (error: Error) => {
 	logger.error('Uncaught Exception:', error.stack);
 });
 
-async function bootstrap() {
+export async function bootstrap() {
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
@@ -96,4 +96,8 @@ async function bootstrap() {
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
-bootstrap();
+/* istanbul ignore next -- entry point guard */
+// eslint-disable-next-line no-undef
+if (require.main === module) {
+	bootstrap();
+}
