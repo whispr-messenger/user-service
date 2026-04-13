@@ -26,7 +26,14 @@ async function bootstrap() {
 	const port = configService.get<number>('HTTP_PORT', 3002);
 	const globalPrefix = 'user';
 
-	app.use(helmet());
+	const swaggerEnabled = configService.get<string>('SWAGGER_ENABLED', 'true') !== 'false';
+
+	app.use(
+		helmet({
+			contentSecurityPolicy: swaggerEnabled ? false : undefined,
+			crossOriginEmbedderPolicy: swaggerEnabled ? false : undefined,
+		})
+	);
 	app.use(compression());
 
 	app.setGlobalPrefix(globalPrefix);
