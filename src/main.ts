@@ -96,8 +96,4 @@ export async function bootstrap() {
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
-/* istanbul ignore next -- entry point guard */
-// eslint-disable-next-line no-undef
-if (require.main === module) {
-	bootstrap();
-}
+bootstrap();
