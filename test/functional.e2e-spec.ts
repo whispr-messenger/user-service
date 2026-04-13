@@ -32,6 +32,7 @@ class TestJwtStrategy extends PassportStrategy(Strategy) {
 			secretOrKey: JWT_SECRET,
 			issuer: JWT_ISSUER,
 			audience: JWT_AUDIENCE,
+			algorithms: ['HS256'],
 		});
 	}
 
