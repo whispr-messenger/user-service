@@ -2,7 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { HttpThrottlerGuard } from './http-throttler.guard';
 import { typeOrmModuleAsyncOptions } from '../typeorm.config';
 import { CacheModule } from './cache';
 import { HealthModule } from './health/health.module';
@@ -41,11 +42,11 @@ const GLOBAL_THROTTLE_LIMIT = 60;
 	providers: [
 		{
 			provide: APP_GUARD,
-			useClass: JwtAuthGuard,
+			useClass: HttpThrottlerGuard,
 		},
 		{
 			provide: APP_GUARD,
-			useClass: ThrottlerGuard,
+			useClass: JwtAuthGuard,
 		},
 	],
 })
