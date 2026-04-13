@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { BlockedUser } from '../entities/blocked-user.entity';
 import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
+import { applyCursorPagination } from '../../common/utils/cursor-pagination.util';
 
 @Injectable()
 export class BlockedUsersRepository {
@@ -22,23 +23,9 @@ export class BlockedUsersRepository {
 	): Promise<CursorPaginatedResult<BlockedUser>> {
 		const qb = this.repo
 			.createQueryBuilder('blocked')
-			.where('blocked.blockerId = :blockerId', { blockerId })
-			.orderBy('blocked.id', 'ASC')
-			.take(limit + 1);
+			.where('blocked.blockerId = :blockerId', { blockerId });
 
-		if (cursor) {
-			qb.andWhere('blocked.id > :cursor', { cursor });
-		}
-
-		const results = await qb.getMany();
-		const hasMore = results.length > limit;
-		const data = hasMore ? results.slice(0, limit) : results;
-
-		return {
-			data,
-			nextCursor: hasMore ? data[data.length - 1].id : null,
-			hasMore,
-		};
+		return applyCursorPagination(qb, { alias: 'blocked', limit, cursor });
 	}
 
 	async findOne(blockerId: string, blockedId: string): Promise<BlockedUser | null> {

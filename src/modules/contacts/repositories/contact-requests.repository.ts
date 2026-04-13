@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ContactRequest, ContactRequestStatus } from '../entities/contact-request.entity';
 import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
+import { applyCursorPagination } from '../../common/utils/cursor-pagination.util';
 
 @Injectable()
 export class ContactRequestsRepository {
@@ -41,23 +42,14 @@ export class ContactRequestsRepository {
 			.createQueryBuilder('request')
 			.leftJoinAndSelect('request.requester', 'requester')
 			.leftJoinAndSelect('request.recipient', 'recipient')
-			.where('(request.requesterId = :userId OR request.recipientId = :userId)', { userId })
-			.orderBy('request.id', 'DESC')
-			.take(limit + 1);
+			.where('(request.requesterId = :userId OR request.recipientId = :userId)', { userId });
 
-		if (cursor) {
-			qb.andWhere('request.id < :cursor', { cursor });
-		}
-
-		const results = await qb.getMany();
-		const hasMore = results.length > limit;
-		const data = hasMore ? results.slice(0, limit) : results;
-
-		return {
-			data,
-			nextCursor: hasMore ? data[data.length - 1].id : null,
-			hasMore,
-		};
+		return applyCursorPagination(qb, {
+			alias: 'request',
+			limit,
+			cursor,
+			direction: 'DESC',
+		});
 	}
 
 	async create(requesterId: string, recipientId: string): Promise<ContactRequest> {

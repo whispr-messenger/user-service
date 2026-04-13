@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Contact } from '../entities/contact.entity';
 import { CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
+import { applyCursorPagination } from '../../common/utils/cursor-pagination.util';
 
 @Injectable()
 export class ContactsRepository {
@@ -23,23 +24,9 @@ export class ContactsRepository {
 		const qb = this.repo
 			.createQueryBuilder('contact')
 			.leftJoinAndSelect('contact.contact', 'user')
-			.where('contact.ownerId = :ownerId', { ownerId })
-			.orderBy('contact.id', 'ASC')
-			.take(limit + 1);
+			.where('contact.ownerId = :ownerId', { ownerId });
 
-		if (cursor) {
-			qb.andWhere('contact.id > :cursor', { cursor });
-		}
-
-		const results = await qb.getMany();
-		const hasMore = results.length > limit;
-		const data = hasMore ? results.slice(0, limit) : results;
-
-		return {
-			data,
-			nextCursor: hasMore ? data[data.length - 1].id : null,
-			hasMore,
-		};
+		return applyCursorPagination(qb, { alias: 'contact', limit, cursor });
 	}
 
 	async findOne(ownerId: string, contactId: string): Promise<Contact | null> {
