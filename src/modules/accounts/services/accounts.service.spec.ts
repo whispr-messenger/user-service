@@ -218,14 +218,16 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', true);
 		});
 
-		it('re-indexes user in search on activation', async () => {
-			const user = mockUser();
+		it('re-indexes user with isActive true after activation', async () => {
+			const user = { ...mockUser(), isActive: false } as User;
 			userRepository.findById.mockResolvedValue(user);
 			userRepository.updateStatus.mockResolvedValue(undefined);
 
 			await service.activate('uuid-1');
 
-			expect(searchIndexService.indexUser).toHaveBeenCalledWith(user);
+			expect(searchIndexService.indexUser).toHaveBeenCalledWith(
+				expect.objectContaining({ isActive: true })
+			);
 		});
 
 		it('throws NotFoundException when user does not exist', async () => {

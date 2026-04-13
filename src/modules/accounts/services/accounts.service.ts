@@ -115,6 +115,7 @@ export class AccountsService {
 	public async activate(id: string): Promise<void> {
 		const user = await this.findOne(id);
 		await this.userRepository.updateStatus(id, true);
+		user.isActive = true;
 		try {
 			await this.searchIndexService.indexUser(user);
 		} catch (err) {
