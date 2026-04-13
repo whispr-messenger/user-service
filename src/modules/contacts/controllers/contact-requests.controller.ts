@@ -45,7 +45,7 @@ export class ContactRequestsController {
 	}
 
 	@Get(':userId')
-	@ApiOperation({ summary: 'Get all contact requests for a user (incoming + outgoing)' })
+	@ApiOperation({ summary: 'Get paginated contact requests for a user (incoming + outgoing)' })
 	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })

@@ -27,7 +27,7 @@ export class BlockedUsersController {
 	constructor(private readonly blockedUsersService: BlockedUsersService) {}
 
 	@Get(':blockerId')
-	@ApiOperation({ summary: 'Get all blocked users for a user' })
+	@ApiOperation({ summary: 'Get paginated blocked users for a user' })
 	@ApiParam({ name: 'blockerId', type: 'string', format: 'uuid', description: 'Blocker user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Blocked users retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })

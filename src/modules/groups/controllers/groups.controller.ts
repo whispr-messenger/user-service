@@ -29,7 +29,7 @@ export class GroupsController {
 	constructor(private readonly groupsService: GroupsService) {}
 
 	@Get(':ownerId')
-	@ApiOperation({ summary: 'Get all groups for a user' })
+	@ApiOperation({ summary: 'Get paginated groups for a user' })
 	@ApiParam({ name: 'ownerId', type: 'string', format: 'uuid', description: 'Owner user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Groups retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
