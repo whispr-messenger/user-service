@@ -75,7 +75,7 @@ export class ProfileService {
 				// Index new data first, then remove old entries — if indexUser fails,
 				// the user remains discoverable under the old keys instead of vanishing.
 				await this.searchIndexService.indexUser(saved);
-				await this.searchIndexService.removeUserFromIndex(previousSnapshot);
+				await this.searchIndexService.removeUserFromIndex(previousSnapshot as User);
 			} catch (err) {
 				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
