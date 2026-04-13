@@ -191,6 +191,25 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', false);
 		});
 
+		it('removes user from search index on deactivation', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.updateStatus.mockResolvedValue(undefined);
+
+			await service.deactivate('uuid-1');
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(user);
+		});
+
+		it('still deactivates when Redis removeUserFromIndex fails', async () => {
+			userRepository.findById.mockResolvedValue(mockUser());
+			userRepository.updateStatus.mockResolvedValue(undefined);
+			searchIndexService.removeUserFromIndex.mockRejectedValueOnce(new Error('Redis down'));
+
+			await expect(service.deactivate('uuid-1')).resolves.toBeUndefined();
+			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', false);
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
@@ -208,6 +227,28 @@ describe('AccountsService', () => {
 			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', true);
 		});
 
+		it('re-indexes user with isActive true after activation', async () => {
+			const user = { ...mockUser(), isActive: false } as User;
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.updateStatus.mockResolvedValue(undefined);
+
+			await service.activate('uuid-1');
+
+			expect(searchIndexService.indexUser).toHaveBeenCalledWith(
+				expect.objectContaining({ isActive: true })
+			);
+		});
+
+		it('still activates when Redis indexUser fails', async () => {
+			const user = { ...mockUser(), isActive: false } as User;
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.updateStatus.mockResolvedValue(undefined);
+			searchIndexService.indexUser.mockRejectedValueOnce(new Error('Redis down'));
+
+			await expect(service.activate('uuid-1')).resolves.toBeUndefined();
+			expect(userRepository.updateStatus).toHaveBeenCalledWith('uuid-1', true);
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
@@ -222,6 +263,25 @@ describe('AccountsService', () => {
 
 			await service.remove('uuid-1');
 
+			expect(userRepository.softDelete).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('removes user from search index on deletion', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.softDelete.mockResolvedValue(undefined);
+
+			await service.remove('uuid-1');
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(user);
+		});
+
+		it('still removes when Redis removeUserFromIndex fails', async () => {
+			userRepository.findById.mockResolvedValue(mockUser());
+			userRepository.softDelete.mockResolvedValue(undefined);
+			searchIndexService.removeUserFromIndex.mockRejectedValueOnce(new Error('Redis down'));
+
+			await expect(service.remove('uuid-1')).resolves.toBeUndefined();
 			expect(userRepository.softDelete).toHaveBeenCalledWith('uuid-1');
 		});
 
