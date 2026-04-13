@@ -36,7 +36,7 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -60,6 +60,7 @@ describe('ProfileService', () => {
 					provide: SearchIndexService,
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
+						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
@@ -148,6 +149,22 @@ describe('ProfileService', () => {
 			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
 		});
 
+		it('removes old index entries when username changes', async () => {
+			const user = { ...mockUser(), username: 'old-name' } as User;
+			const dto: UpdateProfileDto = { username: 'new-name' };
+			const saved = { ...user, username: 'new-name' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ username: 'old-name' })
+			);
+		});
+
 		it('swallows search indexing errors without failing the update', async () => {
 			const user = mockUser();
 			const dto: UpdateProfileDto = { firstName: 'Alice' };
@@ -190,18 +207,6 @@ describe('ProfileService', () => {
 
 			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
 			expect(result.profilePictureUrl).toBe(metadata.url);
-		});
-
-		it('throws BadRequestException when both avatarMediaId and profilePictureUrl are provided', async () => {
-			const user = mockUser();
-			const dto: UpdateProfileDto = {
-				avatarMediaId: 'media-uuid-1',
-				profilePictureUrl: 'https://example.com/photo.jpg',
-			};
-
-			userRepository.findById.mockResolvedValue(user);
-
-			await expect(service.updateProfile('uuid-1', dto)).rejects.toThrow(BadRequestException);
 		});
 
 		it('throws BadRequestException when media context is not avatar', async () => {

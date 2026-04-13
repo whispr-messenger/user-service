@@ -37,11 +37,7 @@ export class ProfileService {
 
 	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
-		const previous = {
-			username: user.username,
-			firstName: user.firstName,
-			lastName: user.lastName,
-		};
+		const previousSnapshot = { ...user };
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -52,9 +48,6 @@ export class ProfileService {
 
 		// Resolve avatarMediaId → profilePictureUrl via media-service
 		if (dto.avatarMediaId) {
-			if (dto.profilePictureUrl) {
-				throw new BadRequestException('Cannot provide both avatarMediaId and profilePictureUrl');
-			}
 			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
 				throw new BadRequestException(
@@ -64,7 +57,7 @@ export class ProfileService {
 			if (media.ownerId !== id) {
 				throw new BadRequestException('Media does not belong to this user');
 			}
-			dto.profilePictureUrl = media.url;
+			user.profilePictureUrl = media.url;
 		}
 
 		// Remove avatarMediaId before saving — it's not a DB column
@@ -74,14 +67,17 @@ export class ProfileService {
 		const saved = await this.userRepository.save(user);
 
 		if (
-			saved.username !== previous.username ||
-			saved.firstName !== previous.firstName ||
-			saved.lastName !== previous.lastName
+			saved.username !== previousSnapshot.username ||
+			saved.firstName !== previousSnapshot.firstName ||
+			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
+				// Index new data first, then remove old entries — if indexUser fails,
+				// the user remains discoverable under the old keys instead of vanishing.
 				await this.searchIndexService.indexUser(saved);
+				await this.searchIndexService.removeUserFromIndex(previousSnapshot as User);
 			} catch (err) {
-				this.logger.warn(`Failed to index user ${saved.id} in search: ${err}`);
+				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
 		}
 

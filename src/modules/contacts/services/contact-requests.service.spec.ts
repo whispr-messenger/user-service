@@ -89,7 +89,7 @@ describe('ContactRequestsService', () => {
 					useValue: {
 						findById: jest.fn(),
 						findPendingBetween: jest.fn(),
-						findAllForUser: jest.fn(),
+						findAllForUserPaginated: jest.fn(),
 						create: jest.fn(),
 						save: jest.fn(),
 						remove: jest.fn(),
@@ -166,13 +166,32 @@ describe('ContactRequestsService', () => {
 
 		it('delegates to repository when user exists', async () => {
 			const requests = [mockRequest()];
+			const paginated = { data: requests, nextCursor: null, hasMore: false };
 			userRepository.findById.mockResolvedValue(mockUser('uuid-a'));
-			contactRequestsRepository.findAllForUser.mockResolvedValue(requests);
+			contactRequestsRepository.findAllForUserPaginated.mockResolvedValue(paginated);
 
 			const result = await service.getRequestsForUser('uuid-a');
 
-			expect(result).toBe(requests);
-			expect(contactRequestsRepository.findAllForUser).toHaveBeenCalledWith('uuid-a');
+			expect(result).toEqual(paginated);
+			expect(contactRequestsRepository.findAllForUserPaginated).toHaveBeenCalledWith(
+				'uuid-a',
+				50,
+				undefined
+			);
+		});
+
+		it('passes limit and cursor to repository', async () => {
+			const paginated = { data: [], nextCursor: null, hasMore: false };
+			userRepository.findById.mockResolvedValue(mockUser('uuid-a'));
+			contactRequestsRepository.findAllForUserPaginated.mockResolvedValue(paginated);
+
+			await service.getRequestsForUser('uuid-a', 10, 'some-cursor');
+
+			expect(contactRequestsRepository.findAllForUserPaginated).toHaveBeenCalledWith(
+				'uuid-a',
+				10,
+				'some-cursor'
+			);
 		});
 	});
 

@@ -103,17 +103,33 @@ export class AccountsService {
 	}
 
 	public async deactivate(id: string): Promise<void> {
-		await this.findOne(id);
+		const user = await this.findOne(id);
 		await this.userRepository.updateStatus(id, false);
+		try {
+			await this.searchIndexService.removeUserFromIndex(user);
+		} catch (err) {
+			this.logger.warn(`Failed to remove user ${id} from search index: ${err}`);
+		}
 	}
 
 	public async activate(id: string): Promise<void> {
-		await this.findOne(id);
+		const user = await this.findOne(id);
 		await this.userRepository.updateStatus(id, true);
+		user.isActive = true;
+		try {
+			await this.searchIndexService.indexUser(user);
+		} catch (err) {
+			this.logger.warn(`Failed to re-index user ${id} in search: ${err}`);
+		}
 	}
 
 	public async remove(id: string): Promise<void> {
-		await this.findOne(id);
+		const user = await this.findOne(id);
 		await this.userRepository.softDelete(id);
+		try {
+			await this.searchIndexService.removeUserFromIndex(user);
+		} catch (err) {
+			this.logger.warn(`Failed to remove user ${id} from search index: ${err}`);
+		}
 	}
 }
