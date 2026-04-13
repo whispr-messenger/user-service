@@ -41,7 +41,12 @@ export class UserSearchController {
 	@Get('name')
 	@ApiOperation({ summary: 'Search users by display name' })
 	@ApiQuery({ name: 'query', type: 'string', description: 'Name search query' })
-	@ApiQuery({ name: 'limit', type: 'number', required: false, description: 'Max results (default 20)' })
+	@ApiQuery({
+		name: 'limit',
+		required: false,
+		description: 'Max results (default 20, maximum 100)',
+		schema: { type: 'number', default: 20, maximum: 100 },
+	})
 	@ApiResponse({ status: HttpStatus.OK, description: 'List of matching users' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async searchByName(@Query() dto: NameSearchQueryDto): Promise<UserSearchResult[]> {
