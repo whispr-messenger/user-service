@@ -36,7 +36,7 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock };
+	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -60,6 +60,7 @@ describe('ProfileService', () => {
 					provide: SearchIndexService,
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
+						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
@@ -146,6 +147,22 @@ describe('ProfileService', () => {
 			await service.updateProfile('uuid-1', dto);
 
 			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
+		});
+
+		it('removes old index entries when username changes', async () => {
+			const user = { ...mockUser(), username: 'old-name' } as User;
+			const dto: UpdateProfileDto = { username: 'new-name' };
+			const saved = { ...user, username: 'new-name' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ username: 'old-name' })
+			);
 		});
 
 		it('swallows search indexing errors without failing the update', async () => {

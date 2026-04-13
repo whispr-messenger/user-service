@@ -33,7 +33,7 @@ describe('UserSearchController', () => {
 			const user = { id: 'u1' } as User;
 			service.searchByPhone.mockResolvedValue(user);
 
-			const result = await controller.searchByPhone('+33600000000');
+			const result = await controller.searchByPhone({ phoneNumber: '+33600000000' });
 
 			expect(result).toBe(user);
 			expect(service.searchByPhone).toHaveBeenCalledWith('+33600000000');
@@ -72,7 +72,7 @@ describe('UserSearchController', () => {
 			];
 			service.searchByDisplayName.mockResolvedValue(results);
 
-			const result = await controller.searchByName('alice', 5);
+			const result = await controller.searchByName({ query: 'alice', limit: 5 });
 
 			expect(result).toBe(results);
 			expect(service.searchByDisplayName).toHaveBeenCalledWith('alice', 5);
@@ -81,7 +81,7 @@ describe('UserSearchController', () => {
 		it('omits the limit when not provided', async () => {
 			service.searchByDisplayName.mockResolvedValue([]);
 
-			await controller.searchByName('alice');
+			await controller.searchByName({ query: 'alice' });
 
 			expect(service.searchByDisplayName).toHaveBeenCalledWith('alice', undefined);
 		});

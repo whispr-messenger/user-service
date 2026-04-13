@@ -19,7 +19,6 @@ import { SendContactRequestDto } from '../dto/send-contact-request.dto';
 import { ContactRequest } from '../entities/contact-request.entity';
 import { CursorPaginationDto, CursorPaginatedResult } from '../../common/dto/cursor-pagination.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
-import { assertOwnership } from '../../jwt-auth/ownership.util';
 
 @ApiTags('Contact Requests')
 @ApiBearerAuth()
@@ -44,23 +43,22 @@ export class ContactRequestsController {
 		return this.contactRequestsService.sendRequest(req.user.sub, dto.contactId);
 	}
 
-	@Get(':userId')
-	@ApiOperation({ summary: 'Get paginated contact requests for a user (incoming + outgoing)' })
-	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'User ID' })
+	@Get()
+	@ApiOperation({
+		summary: 'Get paginated contact requests for the authenticated user (incoming + outgoing)',
+	})
 	@ApiResponse({ status: HttpStatus.OK, description: 'Contact requests retrieved successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	@ApiResponse({
-		status: HttpStatus.FORBIDDEN,
-		description: "Cannot access another user's contact requests",
-	})
 	async getRequests(
-		@Param('userId', ParseUUIDPipe) userId: string,
 		@Query() pagination: CursorPaginationDto,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<CursorPaginatedResult<ContactRequest>> {
-		assertOwnership(req, userId, "Cannot access another user's contact requests");
-		return this.contactRequestsService.getRequestsForUser(userId, pagination.limit, pagination.cursor);
+		return this.contactRequestsService.getRequestsForUser(
+			req.user.sub,
+			pagination.limit,
+			pagination.cursor
+		);
 	}
 
 	@Patch(':requestId/accept')

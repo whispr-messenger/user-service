@@ -37,11 +37,7 @@ export class ProfileService {
 
 	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
-		const previous = {
-			username: user.username,
-			firstName: user.firstName,
-			lastName: user.lastName,
-		};
+		const previousSnapshot = { ...user };
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -74,14 +70,17 @@ export class ProfileService {
 		const saved = await this.userRepository.save(user);
 
 		if (
-			saved.username !== previous.username ||
-			saved.firstName !== previous.firstName ||
-			saved.lastName !== previous.lastName
+			saved.username !== previousSnapshot.username ||
+			saved.firstName !== previousSnapshot.firstName ||
+			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
+				// Index new data first, then remove old entries — if indexUser fails,
+				// the user remains discoverable under the old keys instead of vanishing.
 				await this.searchIndexService.indexUser(saved);
+				await this.searchIndexService.removeUserFromIndex(previousSnapshot);
 			} catch (err) {
-				this.logger.warn(`Failed to index user ${saved.id} in search: ${err}`);
+				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
 		}
 

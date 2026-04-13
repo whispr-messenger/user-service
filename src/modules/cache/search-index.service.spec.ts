@@ -6,9 +6,7 @@ const mockCacheService = {
 	pipeline: jest.fn(),
 	get: jest.fn(),
 	hget: jest.fn(),
-	keys: jest.fn(),
 	zrange: jest.fn(),
-	delMany: jest.fn(),
 } as unknown as CacheService;
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -120,42 +118,37 @@ describe('SearchIndexService', () => {
 	});
 
 	describe('searchByName', () => {
-		it('should return direct zrange results when limit is reached', async () => {
+		it('should return zrange results for the normalized query', async () => {
 			mockCacheService.zrange = jest.fn().mockResolvedValue(['user-1', 'user-2']);
-			mockCacheService.keys = jest.fn().mockResolvedValue([]);
 
-			const result = await service.searchByName('alice', 2);
+			const result = await service.searchByName('Alice', 2);
 
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 1);
 			expect(result).toEqual(['user-1', 'user-2']);
 		});
 
-		it('should do partial-match loop when direct results are below limit', async () => {
-			mockCacheService.zrange = jest
-				.fn()
-				.mockResolvedValueOnce(['user-1']) // direct hit
-				.mockResolvedValueOnce(['user-2']); // partial match loop
-			mockCacheService.keys = jest.fn().mockResolvedValue(['search:name:alice-smith']);
+		it('should clamp limit to 1 when zero or negative', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue(['user-1']);
 
-			const result = await service.searchByName('alice', 5);
+			await service.searchByName('Alice', 0);
 
-			expect(result).toContain('user-1');
-			expect(result).toContain('user-2');
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 0);
 		});
 
-		it('should stop partial-match loop when limit is reached', async () => {
-			const directIds = ['u1', 'u2'];
-			mockCacheService.zrange = jest.fn().mockResolvedValue(directIds);
-			mockCacheService.keys = jest
-				.fn()
-				.mockResolvedValue(['search:name:alice-a', 'search:name:alice-b', 'search:name:alice-c']);
-			// Simulate more results when iterating partial keys
-			(mockCacheService.zrange as jest.Mock)
-				.mockResolvedValueOnce(['u1', 'u2']) // first call (direct)
-				.mockResolvedValue(['u3', 'u4']); // subsequent calls
+		it('should floor fractional limit', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue(['user-1', 'user-2']);
 
-			const result = await service.searchByName('alice', 2);
+			await service.searchByName('Alice', 2.7);
 
-			expect(result.length).toBeLessThanOrEqual(2);
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 1);
+		});
+
+		it('should fall back to default limit when NaN', async () => {
+			mockCacheService.zrange = jest.fn().mockResolvedValue([]);
+
+			await service.searchByName('Alice', NaN);
+
+			expect(mockCacheService.zrange).toHaveBeenCalledWith('search:name:alice', 0, 19);
 		});
 
 		it('should return [] when an error occurs', async () => {
@@ -184,106 +177,6 @@ describe('SearchIndexService', () => {
 			const result = await service.getCachedUser('user-1');
 
 			expect(result).toBeNull();
-		});
-	});
-
-	describe('batchIndexUsers', () => {
-		it('should not call pipeline when users array is empty', async () => {
-			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
-
-			await service.batchIndexUsers([]);
-
-			expect(mockCacheService.pipeline).not.toHaveBeenCalled();
-		});
-
-		it('should call pipeline with commands for each user', async () => {
-			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
-			const users = [
-				makeUser({ id: 'u1', username: 'alice' }),
-				makeUser({ id: 'u2', username: 'bob' }),
-			];
-
-			await service.batchIndexUsers(users);
-
-			expect(mockCacheService.pipeline).toHaveBeenCalledTimes(1);
-			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
-			expect(commands).toContainEqual(['hset', 'search:phone', users[0].phoneNumber, 'u1']);
-			expect(commands).toContainEqual(['hset', 'search:username', 'bob', 'u2']);
-		});
-
-		it('should throw when pipeline fails', async () => {
-			mockCacheService.pipeline = jest.fn().mockRejectedValue(new Error('Redis error'));
-
-			await expect(service.batchIndexUsers([makeUser()])).rejects.toThrow('Redis error');
-		});
-	});
-
-	describe('clearAllIndexes', () => {
-		it('should delete all search and user cache keys', async () => {
-			mockCacheService.keys = jest
-				.fn()
-				.mockResolvedValueOnce(['search:phone', 'search:username'])
-				.mockResolvedValueOnce(['user:cache:u1'])
-				.mockResolvedValueOnce(['search:name:alice']);
-			mockCacheService.delMany = jest.fn().mockResolvedValue(undefined);
-
-			await service.clearAllIndexes();
-
-			expect(mockCacheService.delMany).toHaveBeenCalledWith(
-				expect.arrayContaining([
-					'search:phone',
-					'search:username',
-					'user:cache:u1',
-					'search:name:alice',
-				])
-			);
-		});
-
-		it('should not call delMany when no keys found', async () => {
-			mockCacheService.keys = jest.fn().mockResolvedValue([]);
-			mockCacheService.delMany = jest.fn();
-
-			await service.clearAllIndexes();
-
-			expect(mockCacheService.delMany).not.toHaveBeenCalled();
-		});
-
-		it('should throw when an error occurs', async () => {
-			mockCacheService.keys = jest.fn().mockRejectedValue(new Error('Redis error'));
-
-			await expect(service.clearAllIndexes()).rejects.toThrow('Redis error');
-		});
-	});
-
-	describe('getSearchStats', () => {
-		it('should return counts from cache', async () => {
-			mockCacheService.get = jest.fn().mockResolvedValueOnce(10).mockResolvedValueOnce(5);
-			mockCacheService.keys = jest
-				.fn()
-				.mockResolvedValueOnce(['k1', 'k2', 'k3'])
-				.mockResolvedValueOnce(['c1', 'c2']);
-
-			const result = await service.getSearchStats();
-
-			expect(result).toEqual({
-				totalPhoneIndexes: 10,
-				totalUsernameIndexes: 5,
-				totalNameIndexes: 3,
-				totalCachedUsers: 2,
-			});
-		});
-
-		it('should return zeros when an error occurs', async () => {
-			mockCacheService.get = jest.fn().mockRejectedValue(new Error('Redis error'));
-
-			const result = await service.getSearchStats();
-
-			expect(result).toEqual({
-				totalPhoneIndexes: 0,
-				totalUsernameIndexes: 0,
-				totalNameIndexes: 0,
-				totalCachedUsers: 0,
-			});
 		});
 	});
 });
