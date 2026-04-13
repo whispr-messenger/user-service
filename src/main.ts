@@ -19,7 +19,7 @@ process.on('uncaughtException', (error: Error) => {
 	logger.error('Uncaught Exception:', error.stack);
 });
 
-export async function bootstrap() {
+async function bootstrap() {
 	const app = await NestFactory.create<NestExpressApplication>(AppModule);
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
@@ -96,8 +96,4 @@ export async function bootstrap() {
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);
 }
 
-/* istanbul ignore next -- entry point guard */
-// eslint-disable-next-line no-undef
-if (require.main === module) {
-	bootstrap();
-}
+bootstrap();

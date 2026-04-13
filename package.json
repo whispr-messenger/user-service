@@ -116,6 +116,7 @@
 			"**/*.(t|j)s",
 			"!**/*.interface.ts",
 			"!**/*.enum.ts",
+			"!**/main.ts",
 			"!**/*.module.ts"
 		],
 		"coverageDirectory": "../coverage",
