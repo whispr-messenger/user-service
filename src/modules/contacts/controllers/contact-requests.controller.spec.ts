@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { ContactRequestsController } from './contact-requests.controller';
 import { ContactRequestsService } from '../services/contact-requests.service';
@@ -57,21 +56,14 @@ describe('ContactRequestsController', () => {
 	});
 
 	describe('getRequests', () => {
-		it('returns requests when the caller owns them', async () => {
+		it('returns requests for the authenticated user', async () => {
 			const requests = [mockRequest()];
 			service.getRequestsForUser.mockResolvedValue(requests);
 
-			const result = await controller.getRequests('uuid-a', makeReq('uuid-a'));
+			const result = await controller.getRequests(makeReq('uuid-a'));
 
 			expect(result).toBe(requests);
 			expect(service.getRequestsForUser).toHaveBeenCalledWith('uuid-a');
-		});
-
-		it('throws Forbidden when the caller targets another user', async () => {
-			await expect(controller.getRequests('uuid-a', makeReq('uuid-b'))).rejects.toThrow(
-				ForbiddenException
-			);
-			expect(service.getRequestsForUser).not.toHaveBeenCalled();
 		});
 	});
 
