@@ -1,4 +1,4 @@
-import { AddDeletedAtToUsers1775500000000 } from './1775500000000-AddDeletedAtToUsers';
+import { AddDeletedAtToUsers1775500000000 } from '../1775500000000-AddDeletedAtToUsers';
 
 describe('AddDeletedAtToUsers1775500000000', () => {
 	let migration: AddDeletedAtToUsers1775500000000;
