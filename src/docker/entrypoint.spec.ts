@@ -12,7 +12,7 @@ jest.mock('./check-env', () => ({
 	},
 }));
 
-jest.mock('../main.js', () => ({}), { virtual: true });
+jest.mock('../main.js', () => ({ bootstrap: jest.fn().mockResolvedValue(undefined) }), { virtual: true });
 
 describe('Entrypoint', () => {
 	let processExitSpy: jest.SpyInstance;
