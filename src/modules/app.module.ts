@@ -15,6 +15,7 @@ import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { GroupsModule } from './groups/groups.module';
 import { UserSearchModule } from './search/user-search.module';
 import { RolesModule } from './roles/roles.module';
+import { SanctionsModule } from './sanctions/sanctions.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -40,6 +41,7 @@ const GLOBAL_THROTTLE_LIMIT = 60;
 		GroupsModule,
 		UserSearchModule,
 		RolesModule,
+		SanctionsModule,
 	],
 	providers: [
 		{
