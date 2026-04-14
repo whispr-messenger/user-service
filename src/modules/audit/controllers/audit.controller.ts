@@ -12,12 +12,28 @@ export class AuditController {
 
 	@Get()
 	@ApiOperation({ summary: 'List audit logs (admin/moderator only)' })
-	@ApiQuery({ name: 'limit', required: false, type: Number })
-	@ApiQuery({ name: 'offset', required: false, type: Number })
-	@ApiQuery({ name: 'actorId', required: false, type: String })
-	@ApiQuery({ name: 'targetType', required: false, type: String })
-	@ApiQuery({ name: 'action', required: false, type: String })
+	@ApiQuery({
+		name: 'limit',
+		required: false,
+		type: Number,
+		description: 'Number of results to return (default: 50)',
+	})
+	@ApiQuery({
+		name: 'offset',
+		required: false,
+		type: Number,
+		description: 'Number of results to skip (default: 0)',
+	})
+	@ApiQuery({ name: 'actorId', required: false, type: String, description: 'Filter by actor user ID' })
+	@ApiQuery({
+		name: 'targetType',
+		required: false,
+		type: String,
+		description: 'Filter by target type (e.g. sanction, appeal, user)',
+	})
+	@ApiQuery({ name: 'action', required: false, type: String, description: 'Filter by action type' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Paginated audit logs' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
 	async list(
 		@Query('limit') limit: string,
@@ -39,6 +55,7 @@ export class AuditController {
 	@Get('export')
 	@ApiOperation({ summary: 'Export audit logs as CSV (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'CSV file download' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
 	async exportCsv(@Request() req: ExpressRequest & { user: JwtPayload }, @Res() res: Response) {
 		const csv = await this.auditService.exportCsv(req.user.sub);
