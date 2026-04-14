@@ -48,4 +48,43 @@ export class SanctionsRepository {
 			.execute();
 		return result.affected || 0;
 	}
+
+	async findFiltered(filters: {
+		type?: string;
+		userId?: string;
+		active?: boolean;
+		dateFrom?: Date;
+		dateTo?: Date;
+		limit: number;
+		offset: number;
+	}): Promise<UserSanction[]> {
+		const qb = this.repo.createQueryBuilder('s').orderBy('s.createdAt', 'DESC');
+
+		if (filters.type) {
+			qb.andWhere('s.type = :type', { type: filters.type });
+		}
+		if (filters.userId) {
+			qb.andWhere('s.userId = :userId', { userId: filters.userId });
+		}
+		if (filters.active !== undefined) {
+			qb.andWhere('s.active = :active', { active: filters.active });
+		}
+		if (filters.dateFrom) {
+			qb.andWhere('s.createdAt >= :dateFrom', { dateFrom: filters.dateFrom });
+		}
+		if (filters.dateTo) {
+			qb.andWhere('s.createdAt <= :dateTo', { dateTo: filters.dateTo });
+		}
+
+		return qb.take(filters.limit).skip(filters.offset).getMany();
+	}
+
+	async getStatsByType(): Promise<{ type: string; count: number }[]> {
+		return this.repo
+			.createQueryBuilder('s')
+			.select('s.type', 'type')
+			.addSelect('COUNT(*)::int', 'count')
+			.groupBy('s.type')
+			.getRawMany();
+	}
 }

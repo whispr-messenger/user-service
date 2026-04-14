@@ -10,9 +10,10 @@ import {
 	HttpStatus,
 	Request,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { SanctionsService } from '../services/sanctions.service';
 import { CreateSanctionDto } from '../dto/create-sanction.dto';
+import { QuerySanctionsDto } from '../dto/query-sanctions.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -35,19 +36,17 @@ export class SanctionsController {
 	}
 
 	@Get()
-	@ApiOperation({ summary: 'List all active sanctions (admin/moderator only)' })
-	@ApiQuery({ name: 'limit', required: false, type: Number })
-	@ApiQuery({ name: 'offset', required: false, type: Number })
-	async listAll(
-		@Query('limit') limit: string,
-		@Query('offset') offset: string,
-		@Request() req: ExpressRequest & { user: JwtPayload }
-	) {
-		return this.sanctionsService.listAllActive(
-			req.user.sub,
-			limit ? parseInt(limit) : 50,
-			offset ? parseInt(offset) : 0
-		);
+	@ApiOperation({ summary: 'List sanctions with optional filters (admin/moderator only)' })
+	async listAll(@Query() query: QuerySanctionsDto, @Request() req: ExpressRequest & { user: JwtPayload }) {
+		return this.sanctionsService.findFiltered(req.user.sub, query);
+	}
+
+	@Get('stats')
+	@ApiOperation({ summary: 'Get sanction counts by type (admin/moderator only)' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Stats retrieved' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async getStats(@Request() req: ExpressRequest & { user: JwtPayload }) {
+		return this.sanctionsService.getStats(req.user.sub);
 	}
 
 	@Get('me')

@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@ne
 import { AppealsService } from '../services/appeals.service';
 import { CreateAppealDto } from '../dto/create-appeal.dto';
 import { ReviewAppealDto } from '../dto/review-appeal.dto';
+import { QueryAppealsDto } from '../dto/query-appeals.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -55,6 +56,33 @@ export class AppealsController {
 			limit ? parseInt(limit) : 50,
 			offset ? parseInt(offset) : 0
 		);
+	}
+
+	@Get('search')
+	@ApiOperation({ summary: 'Search appeals with filters (admin/moderator only)' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Appeals retrieved' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async searchAppeals(
+		@Query() query: QueryAppealsDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.findFiltered(req.user.sub, query);
+	}
+
+	@Get('stats')
+	@ApiOperation({ summary: 'Get appeal counts by status (admin/moderator only)' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Stats retrieved' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async getStats(@Request() req: ExpressRequest & { user: JwtPayload }) {
+		return this.appealsService.getStats(req.user.sub);
+	}
+
+	@Get(':id/timeline')
+	@ApiOperation({ summary: 'Get appeal timeline with events' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Timeline retrieved' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Appeal not found' })
+	async getTimeline(@Param('id', ParseUUIDPipe) id: string) {
+		return this.appealsService.getTimeline(id);
 	}
 
 	@Get(':id')
