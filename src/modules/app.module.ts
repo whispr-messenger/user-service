@@ -18,6 +18,7 @@ import { RolesModule } from './roles/roles.module';
 import { SanctionsModule } from './sanctions/sanctions.module';
 import { AppealsModule } from './appeals/appeals.module';
 import { AuditModule } from './audit/audit.module';
+import { ModerationSubscriberModule } from './moderation-subscriber/moderation-subscriber.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -46,6 +47,7 @@ const GLOBAL_THROTTLE_LIMIT = 60;
 		SanctionsModule,
 		AppealsModule,
 		AuditModule,
+		ModerationSubscriberModule,
 	],
 	providers: [
 		{
