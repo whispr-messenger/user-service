@@ -85,4 +85,33 @@ export class SanctionsService {
 	async expireSanctions(): Promise<number> {
 		return this.sanctionsRepository.expireOldSanctions();
 	}
+
+	async findFiltered(
+		adminId: string,
+		filters: {
+			type?: string;
+			userId?: string;
+			active?: string;
+			dateFrom?: string;
+			dateTo?: string;
+			limit?: string;
+			offset?: string;
+		}
+	): Promise<UserSanction[]> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+		return this.sanctionsRepository.findFiltered({
+			type: filters.type,
+			userId: filters.userId,
+			active: filters.active !== undefined ? filters.active === 'true' : undefined,
+			dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+			dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+			limit: filters.limit ? parseInt(filters.limit) : 50,
+			offset: filters.offset ? parseInt(filters.offset) : 0,
+		});
+	}
+
+	async getStats(adminId: string): Promise<{ type: string; count: number }[]> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+		return this.sanctionsRepository.getStatsByType();
+	}
 }

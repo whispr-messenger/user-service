@@ -35,4 +35,50 @@ export class AppealsRepository {
 	async update(appeal: Appeal): Promise<Appeal> {
 		return this.repo.save(appeal);
 	}
+
+	async findFiltered(filters: {
+		status?: string;
+		userId?: string;
+		sanctionId?: string;
+		dateFrom?: Date;
+		dateTo?: Date;
+		limit: number;
+		offset: number;
+	}): Promise<Appeal[]> {
+		const qb = this.repo.createQueryBuilder('a').orderBy('a.createdAt', 'DESC');
+
+		if (filters.status) {
+			qb.andWhere('a.status = :status', { status: filters.status });
+		}
+		if (filters.userId) {
+			qb.andWhere('a.userId = :userId', { userId: filters.userId });
+		}
+		if (filters.sanctionId) {
+			qb.andWhere('a.sanctionId = :sanctionId', { sanctionId: filters.sanctionId });
+		}
+		if (filters.dateFrom) {
+			qb.andWhere('a.createdAt >= :dateFrom', { dateFrom: filters.dateFrom });
+		}
+		if (filters.dateTo) {
+			qb.andWhere('a.createdAt <= :dateTo', { dateTo: filters.dateTo });
+		}
+
+		return qb.take(filters.limit).skip(filters.offset).getMany();
+	}
+
+	async getStatsByStatus(): Promise<{ status: string; count: number }[]> {
+		return this.repo
+			.createQueryBuilder('a')
+			.select('a.status', 'status')
+			.addSelect('COUNT(*)::int', 'count')
+			.groupBy('a.status')
+			.getRawMany();
+	}
+
+	async getTimeline(appealId: string): Promise<Appeal | null> {
+		return this.repo.findOne({
+			where: { id: appealId },
+			relations: ['sanction'],
+		});
+	}
 }

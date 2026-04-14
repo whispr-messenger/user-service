@@ -83,4 +83,63 @@ export class AppealsService {
 
 		return updated;
 	}
+
+	async findFiltered(
+		adminId: string,
+		filters: {
+			status?: string;
+			userId?: string;
+			sanctionId?: string;
+			dateFrom?: string;
+			dateTo?: string;
+			limit?: string;
+			offset?: string;
+		}
+	): Promise<Appeal[]> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+		return this.appealsRepository.findFiltered({
+			status: filters.status,
+			userId: filters.userId,
+			sanctionId: filters.sanctionId,
+			dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
+			dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
+			limit: filters.limit ? parseInt(filters.limit) : 50,
+			offset: filters.offset ? parseInt(filters.offset) : 0,
+		});
+	}
+
+	async getStats(adminId: string): Promise<{ status: string; count: number }[]> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+		return this.appealsRepository.getStatsByStatus();
+	}
+
+	async getTimeline(
+		id: string
+	): Promise<{ appeal: Appeal; events: Array<{ event: string; timestamp: Date; details?: string }> }> {
+		const appeal = await this.appealsRepository.getTimeline(id);
+		if (!appeal) {
+			throw new NotFoundException('Appeal not found');
+		}
+
+		const events: Array<{ event: string; timestamp: Date; details?: string }> = [];
+		events.push({ event: 'appeal_created', timestamp: appeal.createdAt, details: appeal.reason });
+
+		if (
+			appeal.status === 'under_review' ||
+			appeal.status === 'accepted' ||
+			appeal.status === 'rejected'
+		) {
+			events.push({ event: 'under_review', timestamp: appeal.updatedAt });
+		}
+
+		if (appeal.resolvedAt) {
+			events.push({
+				event: `appeal_${appeal.status}`,
+				timestamp: appeal.resolvedAt,
+				details: appeal.reviewerNotes || undefined,
+			});
+		}
+
+		return { appeal, events };
+	}
 }

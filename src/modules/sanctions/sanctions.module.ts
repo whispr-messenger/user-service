@@ -5,12 +5,13 @@ import { RolesModule } from '../roles/roles.module';
 import { UserSanction } from './entities/user-sanction.entity';
 import { SanctionsRepository } from './repositories/sanctions.repository';
 import { SanctionsService } from './services/sanctions.service';
+import { SanctionExpiryService } from './services/sanction-expiry.service';
 import { SanctionsController } from './controllers/sanctions.controller';
 
 @Module({
 	imports: [CommonModule, RolesModule, TypeOrmModule.forFeature([UserSanction])],
 	controllers: [SanctionsController],
-	providers: [SanctionsService, SanctionsRepository],
+	providers: [SanctionsService, SanctionsRepository, SanctionExpiryService],
 	exports: [SanctionsService],
 })
 export class SanctionsModule {}
