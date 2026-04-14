@@ -3,6 +3,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { HttpThrottlerGuard } from './http-throttler.guard';
 import { typeOrmModuleAsyncOptions } from '../typeorm.config';
 import { CacheModule } from './cache';
@@ -14,6 +15,13 @@ import { ContactsModule } from './contacts/contacts.module';
 import { BlockedUsersModule } from './blocked-users/blocked-users.module';
 import { GroupsModule } from './groups/groups.module';
 import { UserSearchModule } from './search/user-search.module';
+import { RolesModule } from './roles/roles.module';
+import { SanctionsModule } from './sanctions/sanctions.module';
+import { AppealsModule } from './appeals/appeals.module';
+import { AuditModule } from './audit/audit.module';
+import { ModerationSubscriberModule } from './moderation-subscriber/moderation-subscriber.module';
+import { ReputationModule } from './reputation/reputation.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -28,6 +36,7 @@ const GLOBAL_THROTTLE_LIMIT = 60;
 		}),
 		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
 		ThrottlerModule.forRoot([{ ttl: GLOBAL_THROTTLE_TTL_MS, limit: GLOBAL_THROTTLE_LIMIT }]),
+		ScheduleModule.forRoot(),
 		CacheModule,
 		JwtAuthModule,
 		HealthModule,
@@ -38,6 +47,13 @@ const GLOBAL_THROTTLE_LIMIT = 60;
 		BlockedUsersModule,
 		GroupsModule,
 		UserSearchModule,
+		RolesModule,
+		SanctionsModule,
+		AppealsModule,
+		AuditModule,
+		ModerationSubscriberModule,
+		ReputationModule,
+		WebhooksModule,
 	],
 	providers: [
 		{
