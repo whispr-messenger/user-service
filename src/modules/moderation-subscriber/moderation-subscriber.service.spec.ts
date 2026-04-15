@@ -44,6 +44,7 @@ describe('ModerationSubscriberService', () => {
 				{
 					provide: SanctionsService,
 					useValue: {
+						getMySanctions: jest.fn().mockResolvedValue([]),
 						createAutoSanction: jest.fn().mockResolvedValue({ id: 'sanction-1' }),
 					},
 				},
