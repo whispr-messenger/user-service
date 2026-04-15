@@ -85,6 +85,20 @@ export class ModerationSubscriberService implements OnModuleInit, OnModuleDestro
 		);
 
 		try {
+			// Check if user already has an active sanction of the target type to avoid duplicates
+			const sanctionType =
+				threshold_level === 'auto_mute'
+					? 'warning'
+					: threshold_level === 'temp_ban'
+						? 'temp_ban'
+						: 'warning';
+			const existing = await this.sanctionsService.getMySanctions(reported_user_id);
+			const hasActiveSanction = existing.some((s) => s.active && s.type === sanctionType);
+			if (hasActiveSanction) {
+				this.logger.log(`User ${reported_user_id} already has active ${sanctionType}, skipping`);
+				return;
+			}
+
 			switch (threshold_level) {
 				case 'auto_mute': {
 					const reason = `Auto-escalation: ${report_count} reports received`;
