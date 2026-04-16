@@ -56,7 +56,6 @@ export class GroupsController {
 	@ApiParam({ name: 'groupId', type: 'string', format: 'uuid', description: 'Group ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Group updated successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or group not found' })
-	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'You do not own this group' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async updateGroup(
 		@Param('groupId', ParseUUIDPipe) groupId: string,
@@ -72,7 +71,6 @@ export class GroupsController {
 	@ApiParam({ name: 'groupId', type: 'string', format: 'uuid', description: 'Group ID' })
 	@ApiResponse({ status: HttpStatus.NO_CONTENT, description: 'Group deleted successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User or group not found' })
-	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'You do not own this group' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async deleteGroup(
 		@Param('groupId', ParseUUIDPipe) groupId: string,
