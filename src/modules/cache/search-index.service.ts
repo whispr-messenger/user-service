@@ -13,6 +13,14 @@ export interface SearchIndexEntry {
 	createdAt: Date;
 }
 
+// Sous-ensemble minimal requis pour les opérations d'indexation sur les champs
+// recherchables d'un utilisateur — évite de copier l'entité complète (relations,
+// champs non pertinents) lorsqu'on veut comparer un "avant" et un "après".
+export type UserIndexSnapshot = Pick<
+	User,
+	'id' | 'phoneNumber' | 'username' | 'firstName' | 'lastName' | 'createdAt'
+>;
+
 @Injectable()
 export class SearchIndexService {
 	private readonly logger = new Logger(SearchIndexService.name);
@@ -120,6 +128,58 @@ export class SearchIndexService {
 			this.logger.debug(`Removed user ${user.id} from search indexes`);
 		} catch (error) {
 			this.logger.error(`Failed to remove user ${user.id} from indexes:`, error);
+			throw error;
+		}
+	}
+
+	// Supprime uniquement les entrées d'index dont la valeur a changé entre
+	// `oldUser` et `newUser`. Contrairement à `removeUserFromIndex`, cette
+	// méthode ne touche ni au hash `search:phone` ni au cache `user:cache:<id>`
+	// (ils restent valides lors d'une mise à jour de profil car le numéro de
+	// téléphone n'est pas modifié et `indexUser` réécrit déjà le cache).
+	async removeStaleIndexKeys(oldUser: UserIndexSnapshot, newUser: UserIndexSnapshot): Promise<void> {
+		try {
+			const oldUsername = oldUser.username?.toLowerCase();
+			const newUsername = newUser.username?.toLowerCase();
+			const oldFirstName = oldUser.firstName?.toLowerCase();
+			const newFirstName = newUser.firstName?.toLowerCase();
+			const oldLastName = oldUser.lastName?.toLowerCase();
+			const newLastName = newUser.lastName?.toLowerCase();
+
+			const oldFullName = [oldUser.firstName, oldUser.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
+			const newFullName = [newUser.firstName, newUser.lastName]
+				.filter((p): p is string => !!p)
+				.join(' ')
+				.toLowerCase()
+				.trim();
+
+			const commands: Array<[string, ...any[]]> = [];
+
+			if (oldUsername && oldUsername !== newUsername) {
+				commands.push(['hdel', this.USERNAME_INDEX_KEY, oldUsername]);
+			}
+			if (oldFirstName && oldFirstName !== newFirstName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${oldFirstName}`, oldUser.id]);
+			}
+			if (oldLastName && oldLastName !== newLastName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${oldLastName}`, oldUser.id]);
+			}
+			if (oldFullName && oldFullName !== newFullName) {
+				commands.push(['zrem', `${this.NAME_INDEX_KEY}:${oldFullName}`, oldUser.id]);
+			}
+
+			if (commands.length === 0) {
+				return;
+			}
+
+			await this.cacheService.pipeline(commands);
+			this.logger.debug(`Removed stale index keys for user ${oldUser.id}`);
+		} catch (error) {
+			this.logger.error(`Failed to remove stale index keys for user ${oldUser.id}:`, error);
 			throw error;
 		}
 	}

@@ -79,6 +79,87 @@ describe('SearchIndexService', () => {
 		});
 	});
 
+	describe('removeStaleIndexKeys', () => {
+		it('is a no-op when no indexed field changed', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser();
+			const newUser = makeUser({ biography: 'updated bio' } as any);
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			expect(mockCacheService.pipeline).not.toHaveBeenCalled();
+		});
+
+		it('removes only the old username entry when username changes', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser({ username: 'alice' });
+			const newUser = makeUser({ username: 'bob' });
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands).toContainEqual(['hdel', 'search:username', 'alice']);
+			expect(commands).not.toContainEqual(['hdel', 'search:username', 'bob']);
+		});
+
+		it('removes old firstName and old fullName indexes when firstName changes', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser({ firstName: 'Alice', lastName: 'Smith' });
+			const newUser = makeUser({ firstName: 'Alicia', lastName: 'Smith' });
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands).toContainEqual(['zrem', 'search:name:alice', oldUser.id]);
+			expect(commands).toContainEqual(['zrem', 'search:name:alice smith', oldUser.id]);
+			expect(commands).not.toContainEqual(['zrem', 'search:name:smith', oldUser.id]);
+		});
+
+		it('removes old lastName and old fullName indexes when lastName changes', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser({ firstName: 'Alice', lastName: 'Smith' });
+			const newUser = makeUser({ firstName: 'Alice', lastName: 'Johnson' });
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands).toContainEqual(['zrem', 'search:name:smith', oldUser.id]);
+			expect(commands).toContainEqual(['zrem', 'search:name:alice smith', oldUser.id]);
+			expect(commands).not.toContainEqual(['zrem', 'search:name:alice', oldUser.id]);
+		});
+
+		it('never touches the phone index or the user cache', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser({ username: 'alice', firstName: 'Alice', lastName: 'Smith' });
+			const newUser = makeUser({ username: 'bob', firstName: 'Bob', lastName: 'Johnson' });
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			const flatCommands = commands.map((c: any[]) => c[0]);
+			expect(flatCommands).not.toContain('del');
+			expect(commands.find((c: any[]) => c[0] === 'hdel' && c[1] === 'search:phone')).toBeUndefined();
+		});
+
+		it('ignores case changes that normalize to the same key', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const oldUser = makeUser({ username: 'Alice' });
+			const newUser = makeUser({ username: 'ALICE' });
+
+			await service.removeStaleIndexKeys(oldUser, newUser);
+
+			expect(mockCacheService.pipeline).not.toHaveBeenCalled();
+		});
+
+		it('throws when pipeline fails', async () => {
+			mockCacheService.pipeline = jest.fn().mockRejectedValue(new Error('Redis error'));
+			const oldUser = makeUser({ username: 'alice' });
+			const newUser = makeUser({ username: 'bob' });
+
+			await expect(service.removeStaleIndexKeys(oldUser, newUser)).rejects.toThrow('Redis error');
+		});
+	});
+
 	describe('searchByPhoneNumber', () => {
 		it('should return userId from cache', async () => {
 			mockCacheService.hget = jest.fn().mockResolvedValue('user-1');

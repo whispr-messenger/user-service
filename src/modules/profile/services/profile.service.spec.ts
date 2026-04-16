@@ -36,7 +36,11 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
+	let searchIndexService: {
+		indexUser: jest.Mock;
+		removeUserFromIndex: jest.Mock;
+		removeStaleIndexKeys: jest.Mock;
+	};
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -61,6 +65,7 @@ describe('ProfileService', () => {
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
 						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
+						removeStaleIndexKeys: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
@@ -149,7 +154,7 @@ describe('ProfileService', () => {
 			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
 		});
 
-		it('removes old index entries when username changes', async () => {
+		it('removes only stale index keys when username changes', async () => {
 			const user = { ...mockUser(), username: 'old-name' } as User;
 			const dto: UpdateProfileDto = { username: 'new-name' };
 			const saved = { ...user, username: 'new-name' } as User;
@@ -160,9 +165,40 @@ describe('ProfileService', () => {
 
 			await service.updateProfile('uuid-1', dto);
 
-			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(
-				expect.objectContaining({ username: 'old-name' })
+			expect(searchIndexService.removeUserFromIndex).not.toHaveBeenCalled();
+			expect(searchIndexService.removeStaleIndexKeys).toHaveBeenCalledWith(
+				expect.objectContaining({ username: 'old-name' }),
+				expect.objectContaining({ username: 'new-name' })
 			);
+		});
+
+		it('passes a lean UserIndexSnapshot (no relations or extra fields) as the old snapshot', async () => {
+			const user = {
+				...mockUser(),
+				username: 'old-name',
+				privacySettings: { showLastSeen: true } as any,
+				biography: 'secret bio',
+			} as User;
+			const dto: UpdateProfileDto = { username: 'new-name' };
+			const saved = { ...user, username: 'new-name' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.findByUsernameInsensitive.mockResolvedValue(null);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			const [oldSnapshot] = searchIndexService.removeStaleIndexKeys.mock.calls[0];
+			expect(Object.keys(oldSnapshot).sort()).toEqual([
+				'createdAt',
+				'firstName',
+				'id',
+				'lastName',
+				'phoneNumber',
+				'username',
+			]);
+			expect(oldSnapshot).not.toHaveProperty('privacySettings');
+			expect(oldSnapshot).not.toHaveProperty('biography');
 		});
 
 		it('swallows search indexing errors without failing the update', async () => {

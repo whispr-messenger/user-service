@@ -9,7 +9,7 @@ import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { MediaClientService } from './media-client.service';
-import { SearchIndexService } from '../../cache/search-index.service';
+import { SearchIndexService, UserIndexSnapshot } from '../../cache/search-index.service';
 
 @Injectable()
 export class ProfileService {
@@ -37,7 +37,16 @@ export class ProfileService {
 
 	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
-		const previousSnapshot = { ...user };
+		// On ne capture que les champs utiles à l'indexation de recherche pour
+		// éviter de copier l'entité complète (relations, colonnes internes).
+		const previousSnapshot: UserIndexSnapshot = {
+			id: user.id,
+			phoneNumber: user.phoneNumber,
+			username: user.username,
+			firstName: user.firstName,
+			lastName: user.lastName,
+			createdAt: user.createdAt,
+		};
 
 		if (dto.username && dto.username !== user.username) {
 			const existing = await this.userRepository.findByUsernameInsensitive(dto.username, true);
@@ -72,10 +81,11 @@ export class ProfileService {
 			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
-				// Index new data first, then remove old entries — if indexUser fails,
-				// the user remains discoverable under the old keys instead of vanishing.
+				// On indexe d'abord la nouvelle donnée puis on retire les seules
+				// clés devenues obsolètes. Si `indexUser` échoue, l'utilisateur
+				// reste trouvable sous ses anciennes clés au lieu de disparaître.
 				await this.searchIndexService.indexUser(saved);
-				await this.searchIndexService.removeUserFromIndex(previousSnapshot as User);
+				await this.searchIndexService.removeStaleIndexKeys(previousSnapshot, saved);
 			} catch (err) {
 				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
