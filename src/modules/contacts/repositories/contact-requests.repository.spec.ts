@@ -1,5 +1,6 @@
 import { ContactRequestsRepository } from './contact-requests.repository';
 import { ContactRequest, ContactRequestStatus } from '../entities/contact-request.entity';
+import { encodeCursor } from '../../common/utils/cursor-pagination.util';
 
 const mockTypeormRepo = {
 	create: jest.fn(),
@@ -140,28 +141,46 @@ describe('ContactRequestsRepository', () => {
 			mockQb.take.mockReturnValue(mockQb);
 		});
 
-		it('returns data with hasMore=false when results fit within limit', async () => {
-			const items = [{ id: 'r1' }, { id: 'r2' }] as any[];
+		const DATE_1 = new Date('2026-01-01T00:00:00.000Z');
+		const DATE_2 = new Date('2026-01-02T00:00:00.000Z');
+		const DATE_3 = new Date('2026-01-03T00:00:00.000Z');
+
+		it('orders by createdAt DESC then id DESC and applies no cursor filter when absent', async () => {
+			const items = [
+				{ id: 'r1', createdAt: DATE_2 },
+				{ id: 'r2', createdAt: DATE_1 },
+			] as any[];
 			mockQb.getMany.mockResolvedValue(items);
 
 			const result = await repo.findAllForUserPaginated('user-1', 10);
 
 			expect(result).toEqual({ data: items, nextCursor: null, hasMore: false });
+			expect(mockQb.orderBy).toHaveBeenCalledWith('request.createdAt', 'DESC');
+			expect(mockQb.addOrderBy).toHaveBeenCalledWith('request.id', 'DESC');
 			expect(mockQb.andWhere).not.toHaveBeenCalled();
 		});
 
-		it('returns hasMore=true and nextCursor when results exceed limit', async () => {
-			const items = [{ id: 'r1' }, { id: 'r2' }, { id: 'r3' }] as any[];
+		it('applies a composite tuple WHERE and returns an encoded nextCursor when results exceed limit', async () => {
+			const items = [
+				{ id: 'r1', createdAt: DATE_3 },
+				{ id: 'r2', createdAt: DATE_2 },
+				{ id: 'r3', createdAt: DATE_1 },
+			] as any[];
 			mockQb.getMany.mockResolvedValue(items);
+			const cursorToken = encodeCursor(new Date('2026-01-04T00:00:00.000Z'), 'r0');
 
-			const result = await repo.findAllForUserPaginated('user-1', 2, 'cursor-id');
+			const result = await repo.findAllForUserPaginated('user-1', 2, cursorToken);
 
-			expect(result).toEqual({
-				data: [{ id: 'r1' }, { id: 'r2' }],
-				nextCursor: 'r2',
-				hasMore: true,
-			});
-			expect(mockQb.andWhere).toHaveBeenCalledWith('request.id < :cursor', { cursor: 'cursor-id' });
+			expect(result.data).toEqual([
+				{ id: 'r1', createdAt: DATE_3 },
+				{ id: 'r2', createdAt: DATE_2 },
+			]);
+			expect(result.hasMore).toBe(true);
+			expect(result.nextCursor).toBe(encodeCursor(DATE_2, 'r2'));
+			expect(mockQb.andWhere).toHaveBeenCalledWith(
+				'(request.createdAt, request.id) < (:cursorCreatedAt, :cursorId)',
+				{ cursorCreatedAt: new Date('2026-01-04T00:00:00.000Z'), cursorId: 'r0' }
+			);
 		});
 	});
 });
