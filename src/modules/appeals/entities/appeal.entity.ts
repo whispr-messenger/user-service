@@ -10,6 +10,8 @@ import {
 import { User } from '../../common/entities/user.entity';
 import { UserSanction } from '../../sanctions/entities/user-sanction.entity';
 
+export type AppealType = 'sanction' | 'blocked_image';
+
 @Entity({ name: 'appeals', schema: 'users' })
 export class Appeal {
 	@PrimaryGeneratedColumn('uuid')
@@ -22,12 +24,15 @@ export class Appeal {
 	@Column({ name: 'user_id', type: 'uuid' })
 	userId: string;
 
-	@ManyToOne(() => UserSanction, { onDelete: 'CASCADE' })
+	@ManyToOne(() => UserSanction, { onDelete: 'CASCADE', nullable: true })
 	@JoinColumn({ name: 'sanction_id' })
-	sanction: UserSanction;
+	sanction: UserSanction | null;
 
-	@Column({ name: 'sanction_id', type: 'uuid' })
-	sanctionId: string;
+	@Column({ name: 'sanction_id', type: 'uuid', nullable: true })
+	sanctionId: string | null;
+
+	@Column({ type: 'varchar', length: 30, default: 'sanction' })
+	type: AppealType;
 
 	@Column({ type: 'text' })
 	reason: string;
