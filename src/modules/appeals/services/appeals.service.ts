@@ -1,20 +1,60 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+	Injectable,
+	Logger,
+	NotFoundException,
+	ConflictException,
+	BadRequestException,
+} from '@nestjs/common';
 import { AppealsRepository } from '../repositories/appeals.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { SanctionsService } from '../../sanctions/services/sanctions.service';
-import { CreateAppealDto } from '../dto/create-appeal.dto';
+import { RedisConfig } from '../../../config/redis.config';
+import { CreateAppealDto, AppealTypeEnum } from '../dto/create-appeal.dto';
 import { ReviewAppealDto } from '../dto/review-appeal.dto';
 import { Appeal } from '../entities/appeal.entity';
 
+const BLOCKED_IMAGE_APPROVED_CHANNEL = 'whispr:moderation:blocked_image_approved';
+const BLOCKED_IMAGE_REJECTED_CHANNEL = 'whispr:moderation:blocked_image_rejected';
+
 @Injectable()
 export class AppealsService {
+	private readonly logger = new Logger(AppealsService.name);
+
 	constructor(
 		private readonly appealsRepository: AppealsRepository,
 		private readonly rolesService: RolesService,
-		private readonly sanctionsService: SanctionsService
+		private readonly sanctionsService: SanctionsService,
+		private readonly redisConfig: RedisConfig
 	) {}
 
 	async createAppeal(dto: CreateAppealDto, userId: string): Promise<Appeal> {
+		const type = dto.type ?? AppealTypeEnum.SANCTION;
+
+		if (type === AppealTypeEnum.BLOCKED_IMAGE) {
+			// Enforce active-appeal cap across all types
+			const userAppeals = await this.appealsRepository.findByUserId(userId);
+			const activeAppeals = userAppeals.filter(
+				(a) => a.status === 'pending' || a.status === 'under_review'
+			);
+			if (activeAppeals.length >= 3) {
+				throw new BadRequestException('Maximum of 3 active appeals reached');
+			}
+
+			return this.appealsRepository.create({
+				userId,
+				sanctionId: null,
+				type: 'blocked_image',
+				reason: dto.reason,
+				evidence: dto.evidence || {},
+				status: 'pending',
+			});
+		}
+
+		// Default: sanction appeal (legacy behaviour)
+		if (!dto.sanctionId) {
+			throw new BadRequestException('sanctionId is required for sanction appeals');
+		}
+
 		const sanction = await this.sanctionsService.getSanction(dto.sanctionId);
 		if (!sanction.active) {
 			throw new ConflictException('Sanction is no longer active');
@@ -39,6 +79,7 @@ export class AppealsService {
 		return this.appealsRepository.create({
 			userId,
 			sanctionId: dto.sanctionId,
+			type: 'sanction',
 			reason: dto.reason,
 			evidence: dto.evidence || {},
 			status: 'pending',
@@ -49,8 +90,16 @@ export class AppealsService {
 		return this.appealsRepository.findByUserId(userId);
 	}
 
-	async getAppealQueue(adminId: string, limit: number = 50, offset: number = 0): Promise<Appeal[]> {
+	async getAppealQueue(
+		adminId: string,
+		limit: number = 50,
+		offset: number = 0,
+		type?: 'sanction' | 'blocked_image'
+	): Promise<Appeal[]> {
 		await this.rolesService.ensureAdminOrModerator(adminId);
+		if (type) {
+			return this.appealsRepository.findPendingQueue(limit, offset, type);
+		}
 		return this.appealsRepository.findPendingQueue(limit, offset);
 	}
 
@@ -77,11 +126,35 @@ export class AppealsService {
 
 		const updated = await this.appealsRepository.update(appeal);
 
-		if (dto.status === 'accepted') {
-			await this.sanctionsService.liftSanction(appeal.sanctionId, adminId);
+		if (updated.type === 'blocked_image') {
+			await this.publishBlockedImageDecision(updated);
+		} else if (dto.status === 'accepted' && updated.sanctionId) {
+			await this.sanctionsService.liftSanction(updated.sanctionId, adminId);
 		}
 
 		return updated;
+	}
+
+	private async publishBlockedImageDecision(appeal: Appeal): Promise<void> {
+		const channel =
+			appeal.status === 'accepted' ? BLOCKED_IMAGE_APPROVED_CHANNEL : BLOCKED_IMAGE_REJECTED_CHANNEL;
+
+		const payload = {
+			appealId: appeal.id,
+			userId: appeal.userId,
+			conversationId: (appeal.evidence?.conversationId as string | undefined) ?? null,
+			messageTempId: (appeal.evidence?.messageTempId as string | undefined) ?? null,
+			reviewerNotes: appeal.reviewerNotes,
+		};
+
+		try {
+			await this.redisConfig.getClient().publish(channel, JSON.stringify(payload));
+		} catch (err) {
+			this.logger.error(
+				`Failed to publish blocked_image decision on ${channel} for appeal ${appeal.id}`,
+				err instanceof Error ? err.stack : err
+			);
+		}
 	}
 
 	async findFiltered(
@@ -90,6 +163,7 @@ export class AppealsService {
 			status?: string;
 			userId?: string;
 			sanctionId?: string;
+			type?: string;
 			dateFrom?: string;
 			dateTo?: string;
 			limit?: string;
@@ -101,6 +175,7 @@ export class AppealsService {
 			status: filters.status,
 			userId: filters.userId,
 			sanctionId: filters.sanctionId,
+			type: filters.type,
 			dateFrom: filters.dateFrom ? new Date(filters.dateFrom) : undefined,
 			dateTo: filters.dateTo ? new Date(filters.dateTo) : undefined,
 			limit: filters.limit ? parseInt(filters.limit) : 50,
