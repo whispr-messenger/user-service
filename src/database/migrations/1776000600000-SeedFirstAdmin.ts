@@ -10,15 +10,19 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class SeedFirstAdmin1776000600000 implements MigrationInterface {
 	public async up(queryRunner: QueryRunner): Promise<void> {
-		// Insert admin role for known user IDs (idempotent with ON CONFLICT)
+		// Insert admin role only if the target user exists in this environment.
+		// In prod the hardcoded ID may not exist (it was seeded for preprod/demo);
+		// skipping silently keeps the migration idempotent across environments.
 		await queryRunner.query(`
       INSERT INTO users.user_roles (id, user_id, role, granted_by, created_at)
-      VALUES (
+      SELECT
         uuid_generate_v4(),
         '3378ee73-ce43-4145-b689-ba982d97721e',
         'admin',
         '3378ee73-ce43-4145-b689-ba982d97721e',
         NOW()
+      WHERE EXISTS (
+        SELECT 1 FROM users.users WHERE id = '3378ee73-ce43-4145-b689-ba982d97721e'
       )
       ON CONFLICT (user_id) DO UPDATE SET role = 'admin'
     `);
