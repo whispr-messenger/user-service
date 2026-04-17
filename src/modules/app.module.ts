@@ -26,7 +26,7 @@ import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
 const GLOBAL_THROTTLE_TTL_MS = 60_000;
-const GLOBAL_THROTTLE_LIMIT = 60;
+const GLOBAL_THROTTLE_LIMIT = 300;
 
 @Module({
 	imports: [

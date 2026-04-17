@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { UserRepository } from '../../common/repositories';
 import { GroupsRepository } from '../repositories/groups.repository';
 import { Group } from '../entities/group.entity';
@@ -37,13 +37,11 @@ export class GroupsService {
 	async updateGroup(ownerId: string, groupId: string, dto: UpdateGroupDto): Promise<Group> {
 		await this.ensureUserExists(ownerId);
 
-		const group = await this.groupsRepository.findOneById(groupId);
+		// Recherche par (ownerId, groupId) afin d'éviter l'énumération de ressources :
+		// un groupe inexistant et un groupe possédé par un autre utilisateur renvoient tous les deux 404.
+		const group = await this.groupsRepository.findOneByOwnerAndId(ownerId, groupId);
 		if (!group) {
 			throw new NotFoundException('Group not found');
-		}
-
-		if (group.ownerId !== ownerId) {
-			throw new ForbiddenException('You do not own this group');
 		}
 
 		Object.assign(group, dto);
@@ -53,13 +51,11 @@ export class GroupsService {
 	async deleteGroup(ownerId: string, groupId: string): Promise<void> {
 		await this.ensureUserExists(ownerId);
 
-		const group = await this.groupsRepository.findOneById(groupId);
+		// Recherche par (ownerId, groupId) afin d'éviter l'énumération de ressources :
+		// un groupe inexistant et un groupe possédé par un autre utilisateur renvoient tous les deux 404.
+		const group = await this.groupsRepository.findOneByOwnerAndId(ownerId, groupId);
 		if (!group) {
 			throw new NotFoundException('Group not found');
-		}
-
-		if (group.ownerId !== ownerId) {
-			throw new ForbiddenException('You do not own this group');
 		}
 
 		await this.groupsRepository.remove(group);

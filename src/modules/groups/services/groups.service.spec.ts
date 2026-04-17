@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { GroupsService } from './groups.service';
 import { UserRepository } from '../../common/repositories';
 import { GroupsRepository } from '../repositories/groups.repository';
@@ -153,11 +153,12 @@ describe('GroupsService', () => {
 			const saved = { ...group, ...dto } as Group;
 
 			userRepository.findById.mockResolvedValue(user);
-			groupsRepository.findOneById.mockResolvedValue(group);
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(group);
 			groupsRepository.save.mockResolvedValue(saved);
 
 			const result = await service.updateGroup('user-uuid-1', 'group-uuid-1', dto);
 
+			expect(groupsRepository.findOneByOwnerAndId).toHaveBeenCalledWith('user-uuid-1', 'group-uuid-1');
 			expect(groupsRepository.save).toHaveBeenCalledWith(expect.objectContaining(dto));
 			expect(result).toBe(saved);
 		});
@@ -172,19 +173,21 @@ describe('GroupsService', () => {
 
 		it('throws NotFoundException when group does not exist', async () => {
 			userRepository.findById.mockResolvedValue(mockUser());
-			groupsRepository.findOneById.mockResolvedValue(null);
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(null);
 
 			await expect(service.updateGroup('user-uuid-1', 'group-uuid-1', {})).rejects.toThrow(
 				NotFoundException
 			);
 		});
 
-		it('throws ForbiddenException when group is owned by another user', async () => {
+		it('throws NotFoundException when group is owned by another user (no resource enumeration)', async () => {
 			userRepository.findById.mockResolvedValue(mockUser('user-uuid-2'));
-			groupsRepository.findOneById.mockResolvedValue(mockGroup({ ownerId: 'user-uuid-1' }));
+			// Le groupe existe mais appartient à un autre utilisateur :
+			// findOneByOwnerAndId renvoie null pour empêcher l'énumération.
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(null);
 
 			await expect(service.updateGroup('user-uuid-2', 'group-uuid-1', { name: 'x' })).rejects.toThrow(
-				ForbiddenException
+				NotFoundException
 			);
 		});
 	});
@@ -195,10 +198,11 @@ describe('GroupsService', () => {
 			const group = mockGroup();
 
 			userRepository.findById.mockResolvedValue(user);
-			groupsRepository.findOneById.mockResolvedValue(group);
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(group);
 
 			await service.deleteGroup('user-uuid-1', 'group-uuid-1');
 
+			expect(groupsRepository.findOneByOwnerAndId).toHaveBeenCalledWith('user-uuid-1', 'group-uuid-1');
 			expect(groupsRepository.remove).toHaveBeenCalledWith(group);
 		});
 
@@ -212,19 +216,21 @@ describe('GroupsService', () => {
 
 		it('throws NotFoundException when group does not exist', async () => {
 			userRepository.findById.mockResolvedValue(mockUser());
-			groupsRepository.findOneById.mockResolvedValue(null);
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(null);
 
 			await expect(service.deleteGroup('user-uuid-1', 'group-uuid-1')).rejects.toThrow(
 				NotFoundException
 			);
 		});
 
-		it('throws ForbiddenException when group is owned by another user', async () => {
+		it('throws NotFoundException when group is owned by another user (no resource enumeration)', async () => {
 			userRepository.findById.mockResolvedValue(mockUser('user-uuid-2'));
-			groupsRepository.findOneById.mockResolvedValue(mockGroup({ ownerId: 'user-uuid-1' }));
+			// Le groupe existe mais appartient à un autre utilisateur :
+			// findOneByOwnerAndId renvoie null pour empêcher l'énumération.
+			groupsRepository.findOneByOwnerAndId.mockResolvedValue(null);
 
 			await expect(service.deleteGroup('user-uuid-2', 'group-uuid-1')).rejects.toThrow(
-				ForbiddenException
+				NotFoundException
 			);
 		});
 	});
