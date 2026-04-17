@@ -19,4 +19,5 @@ export default new DataSource({
 	...dbConfig,
 	entities: [__dirname + '/../**/*.entity{.ts,.js}'],
 	migrations: [__dirname + '/migrations/*{.ts,.js}'],
+	migrationsTransactionMode: 'each',
 });
