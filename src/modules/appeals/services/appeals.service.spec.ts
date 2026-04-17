@@ -196,6 +196,17 @@ describe('AppealsService', () => {
 
 			await expect(service.getAppealQueue('user-1')).rejects.toThrow(ForbiddenException);
 		});
+
+		it('should filter pending queue by type when provided', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			const queue = [mockAppeal({ type: 'blocked_image', sanctionId: null })];
+			appealsRepository.findPendingQueue.mockResolvedValue(queue);
+
+			const result = await service.getAppealQueue('admin-1', 10, 5, 'blocked_image');
+
+			expect(appealsRepository.findPendingQueue).toHaveBeenCalledWith(10, 5, 'blocked_image');
+			expect(result).toEqual(queue);
+		});
 	});
 
 	describe('getAppeal', () => {
@@ -280,6 +291,37 @@ describe('AppealsService', () => {
 	});
 
 	describe('createAppeal — blocked_image', () => {
+		it('throws BadRequestException when sanction appeal has no sanctionId', async () => {
+			await expect(
+				service.createAppeal({ reason: 'no sanction id', type: 'sanction' as any } as any, 'user-1')
+			).rejects.toThrow(BadRequestException);
+			expect(sanctionsService.getSanction).not.toHaveBeenCalled();
+		});
+
+		it('throws BadRequestException when user already has 3 active appeals (blocked_image)', async () => {
+			appealsRepository.findByUserId.mockResolvedValue([
+				mockAppeal({ id: 'a1', status: 'pending' }),
+				mockAppeal({ id: 'a2', status: 'under_review' }),
+				mockAppeal({ id: 'a3', status: 'pending' }),
+			]);
+
+			await expect(
+				service.createAppeal(
+					{
+						type: 'blocked_image' as any,
+						reason: 'false positive',
+						evidence: {
+							thumbnailBase64: 'data',
+							conversationId: 'conv-1',
+							messageTempId: 'tmp-1',
+						},
+					} as any,
+					'user-1'
+				)
+			).rejects.toThrow(BadRequestException);
+			expect(appealsRepository.create).not.toHaveBeenCalled();
+		});
+
 		it('creates a blocked_image appeal without a sanctionId', async () => {
 			appealsRepository.findByUserId.mockResolvedValue([]);
 			const created = mockAppeal({
@@ -356,6 +398,57 @@ describe('AppealsService', () => {
 				messageTempId: 'tmp-1',
 				reviewerNotes: 'looks fine',
 			});
+		});
+
+		it('does not throw when redis publish fails (swallows error and logs)', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			const appeal = mockAppeal({
+				type: 'blocked_image',
+				sanctionId: null,
+				status: 'pending',
+				evidence: { conversationId: 'conv-1', messageTempId: 'tmp-1' },
+			});
+			appealsRepository.findById.mockResolvedValue(appeal);
+			const updated = mockAppeal({
+				type: 'blocked_image',
+				sanctionId: null,
+				status: 'accepted',
+				reviewerId: 'admin-1',
+				evidence: { conversationId: 'conv-1', messageTempId: 'tmp-1' },
+			});
+			appealsRepository.update.mockResolvedValue(updated);
+			redisPublish.mockRejectedValueOnce(new Error('redis down'));
+
+			await expect(
+				service.reviewAppeal('appeal-1', 'admin-1', { status: 'accepted' as any })
+			).resolves.toBeDefined();
+			expect(sanctionsService.liftSanction).not.toHaveBeenCalled();
+		});
+
+		it('publishes with null ids when evidence has no conversationId/messageTempId', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			const appeal = mockAppeal({
+				type: 'blocked_image',
+				sanctionId: null,
+				status: 'pending',
+				evidence: {},
+			});
+			appealsRepository.findById.mockResolvedValue(appeal);
+			const updated = mockAppeal({
+				type: 'blocked_image',
+				sanctionId: null,
+				status: 'accepted',
+				reviewerId: 'admin-1',
+				evidence: {},
+			});
+			appealsRepository.update.mockResolvedValue(updated);
+
+			await service.reviewAppeal('appeal-1', 'admin-1', { status: 'accepted' as any });
+
+			const [, rawPayload] = redisPublish.mock.calls[0];
+			expect(JSON.parse(rawPayload)).toEqual(
+				expect.objectContaining({ conversationId: null, messageTempId: null })
+			);
 		});
 
 		it('publishes rejected event when rejected', async () => {
