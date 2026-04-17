@@ -1,5 +1,6 @@
 import { Controller, Get, Patch, Param, Body, ParseUUIDPipe, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UserResponseDto } from '../../common/dto/user-response.dto';
@@ -14,6 +15,7 @@ export class ProfileController {
 	constructor(private readonly profileService: ProfileService) {}
 
 	@Get(':id')
+	@SkipThrottle()
 	@ApiOperation({ summary: 'Get user profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({
