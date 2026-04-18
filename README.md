@@ -10,7 +10,14 @@
 
 ## Description
 
-This Microservice is responsible of the user social profile settings, and of the relationships management tasks in the Whispr Messenger system.
+This Microservice is responsible of the user social profile settings, and of the relationships management tasks in the Whispr Messenger system. It also handles contact requests, blocked users, privacy settings and user search.
+
+## Tech Stack
+
+- **Runtime** : Node.js 22+
+- **Framework** : NestJS + TypeScript
+- **Base de données** : PostgreSQL avec TypeORM
+- **Cache** : Redis
 
 ## Installation
 
@@ -20,4 +27,41 @@ Once you have `just` and `docker` installed in your computer you can start the d
 
 ```sh
 just up dev
+```
+
+## Modules
+
+| Module | Rôle |
+|--------|------|
+| `profile` | Gestion du profil utilisateur |
+| `contacts` | Demandes de contact et liste d'amis |
+| `blocked-users` | Blocage/déblocage d'utilisateurs |
+| `privacy` | Paramètres de confidentialité |
+| `search` | Recherche d'utilisateurs |
+| `groups` | Gestion des groupes |
+| `sanctions` | Sanctions et modération |
+| `appeals` | Appels contre les sanctions |
+| `webhooks` | Webhooks pour événements |
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐
+│  Mobile App  │────▶│ User Service │
+└──────────────┘     └──────┬───────┘
+                            │
+                  ┌─────────┼─────────┐
+                  │         │         │
+            ┌─────▼───┐ ┌───▼───┐ ┌───▼──────┐
+            │ Postgres │ │ Redis │ │ Auth     │
+            └─────────┘ └───────┘ │ Service  │
+                                  └──────────┘
+```
+
+## Testing
+
+```bash
+npm test
+npm run test:cov
+npm run test:e2e:docker
 ```
