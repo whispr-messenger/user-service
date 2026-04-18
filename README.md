@@ -12,6 +12,13 @@
 
 This Microservice is responsible of the user social profile settings, and of the relationships management tasks in the Whispr Messenger system. It also handles contact requests, blocked users, privacy settings and user search.
 
+## Tech Stack
+
+- **Runtime** : Node.js 22+
+- **Framework** : NestJS + TypeScript
+- **Base de données** : PostgreSQL avec TypeORM
+- **Cache** : Redis
+
 ## Installation
 
 The repository uses `just` a custom recipe runner (like `make` in C lang) to provide useful scripts.
