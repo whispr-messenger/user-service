@@ -97,8 +97,8 @@ describe('CreateAppealDto', () => {
 			expect(errors.some((e) => e.property === 'evidence')).toBe(true);
 		});
 
-		it('fails when thumbnailBase64 exceeds 100KB', async () => {
-			const huge = 'a'.repeat(100 * 1024 + 1);
+		it('fails when thumbnailBase64 exceeds 200KB', async () => {
+			const huge = 'a'.repeat(200 * 1024 + 1);
 			const errors = await validateDto({
 				type: AppealTypeEnum.BLOCKED_IMAGE,
 				reason: 'x',

@@ -16,8 +16,8 @@ export enum AppealTypeEnum {
 	BLOCKED_IMAGE = 'blocked_image',
 }
 
-// Max size for base64-encoded thumbnail: ~100KB (base64 overhead ~33% → ~75KB raw)
-const MAX_THUMBNAIL_BASE64_LENGTH = 100 * 1024;
+// Max size for base64-encoded thumbnail: ~200KB (base64 overhead ~33% → ~150KB raw)
+const MAX_THUMBNAIL_BASE64_LENGTH = 200 * 1024;
 
 function IsBlockedImageEvidence(validationOptions?: ValidationOptions) {
 	return function (object: object, propertyName: string) {
