@@ -42,3 +42,18 @@ just up dev
 | `sanctions` | Sanctions et modération |
 | `appeals` | Appels contre les sanctions |
 | `webhooks` | Webhooks pour événements |
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐
+│  Mobile App  │────▶│ User Service │
+└──────────────┘     └──────┬───────┘
+                            │
+                  ┌─────────┼─────────┐
+                  │         │         │
+            ┌─────▼───┐ ┌───▼───┐ ┌───▼──────┐
+            │ Postgres │ │ Redis │ │ Auth     │
+            └─────────┘ └───────┘ │ Service  │
+                                  └──────────┘
+```
