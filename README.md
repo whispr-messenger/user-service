@@ -57,3 +57,11 @@ just up dev
             └─────────┘ └───────┘ │ Service  │
                                   └──────────┘
 ```
+
+## Testing
+
+```bash
+npm test
+npm run test:cov
+npm run test:e2e:docker
+```
