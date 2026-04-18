@@ -10,7 +10,7 @@
 
 ## Description
 
-This Microservice is responsible of the user social profile settings, and of the relationships management tasks in the Whispr Messenger system.
+This Microservice is responsible of the user social profile settings, and of the relationships management tasks in the Whispr Messenger system. It also handles contact requests, blocked users, privacy settings and user search.
 
 ## Installation
 
