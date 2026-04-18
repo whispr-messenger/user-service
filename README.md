@@ -28,3 +28,17 @@ Once you have `just` and `docker` installed in your computer you can start the d
 ```sh
 just up dev
 ```
+
+## Modules
+
+| Module | Rôle |
+|--------|------|
+| `profile` | Gestion du profil utilisateur |
+| `contacts` | Demandes de contact et liste d'amis |
+| `blocked-users` | Blocage/déblocage d'utilisateurs |
+| `privacy` | Paramètres de confidentialité |
+| `search` | Recherche d'utilisateurs |
+| `groups` | Gestion des groupes |
+| `sanctions` | Sanctions et modération |
+| `appeals` | Appels contre les sanctions |
+| `webhooks` | Webhooks pour événements |
