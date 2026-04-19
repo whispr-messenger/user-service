@@ -42,6 +42,9 @@ just up dev
 | `sanctions` | Sanctions et modération |
 | `appeals` | Appels contre les sanctions |
 | `webhooks` | Webhooks pour événements |
+| `roles` | Gestion des rôles (admin, user) |
+| `reputation` | Score de réputation utilisateur |
+| `audit` | Logs d'audit des actions |
 
 ## Architecture
 
