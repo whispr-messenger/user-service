@@ -33,3 +33,8 @@ src/modules/
 ├── appeals/        # Appels
 └── webhooks/       # Webhooks
 ```
+
+## Qualité de code
+
+- ESLint + Prettier (hooks Husky)
+- SonarQube sur chaque PR
