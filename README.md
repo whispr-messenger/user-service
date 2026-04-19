@@ -86,6 +86,7 @@ Push ──▶ GitHub Actions ──▶ Docker Build ──▶ GHCR ──▶ Ar
 | `REDIS_PORT` | Port Redis |
 | `JWT_PUBLIC_KEY` | Clé publique pour vérifier les tokens |
 | `NODE_ENV` | Environnement d'exécution |
+| `PORT` | Port du serveur (défaut: 3000) |
 
 ## Flux de demande de contact
 
