@@ -86,3 +86,15 @@ Push ──▶ GitHub Actions ──▶ Docker Build ──▶ GHCR ──▶ Ar
 | `REDIS_PORT` | Port Redis |
 | `JWT_PUBLIC_KEY` | Clé publique pour vérifier les tokens |
 | `NODE_ENV` | Environnement d'exécution |
+
+## Flux de demande de contact
+
+```
+User A ──▶ POST /contacts/request ──▶ Pending
+                                         │
+User B ──▶ POST /contacts/accept  ──▶ Accepted
+                                         │
+                                    Les deux users
+                                    sont maintenant
+                                      contacts
+```
