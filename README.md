@@ -68,3 +68,11 @@ npm test
 npm run test:cov
 npm run test:e2e:docker
 ```
+
+## Déploiement
+
+Déployé via ArgoCD sur GKE. Le CI build l'image Docker et la push sur GHCR.
+
+```
+Push ──▶ GitHub Actions ──▶ Docker Build ──▶ GHCR ──▶ ArgoCD ──▶ GKE
+```
