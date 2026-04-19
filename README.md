@@ -105,3 +105,8 @@ User B ──▶ POST /contacts/accept  ──▶ Accepted
 - Docker & Docker Compose
 - PostgreSQL 14+
 - Redis 7+
+
+## Liens utiles
+
+- [Guide de contribution](CONTRIBUTING.md)
+- [Politique de sécurité](SECURITY.md)
