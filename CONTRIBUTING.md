@@ -18,3 +18,18 @@ just up dev
 npm test
 npm run test:e2e:docker
 ```
+
+## Structure
+
+```
+src/modules/
+├── profile/        # Profil utilisateur
+├── contacts/       # Demandes de contact
+├── blocked-users/  # Utilisateurs bloqués
+├── privacy/        # Confidentialité
+├── search/         # Recherche
+├── groups/         # Groupes
+├── sanctions/      # Sanctions
+├── appeals/        # Appels
+└── webhooks/       # Webhooks
+```
