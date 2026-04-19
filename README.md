@@ -76,3 +76,13 @@ Déployé via ArgoCD sur GKE. Le CI build l'image Docker et la push sur GHCR.
 ```
 Push ──▶ GitHub Actions ──▶ Docker Build ──▶ GHCR ──▶ ArgoCD ──▶ GKE
 ```
+
+## Variables d'environnement
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | URL de connexion PostgreSQL |
+| `REDIS_HOST` | Hôte Redis |
+| `REDIS_PORT` | Port Redis |
+| `JWT_PUBLIC_KEY` | Clé publique pour vérifier les tokens |
+| `NODE_ENV` | Environnement d'exécution |
