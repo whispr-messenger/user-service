@@ -2,8 +2,6 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { AccountsController } from './accounts.controller';
 import { AccountsService } from '../services/accounts.service';
-import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
-import { UserRegisteredEvent } from 'src/modules/shared/events';
 
 const makeReq = (sub: string) => ({ user: { sub } }) as any;
 
@@ -16,45 +14,18 @@ const mockAccountsService = (): jest.Mocked<AccountsService> =>
 		remove: jest.fn(),
 	}) as unknown as jest.Mocked<AccountsService>;
 
-const mockUserRegisteredRetryService = (): jest.Mocked<UserRegisteredRetryService> =>
-	({ handleWithRetry: jest.fn() }) as unknown as jest.Mocked<UserRegisteredRetryService>;
-
 describe('AccountsController', () => {
 	let controller: AccountsController;
 	let accountsService: jest.Mocked<AccountsService>;
-	let retryService: jest.Mocked<UserRegisteredRetryService>;
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
 			controllers: [AccountsController],
-			providers: [
-				{ provide: AccountsService, useFactory: mockAccountsService },
-				{ provide: UserRegisteredRetryService, useFactory: mockUserRegisteredRetryService },
-			],
+			providers: [{ provide: AccountsService, useFactory: mockAccountsService }],
 		}).compile();
 
 		controller = module.get<AccountsController>(AccountsController);
 		accountsService = module.get(AccountsService);
-		retryService = module.get(UserRegisteredRetryService);
-	});
-
-	describe('createUserAccount', () => {
-		const event: UserRegisteredEvent = new UserRegisteredEvent('uuid-1', '+33600000001');
-
-		it('delegates to userRegisteredRetryService.handleWithRetry', async () => {
-			retryService.handleWithRetry.mockResolvedValue(undefined);
-
-			const result = await controller.createUserAccount(event);
-
-			expect(retryService.handleWithRetry).toHaveBeenCalledWith(event);
-			expect(result).toBeUndefined();
-		});
-
-		it('resolves without throwing when retry service rejects', async () => {
-			retryService.handleWithRetry.mockRejectedValue(new Error('unexpected'));
-
-			await expect(controller.createUserAccount(event)).rejects.toThrow('unexpected');
-		});
 	});
 
 	describe('updateLastSeen', () => {
