@@ -49,7 +49,13 @@ export class ProfileController {
 	): Promise<UserResponseDto> {
 		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
-		const user = await this.profileService.updateProfile(id, dto, authorization);
+		const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
+		const proto =
+			((req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() as
+				| string
+				| undefined) ?? req.protocol;
+		const requestBaseUrl = host ? `${proto || 'http'}://${host}` : undefined;
+		const user = await this.profileService.updateProfile(id, dto, authorization, requestBaseUrl);
 		return UserResponseDto.fromEntity(user);
 	}
 }
