@@ -117,7 +117,8 @@
 			"**/*.(t|j)s",
 			"!**/*.interface.ts",
 			"!**/*.enum.ts",
-			"!**/*.module.ts"
+			"!**/*.module.ts",
+			"!**/main.ts"
 		],
 		"coverageDirectory": "../coverage",
 		"testEnvironment": "node",
