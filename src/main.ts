@@ -3,6 +3,7 @@ import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './modules/app.module';
@@ -44,6 +45,12 @@ export async function bootstrap() {
 		})
 	);
 	app.use(compression());
+
+	// Raise body size limit to accept base64 thumbnails carried on
+	// blocked-image appeal submissions (evidence.thumbnailBase64). NestJS /
+	// express defaults to 100kb which is rejected as 413 for ~200KB payloads.
+	app.use(json({ limit: '2mb' }));
+	app.use(urlencoded({ limit: '2mb', extended: true }));
 
 	app.setGlobalPrefix(globalPrefix);
 

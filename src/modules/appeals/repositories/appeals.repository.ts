@@ -23,9 +23,13 @@ export class AppealsRepository {
 		return this.repo.find({ where: { userId }, order: { createdAt: 'DESC' } });
 	}
 
-	async findPendingQueue(limit: number = 50, offset: number = 0): Promise<Appeal[]> {
+	async findPendingQueue(
+		limit: number = 50,
+		offset: number = 0,
+		type?: 'sanction' | 'blocked_image'
+	): Promise<Appeal[]> {
 		return this.repo.find({
-			where: { status: 'pending' },
+			where: type ? { status: 'pending', type } : { status: 'pending' },
 			order: { createdAt: 'ASC' },
 			take: limit,
 			skip: offset,
@@ -40,6 +44,7 @@ export class AppealsRepository {
 		status?: string;
 		userId?: string;
 		sanctionId?: string;
+		type?: string;
 		dateFrom?: Date;
 		dateTo?: Date;
 		limit: number;
@@ -55,6 +60,9 @@ export class AppealsRepository {
 		}
 		if (filters.sanctionId) {
 			qb.andWhere('a.sanctionId = :sanctionId', { sanctionId: filters.sanctionId });
+		}
+		if (filters.type) {
+			qb.andWhere('a.type = :type', { type: filters.type });
 		}
 		if (filters.dateFrom) {
 			qb.andWhere('a.createdAt >= :dateFrom', { dateFrom: filters.dateFrom });
