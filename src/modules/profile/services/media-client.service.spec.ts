@@ -58,10 +58,32 @@ describe('MediaClientService', () => {
 
 			expect(result).toEqual(validBody);
 			expect(mockFetch).toHaveBeenCalledWith(
-				'http://media-service:3000/media/media-1',
+				'http://media-service:3000/media/v1/media-1',
 				expect.objectContaining({
 					method: 'GET',
 					headers: { 'x-user-id': 'user-1', Accept: 'application/json' },
+				})
+			);
+		});
+
+		it('prefers requestBaseUrl media endpoint when provided', async () => {
+			mockFetch.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => validBody,
+			});
+
+			await service.getMediaMetadata('media-1', 'user-1', 'Bearer token', 'https://gateway.test');
+
+			expect(mockFetch).toHaveBeenCalledWith(
+				'https://gateway.test/media/v1/media-1',
+				expect.objectContaining({
+					method: 'GET',
+					headers: {
+						'x-user-id': 'user-1',
+						Accept: 'application/json',
+						Authorization: 'Bearer token',
+					},
 				})
 			);
 		});
@@ -73,6 +95,7 @@ describe('MediaClientService', () => {
 			});
 
 			await expect(service.getMediaMetadata('bad-id', 'user-1')).rejects.toThrow(HttpException);
+			expect(mockFetch).toHaveBeenCalledTimes(4);
 
 			mockFetch.mockResolvedValue({
 				ok: false,
