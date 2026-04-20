@@ -71,4 +71,9 @@ export class ContactsService {
 		contact.nickname = dto.nickname;
 		return this.contactsRepository.save(contact);
 	}
+
+	async isContact(ownerId: string, contactId: string): Promise<boolean> {
+		const contact = await this.contactsRepository.findOne(ownerId, contactId);
+		return contact !== null;
+	}
 }

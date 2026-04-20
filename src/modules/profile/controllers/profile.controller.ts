@@ -25,8 +25,12 @@ export class ProfileController {
 	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
-		const user = await this.profileService.getProfile(id);
+	async getProfile(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<UserResponseDto> {
+		const requesterId: string = req.user?.sub ?? '';
+		const user = await this.profileService.getProfileWithPrivacy(id, requesterId);
 		return UserResponseDto.fromEntity(user);
 	}
 
