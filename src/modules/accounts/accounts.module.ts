@@ -3,20 +3,20 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AccountsController } from './controllers/accounts.controller';
 import { AccountsService } from './services/accounts.service';
-import { UserRegisteredRetryService } from './services/user-registered-retry.service';
+import { UserRegisteredStreamConsumer } from './services/user-registered-stream.consumer';
 import { CommonModule } from '../common/common.module';
 
 /**
  * AccountsModule - Core user identity and lifecycle management
  *
  * This module handles:
- * - User account creation from authentication events (user.registered)
+ * - User account creation from Redis Streams events (stream:user.registered)
  * - Activity tracking (last seen updates)
  * - Account status management (activation, deactivation)
  * - Account deletion
  *
- * The module is designed to receive events from the auth module and maintain
- * a user projection in the users schema, enabling loose coupling between modules.
+ * The module consumes events from the auth module via Redis Streams consumer groups,
+ * guaranteeing no message loss even if the service is temporarily unavailable.
  */
 @Module({
 	imports: [
@@ -40,7 +40,7 @@ import { CommonModule } from '../common/common.module';
 		]),
 	],
 	controllers: [AccountsController],
-	providers: [AccountsService, UserRegisteredRetryService],
+	providers: [AccountsService, UserRegisteredStreamConsumer],
 	exports: [AccountsService],
 })
 export class AccountsModule {}

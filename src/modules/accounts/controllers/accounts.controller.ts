@@ -13,9 +13,7 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
 import { AccountsService } from '../services/accounts.service';
-import { UserRegisteredRetryService } from '../services/user-registered-retry.service';
-import { EventPattern, Payload } from '@nestjs/microservices';
-import { USER_REGISTERED_PATTERN, UserRegisteredEvent } from '../../shared/events';
+import { UserRegisteredEvent } from '../../shared/events';
 import { Public } from '../../jwt-auth/public.decorator';
 import { IsString, IsUUID } from 'class-validator';
 import type { Request as ExpressRequest } from 'express';
@@ -47,21 +45,7 @@ class BootstrapAccountDto {
 export class AccountsController {
 	private readonly logger = new Logger(AccountsController.name);
 
-	constructor(
-		private readonly accountsService: AccountsService,
-		private readonly userRegisteredRetryService: UserRegisteredRetryService
-	) {}
-
-	/**
-	 * Handles user.registered event from auth-service
-	 * Creates a minimal user record in the users schema
-	 * This allows the auth module to create users without depending on the users module
-	 */
-	@EventPattern(USER_REGISTERED_PATTERN)
-	async createUserAccount(@Payload() event: UserRegisteredEvent): Promise<void> {
-		this.logger.log(`Received ${USER_REGISTERED_PATTERN} event for user ${event.userId}`);
-		await this.userRegisteredRetryService.handleWithRetry(event);
-	}
+	constructor(private readonly accountsService: AccountsService) {}
 
 	@Post('bootstrap')
 	@Public()
