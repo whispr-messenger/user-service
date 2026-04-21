@@ -40,7 +40,9 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 			return;
 		}
 		const options = buildRedisOptions(this.configService);
-		options.db = this.configService.get<number>('REDIS_STREAM_DB', 0);
+		const redisStreamDb = this.configService.get<string>('REDIS_STREAM_DB');
+		const parsedRedisStreamDb = redisStreamDb !== undefined ? Number.parseInt(redisStreamDb, 10) : 0;
+		options.db = Number.isNaN(parsedRedisStreamDb) ? 0 : parsedRedisStreamDb;
 		options.lazyConnect = false;
 		this.redis = new Redis(options);
 		this.redis.on('error', (err) => {
