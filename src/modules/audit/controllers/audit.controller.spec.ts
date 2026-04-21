@@ -4,6 +4,7 @@ import type { Request as ExpressRequest, Response } from 'express';
 import { AuditController } from './audit.controller';
 import { AuditService } from '../services/audit.service';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { RolesGuard } from '../../roles/roles.guard';
 
 const makeReq = (sub: string): ExpressRequest & { user: JwtPayload } =>
 	({ user: { sub } as JwtPayload }) as ExpressRequest & { user: JwtPayload };
@@ -32,7 +33,10 @@ describe('AuditController', () => {
 					},
 				},
 			],
-		}).compile();
+		})
+			.overrideGuard(RolesGuard)
+			.useValue({ canActivate: () => true })
+			.compile();
 
 		controller = module.get<AuditController>(AuditController);
 		service = module.get(AuditService);

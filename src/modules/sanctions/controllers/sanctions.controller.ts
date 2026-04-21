@@ -9,6 +9,7 @@ import {
 	ParseUUIDPipe,
 	HttpStatus,
 	Request,
+	UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { SanctionsService } from '../services/sanctions.service';
@@ -17,6 +18,8 @@ import { QuerySanctionsDto } from '../dto/query-sanctions.dto';
 import { SanctionResponseDto, SanctionStatsResponseDto } from '../dto/sanction-response.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 
 @ApiTags('Sanctions')
 @ApiBearerAuth()
@@ -25,6 +28,8 @@ export class SanctionsController {
 	constructor(private readonly sanctionsService: SanctionsService) {}
 
 	@Post()
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Issue a sanction (admin/moderator only)' })
 	@ApiBody({ type: CreateSanctionDto })
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Sanction issued', type: SanctionResponseDto })
@@ -40,6 +45,8 @@ export class SanctionsController {
 	}
 
 	@Get()
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'List sanctions with optional filters (admin/moderator only)' })
 	@ApiResponse({
 		status: HttpStatus.OK,
@@ -53,6 +60,8 @@ export class SanctionsController {
 	}
 
 	@Get('stats')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get sanction counts by type (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Stats retrieved', type: [SanctionStatsResponseDto] })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -80,6 +89,8 @@ export class SanctionsController {
 	}
 
 	@Put(':id/lift')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Lift a sanction (admin/moderator only)' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Sanction ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Sanction lifted', type: SanctionResponseDto })

@@ -3,6 +3,7 @@ import { RolesRepository } from '../repositories/roles.repository';
 import { UserRepository } from '../../common/repositories';
 import { SetRoleDto } from '../dto/set-role.dto';
 import { UserRole } from '../entities/user-role.entity';
+import type { AllowedRole } from '../roles.decorator';
 
 @Injectable()
 export class RolesService {
@@ -43,6 +44,13 @@ export class RolesService {
 		const isAllowed = await this.isAdminOrModerator(userId);
 		if (!isAllowed) {
 			throw new ForbiddenException('Admin or moderator role required');
+		}
+	}
+
+	async ensureRole(userId: string, allowed: readonly AllowedRole[]): Promise<void> {
+		const userRole = await this.rolesRepository.findByUserId(userId);
+		if (!userRole || !(allowed as readonly string[]).includes(userRole.role)) {
+			throw new ForbiddenException(`Role required: ${allowed.join(' or ')}`);
 		}
 	}
 }
