@@ -10,7 +10,8 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  */
 export class SeedFirstAdmin1776000600000 implements MigrationInterface {
 	public async up(queryRunner: QueryRunner): Promise<void> {
-		// Insert admin role for known user IDs (idempotent with ON CONFLICT)
+		// Insert admin role only if the target user exists (avoids FK violation
+		// on environments where this user has not been created yet).
 		await queryRunner.query(`
       INSERT INTO users.user_roles (id, user_id, role, granted_by, created_at)
       VALUES (
