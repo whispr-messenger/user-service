@@ -9,6 +9,7 @@ import {
 	ParseUUIDPipe,
 	HttpStatus,
 	Request,
+	UseGuards,
 } from '@nestjs/common';
 import {
 	ApiTags,
@@ -19,6 +20,8 @@ import {
 	ApiParam,
 	ApiBody,
 } from '@nestjs/swagger';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 import { AppealsService } from '../services/appeals.service';
 import { CreateAppealDto } from '../dto/create-appeal.dto';
 import { ReviewAppealDto } from '../dto/review-appeal.dto';
@@ -57,6 +60,8 @@ export class AppealsController {
 	}
 
 	@Get('queue')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get pending appeal queue (admin/moderator only)' })
 	@ApiQuery({
 		name: 'limit',
@@ -86,6 +91,8 @@ export class AppealsController {
 	}
 
 	@Get('search')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Search appeals with filters (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Appeals retrieved', type: [AppealResponseDto] })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -98,6 +105,8 @@ export class AppealsController {
 	}
 
 	@Get('stats')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get appeal counts by status (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Stats retrieved', type: [AppealStatsResponseDto] })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -131,6 +140,8 @@ export class AppealsController {
 	}
 
 	@Put(':id/review')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Review an appeal (admin/moderator only)' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Appeal ID' })
 	@ApiBody({ type: ReviewAppealDto })
