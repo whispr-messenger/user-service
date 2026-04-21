@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -33,7 +33,7 @@ LABEL maintainer="Whispr Team" \
 
 # Patch CVE-2026-28390 (libssl3) and other security updates
 RUN apt-get update \
-    && apt-get upgrade -y --no-install-recommends libssl3 \
+    && apt-get install -y --no-install-recommends --only-upgrade libssl3 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
