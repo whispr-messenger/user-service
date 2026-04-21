@@ -31,11 +31,13 @@ LABEL maintainer="Whispr Team" \
     gcp.gke="compatible" \
     monitoring.prometheus="enabled"
 
-# Patch CVE-2026-28390 (libssl3) and other security updates
+# Patch CVE-2026-28390 (libssl3) and other security updates, then strip npm
+# (not needed at runtime) to remove its transitive CVEs from the scan surface
 RUN apt-get update \
     && apt-get install -y --no-install-recommends --only-upgrade libssl3 \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app
 
