@@ -7,19 +7,10 @@ import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
-const makeReq = (
-	sub: string,
-	authorization?: string,
-	host: string = 'api.test.local',
-	proto: string = 'https'
-): ExpressRequest & { user: JwtPayload } =>
+const makeReq = (sub: string, authorization?: string): ExpressRequest & { user: JwtPayload } =>
 	({
 		user: { sub } as JwtPayload,
-		headers: {
-			...(authorization ? { authorization } : {}),
-			host,
-			'x-forwarded-proto': proto,
-		},
+		headers: authorization ? { authorization } : {},
 	}) as unknown as ExpressRequest & { user: JwtPayload };
 
 describe('ProfileController', () => {
@@ -33,7 +24,7 @@ describe('ProfileController', () => {
 				{
 					provide: ProfileService,
 					useValue: {
-						getProfile: jest.fn(),
+						getProfileWithPrivacy: jest.fn(),
 						updateProfile: jest.fn(),
 					},
 				},
@@ -45,21 +36,21 @@ describe('ProfileController', () => {
 	});
 
 	describe('getProfile', () => {
-		it('delegates to the service and returns a UserResponseDto', async () => {
+		it('delegates to the service with requesterId and returns a UserResponseDto', async () => {
 			const user = {
 				id: 'user-1',
 				username: 'alice',
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			} as User;
-			service.getProfile.mockResolvedValue(user);
+			(service as any).getProfileWithPrivacy.mockResolvedValue(user);
 
-			const result = await controller.getProfile('user-1');
+			const result = await controller.getProfile('user-1', makeReq('requester-1'));
 
 			expect(result.id).toBe('user-1');
 			expect(result.username).toBe('alice');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.getProfile).toHaveBeenCalledWith('user-1');
+			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith('user-1', 'requester-1');
 		});
 	});
 
@@ -78,12 +69,7 @@ describe('ProfileController', () => {
 
 			expect(result.id).toBe('user-1');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				'Bearer token',
-				'https://api.test.local'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, 'Bearer token');
 		});
 
 		it('passes undefined authorization when the header is missing', async () => {
@@ -93,12 +79,7 @@ describe('ProfileController', () => {
 
 			await controller.updateProfile('user-1', dto, makeReq('user-1'));
 
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				undefined,
-				'https://api.test.local'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, undefined);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {

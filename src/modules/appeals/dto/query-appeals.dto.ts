@@ -8,6 +8,11 @@ export enum AppealStatus {
 	REJECTED = 'rejected',
 }
 
+export enum AppealTypeFilter {
+	SANCTION = 'sanction',
+	BLOCKED_IMAGE = 'blocked_image',
+}
+
 export class QueryAppealsDto {
 	@ApiPropertyOptional({ enum: AppealStatus, description: 'Filter by appeal status' })
 	@IsOptional()
@@ -23,6 +28,11 @@ export class QueryAppealsDto {
 	@IsOptional()
 	@IsUUID()
 	sanctionId?: string;
+
+	@ApiPropertyOptional({ enum: AppealTypeFilter, description: 'Filter by appeal type' })
+	@IsOptional()
+	@IsEnum(AppealTypeFilter)
+	type?: AppealTypeFilter;
 
 	@ApiPropertyOptional({ description: 'Start date (ISO 8601)' })
 	@IsOptional()
