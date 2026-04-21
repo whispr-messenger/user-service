@@ -24,7 +24,7 @@ permissions:
   pull-requests: write
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '22.21'
 
 jobs:
   test-and-quality:
