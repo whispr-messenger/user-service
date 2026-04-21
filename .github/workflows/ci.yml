@@ -23,7 +23,7 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: '22.21'
+  NODE_VERSION: '22'
 
 jobs:
   # ================================
