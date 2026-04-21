@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -31,18 +31,20 @@ LABEL maintainer="Whispr Team" \
     gcp.gke="compatible" \
     monitoring.prometheus="enabled"
 
-# Patch CVE-2026-28390 (libssl3) and other security updates
+# Patch CVE-2026-28390 (libssl3) and other security updates, then strip npm
+# (not needed at runtime) to remove its transitive CVEs from the scan surface
 RUN apt-get update \
-    && apt-get upgrade -y --no-install-recommends libssl3 \
+    && apt-get install -y --no-install-recommends --only-upgrade libssl3 \
     && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app
 
 # Copy built application and production deps from builder (node user uid 1000 ships with node:slim)
 COPY --from=builder --chown=1000:1000 /app/node_modules ./node_modules
 COPY --from=builder --chown=1000:1000 /app/dist ./dist
-COPY --from=builder --chown=1000:1000 /app/package*.json ./
+COPY --from=builder --chown=1000:1000 /app/package.json ./
 
 # Run as the non-root node user shipped with the image
 USER 1000

@@ -42,6 +42,9 @@ just up dev
 | `sanctions` | Sanctions et modération |
 | `appeals` | Appels contre les sanctions |
 | `webhooks` | Webhooks pour événements |
+| `roles` | Gestion des rôles (admin, user) |
+| `reputation` | Score de réputation utilisateur |
+| `audit` | Logs d'audit des actions |
 
 ## Architecture
 
@@ -65,3 +68,46 @@ npm test
 npm run test:cov
 npm run test:e2e:docker
 ```
+
+## Déploiement
+
+Déployé via ArgoCD sur GKE. Le CI build l'image Docker et la push sur GHCR.
+
+```
+Push ──▶ GitHub Actions ──▶ Docker Build ──▶ GHCR ──▶ ArgoCD ──▶ GKE
+```
+
+## Variables d'environnement
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | URL de connexion PostgreSQL |
+| `REDIS_HOST` | Hôte Redis |
+| `REDIS_PORT` | Port Redis |
+| `JWT_PUBLIC_KEY` | Clé publique pour vérifier les tokens |
+| `NODE_ENV` | Environnement d'exécution |
+| `PORT` | Port du serveur (défaut: 3000) |
+
+## Flux de demande de contact
+
+```
+User A ──▶ POST /contacts/request ──▶ Pending
+                                         │
+User B ──▶ POST /contacts/accept  ──▶ Accepted
+                                         │
+                                    Les deux users
+                                    sont maintenant
+                                      contacts
+```
+
+## Prérequis
+
+- Node.js 22+
+- Docker & Docker Compose
+- PostgreSQL 14+
+- Redis 7+
+
+## Liens utiles
+
+- [Guide de contribution](CONTRIBUTING.md)
+- [Politique de sécurité](SECURITY.md)
