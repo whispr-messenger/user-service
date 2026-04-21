@@ -238,8 +238,34 @@ describe('ProfileService', () => {
 
 			const result = await service.updateProfile('uuid-1', dto);
 
-			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith(
+				'media-uuid-1',
+				'uuid-1',
+				undefined,
+				undefined
+			);
 			expect(result.profilePictureUrl).toBe(metadata.url);
+		});
+
+		it('falls back to gateway blob URL when media-service returns 404 and requestBaseUrl is provided', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockRejectedValue({
+				status: 404,
+				message: 'Media not found',
+			});
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			const result = await service.updateProfile(
+				'uuid-1',
+				dto,
+				'Bearer token',
+				'https://api.test.local'
+			);
+
+			expect(result.profilePictureUrl).toBe('https://api.test.local/media/v1/media-uuid-1/blob');
 		});
 
 		it('throws BadRequestException when media context is not avatar', async () => {

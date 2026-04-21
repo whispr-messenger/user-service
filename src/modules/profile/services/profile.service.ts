@@ -4,6 +4,8 @@ import {
 	NotFoundException,
 	ConflictException,
 	BadRequestException,
+	HttpException,
+	HttpStatus,
 } from '@nestjs/common';
 import { User } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
@@ -63,7 +65,12 @@ export class ProfileService {
 		return masked;
 	}
 
-	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
+	public async updateProfile(
+		id: string,
+		dto: UpdateProfileDto,
+		authorization?: string,
+		requestBaseUrl?: string
+	): Promise<User> {
 		const user = await this.findOne(id);
 		const previousSnapshot = { ...user };
 
@@ -76,16 +83,31 @@ export class ProfileService {
 
 		// Resolve avatarMediaId → profilePictureUrl via media-service
 		if (dto.avatarMediaId) {
-			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
-			if (media.context !== 'avatar') {
-				throw new BadRequestException(
-					`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
+			try {
+				const media = await this.mediaClient.getMediaMetadata(
+					dto.avatarMediaId,
+					id,
+					authorization,
+					requestBaseUrl
 				);
+				if (media.context !== 'avatar') {
+					throw new BadRequestException(
+						`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
+					);
+				}
+				if (media.ownerId !== id) {
+					throw new BadRequestException('Media does not belong to this user');
+				}
+				user.profilePictureUrl = media.url;
+			} catch (err) {
+				const status = err instanceof HttpException ? err.getStatus() : (err as any)?.status;
+				if (status === HttpStatus.NOT_FOUND && requestBaseUrl) {
+					const base = requestBaseUrl.replace(/\/+$/, '');
+					user.profilePictureUrl = `${base}/media/v1/${dto.avatarMediaId}/blob`;
+				} else {
+					throw err;
+				}
 			}
-			if (media.ownerId !== id) {
-				throw new BadRequestException('Media does not belong to this user');
-			}
-			user.profilePictureUrl = media.url;
 		}
 
 		// Remove avatarMediaId before saving — it's not a DB column

@@ -7,10 +7,19 @@ import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
-const makeReq = (sub: string, authorization?: string): ExpressRequest & { user: JwtPayload } =>
+const makeReq = (
+	sub: string,
+	authorization?: string,
+	host: string = 'api.test.local',
+	proto: string = 'https'
+): ExpressRequest & { user: JwtPayload } =>
 	({
 		user: { sub } as JwtPayload,
-		headers: authorization ? { authorization } : {},
+		headers: {
+			...(authorization ? { authorization } : {}),
+			host,
+			'x-forwarded-proto': proto,
+		},
 	}) as unknown as ExpressRequest & { user: JwtPayload };
 
 describe('ProfileController', () => {
@@ -69,7 +78,12 @@ describe('ProfileController', () => {
 
 			expect(result.id).toBe('user-1');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, 'Bearer token');
+			expect(service.updateProfile).toHaveBeenCalledWith(
+				'user-1',
+				dto,
+				'Bearer token',
+				'https://api.test.local'
+			);
 		});
 
 		it('passes undefined authorization when the header is missing', async () => {
@@ -79,7 +93,12 @@ describe('ProfileController', () => {
 
 			await controller.updateProfile('user-1', dto, makeReq('user-1'));
 
-			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, undefined);
+			expect(service.updateProfile).toHaveBeenCalledWith(
+				'user-1',
+				dto,
+				undefined,
+				'https://api.test.local'
+			);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {
