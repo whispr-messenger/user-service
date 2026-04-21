@@ -10,6 +10,7 @@ import { AppealsController } from './appeals.controller';
 import { AppealsService } from '../services/appeals.service';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { Appeal } from '../entities/appeal.entity';
+import { RolesGuard } from '../../roles/roles.guard';
 
 const makeReq = (sub: string): ExpressRequest & { user: JwtPayload } =>
 	({ user: { sub } as JwtPayload }) as ExpressRequest & { user: JwtPayload };
@@ -36,7 +37,10 @@ describe('AppealsController', () => {
 					},
 				},
 			],
-		}).compile();
+		})
+			.overrideGuard(RolesGuard)
+			.useValue({ canActivate: () => true })
+			.compile();
 
 		controller = module.get<AppealsController>(AppealsController);
 		service = module.get(AppealsService);

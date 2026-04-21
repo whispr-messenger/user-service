@@ -5,6 +5,7 @@ import { SanctionsController } from './sanctions.controller';
 import { SanctionsService } from '../services/sanctions.service';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { UserSanction } from '../entities/user-sanction.entity';
+import { RolesGuard } from '../../roles/roles.guard';
 
 const makeReq = (sub: string): ExpressRequest & { user: JwtPayload } =>
 	({ user: { sub } as JwtPayload }) as ExpressRequest & { user: JwtPayload };
@@ -29,7 +30,10 @@ describe('SanctionsController', () => {
 					},
 				},
 			],
-		}).compile();
+		})
+			.overrideGuard(RolesGuard)
+			.useValue({ canActivate: () => true })
+			.compile();
 
 		controller = module.get<SanctionsController>(SanctionsController);
 		service = module.get(SanctionsService);

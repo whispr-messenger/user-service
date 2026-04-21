@@ -167,4 +167,40 @@ describe('RolesService', () => {
 			await expect(service.ensureAdminOrModerator('user-1')).rejects.toThrow(ForbiddenException);
 		});
 	});
+
+	describe('ensureRole (WHISPR-1027)', () => {
+		it('passes when the user holds one of the allowed roles', async () => {
+			rolesRepository.findByUserId.mockResolvedValue(mockUserRole({ role: 'moderator' }));
+
+			await expect(service.ensureRole('user-1', ['admin', 'moderator'])).resolves.toBeUndefined();
+		});
+
+		it('passes when only admin is allowed and the user is admin', async () => {
+			rolesRepository.findByUserId.mockResolvedValue(mockUserRole({ role: 'admin' }));
+
+			await expect(service.ensureRole('admin-1', ['admin'])).resolves.toBeUndefined();
+		});
+
+		it('throws ForbiddenException when the user role is not in the allowed list', async () => {
+			rolesRepository.findByUserId.mockResolvedValue(mockUserRole({ role: 'moderator' }));
+
+			await expect(service.ensureRole('mod-1', ['admin'])).rejects.toThrow(ForbiddenException);
+		});
+
+		it('throws ForbiddenException for a regular user regardless of the list', async () => {
+			rolesRepository.findByUserId.mockResolvedValue(mockUserRole({ role: 'user' }));
+
+			await expect(service.ensureRole('user-1', ['admin', 'moderator'])).rejects.toThrow(
+				ForbiddenException
+			);
+		});
+
+		it('throws ForbiddenException when no role record exists', async () => {
+			rolesRepository.findByUserId.mockResolvedValue(null);
+
+			await expect(service.ensureRole('user-1', ['admin', 'moderator'])).rejects.toThrow(
+				ForbiddenException
+			);
+		});
+	});
 });
