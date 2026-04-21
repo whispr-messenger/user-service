@@ -84,26 +84,10 @@ jobs:
       - name: Run linting
         run: npm run lint
 
-      - name: Debug prettier config
-        run: |
-          echo "=== .prettierrc ==="
-          cat .prettierrc 2>/dev/null || echo "no .prettierrc"
-          echo "=== prettier resolved config for jwt-auth file ==="
-          npx prettier --find-config-path src/modules/jwt-auth/jwks.service.spec.ts
-          echo "=== Resolved options ==="
-          node -e "
-            const prettier = require('prettier');
-            prettier.resolveConfig('src/modules/jwt-auth/jwks.service.spec.ts')
-              .then(c => console.log(JSON.stringify(c, null, 2)));
-          "
-          echo "=== prettier --write diff ==="
-          cp src/modules/jwt-auth/jwks.service.spec.ts /tmp/before.ts
-          npx prettier --write src/modules/jwt-auth/jwks.service.spec.ts
-          diff /tmp/before.ts src/modules/jwt-auth/jwks.service.spec.ts || true
-          git checkout -- src/modules/jwt-auth/jwks.service.spec.ts
-
       - name: Run format check
-        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+        run: |
+          npx prettier --write "src/**/*.ts" "test/**/*.ts"
+          git diff --exit-code
 
       ####################################################################################################
       # Unit and E2E Tests
