@@ -84,6 +84,15 @@ jobs:
       - name: Run linting
         run: npm run lint
 
+      - name: Debug prettier config
+        run: |
+          echo "=== .prettierrc ==="
+          cat .prettierrc 2>/dev/null || echo "no .prettierrc"
+          echo "=== prettier resolved config ==="
+          npx prettier --find-config-path src/modules/jwt-auth/jwks.service.spec.ts
+          echo "=== package.json prettier section ==="
+          node -e "const p=require('./package.json'); console.log(JSON.stringify(p.prettier || 'none'))"
+
       - name: Run format check
         run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
 
