@@ -57,7 +57,7 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 
 	async onModuleDestroy(): Promise<void> {
 		this.running = false;
-		if (this.loopPromise) {
+		if (this.loopPromise !== null) {
 			await this.loopPromise.catch(() => undefined);
 		}
 		if (this.redis) {
