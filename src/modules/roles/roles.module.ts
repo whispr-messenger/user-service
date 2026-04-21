@@ -6,11 +6,12 @@ import { RolesRepository } from './repositories/roles.repository';
 import { RolesService } from './services/roles.service';
 import { SeedAdminService } from './services/seed-admin.service';
 import { RolesController } from './controllers/roles.controller';
+import { RolesGuard } from './roles.guard';
 
 @Module({
 	imports: [CommonModule, TypeOrmModule.forFeature([UserRole])],
 	controllers: [RolesController],
-	providers: [RolesService, RolesRepository, SeedAdminService],
-	exports: [RolesService],
+	providers: [RolesService, RolesRepository, SeedAdminService, RolesGuard],
+	exports: [RolesService, RolesGuard],
 })
 export class RolesModule {}
