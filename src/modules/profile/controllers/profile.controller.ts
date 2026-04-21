@@ -25,8 +25,12 @@ export class ProfileController {
 	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
-		const user = await this.profileService.getProfile(id);
+	async getProfile(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<UserResponseDto> {
+		const requesterId: string = req.user?.sub ?? '';
+		const user = await this.profileService.getProfileWithPrivacy(id, requesterId);
 		return UserResponseDto.fromEntity(user);
 	}
 
@@ -49,13 +53,7 @@ export class ProfileController {
 	): Promise<UserResponseDto> {
 		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
-		const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
-		const proto =
-			((req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() as
-				| string
-				| undefined) ?? req.protocol;
-		const requestBaseUrl = host ? `${proto || 'http'}://${host}` : undefined;
-		const user = await this.profileService.updateProfile(id, dto, authorization, requestBaseUrl);
+		const user = await this.profileService.updateProfile(id, dto, authorization);
 		return UserResponseDto.fromEntity(user);
 	}
 }
