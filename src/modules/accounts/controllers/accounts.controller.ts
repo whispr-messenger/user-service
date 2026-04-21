@@ -4,7 +4,6 @@ import {
 	Delete,
 	ForbiddenException,
 	HttpStatus,
-	Logger,
 	Param,
 	ParseUUIDPipe,
 	Patch,
@@ -38,13 +37,14 @@ class BootstrapAccountDto {
  * - Account deletion
  *
  * Profile management is handled by ProfileController
+ *
+ * Note: `user.registered` consumption moved to UserRegisteredStreamConsumer
+ * (Redis Streams) — @EventPattern / Pub/Sub is no longer used here.
  */
 @ApiTags('Accounts')
 @ApiBearerAuth()
 @Controller('account')
 export class AccountsController {
-	private readonly logger = new Logger(AccountsController.name);
-
 	constructor(private readonly accountsService: AccountsService) {}
 
 	@Post('bootstrap')
