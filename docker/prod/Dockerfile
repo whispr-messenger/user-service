@@ -42,7 +42,7 @@ WORKDIR /app
 # Copy built application and production deps from builder (node user uid 1000 ships with node:slim)
 COPY --from=builder --chown=1000:1000 /app/node_modules ./node_modules
 COPY --from=builder --chown=1000:1000 /app/dist ./dist
-COPY --from=builder --chown=1000:1000 /app/package*.json ./
+COPY --from=builder --chown=1000:1000 /app/package.json ./
 
 # Run as the non-root node user shipped with the image
 USER 1000
