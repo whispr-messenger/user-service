@@ -137,11 +137,12 @@ describe('UserRegisteredStreamConsumer', () => {
 	describe('processMessages', () => {
 		const fields = ['userId', 'uuid-1', 'phoneNumber', '+33600000001'];
 
-		it('XACKs the message when createFromEvent succeeds', async () => {
+		it('XACKs the message when createFromEvent succeeds and returns acked count', async () => {
 			accountsService.createFromEvent.mockResolvedValue({ id: 'uuid-1' } as any);
 
-			await consumer.processMessages([['1-0', fields]], redis as any);
+			const acked = await consumer.processMessages([['1-0', fields]], redis as any);
 
+			expect(acked).toBe(1);
 			expect(accountsService.createFromEvent).toHaveBeenCalledTimes(1);
 			const call = accountsService.createFromEvent.mock.calls[0][0];
 			expect(call).toBeInstanceOf(UserRegisteredEvent);
@@ -150,11 +151,12 @@ describe('UserRegisteredStreamConsumer', () => {
 			expect(redis.xack).toHaveBeenCalledWith(STREAM, GROUP, '1-0');
 		});
 
-		it('does NOT XACK when createFromEvent throws (message stays pending for retry)', async () => {
+		it('does NOT XACK when createFromEvent throws and returns 0 acked', async () => {
 			accountsService.createFromEvent.mockRejectedValue(new Error('DB down'));
 
-			await consumer.processMessages([['1-0', fields]], redis as any);
+			const acked = await consumer.processMessages([['1-0', fields]], redis as any);
 
+			expect(acked).toBe(0);
 			expect(redis.xack).not.toHaveBeenCalled();
 		});
 

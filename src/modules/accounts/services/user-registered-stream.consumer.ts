@@ -10,6 +10,7 @@ const GROUP = 'user-service';
 const READ_COUNT = 16;
 const BLOCK_MS = 5000;
 const ERROR_BACKOFF_MS = 1000;
+const MAX_DRAIN_RETRIES = 5;
 
 /**
  * Consumes `user.registered` events from a Redis Stream consumer group.
@@ -92,8 +93,14 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 	 * but never acknowledged. Reads with id='0' target the consumer's own PEL.
 	 * Loops until the PEL is empty so a backlog is fully cleared before we
 	 * switch to the blocking read for new entries.
+	 *
+	 * If a batch makes no progress (zero XACKs), backs off with an exponential
+	 * delay and gives up after MAX_DRAIN_RETRIES consecutive zero-progress
+	 * iterations to avoid a tight retry loop when downstream is unavailable.
 	 */
 	async drainPending(client: Redis = this.redis): Promise<void> {
+		let noProgressCount = 0;
+
 		while (this.running || client !== this.redis) {
 			const result = (await client.xreadgroup(
 				'GROUP',
@@ -110,10 +117,24 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 			if (messages.length === 0) {
 				return;
 			}
-			await this.processMessages(messages, client);
+			const acked = await this.processMessages(messages, client);
 			if (client !== this.redis) {
 				// In tests we don't loop; one call is enough
 				return;
+			}
+			if (acked === 0) {
+				noProgressCount++;
+				if (noProgressCount >= MAX_DRAIN_RETRIES) {
+					this.logger.warn(
+						`drainPending: no progress after ${MAX_DRAIN_RETRIES} attempts, deferring to consumeLoop`
+					);
+					return;
+				}
+				await new Promise((resolve) =>
+					globalThis.setTimeout(resolve, ERROR_BACKOFF_MS * 2 ** (noProgressCount - 1))
+				);
+			} else {
+				noProgressCount = 0;
 			}
 		}
 	}
@@ -153,14 +174,18 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 	 * successfully handled are XACKed; a failure leaves the message in the
 	 * pending entries list so it can be retried on the next `drainPending`
 	 * run (typically on pod restart).
+	 *
+	 * @returns the number of messages successfully acknowledged.
 	 */
-	async processMessages(messages: StreamMessage[], client: Redis = this.redis): Promise<void> {
+	async processMessages(messages: StreamMessage[], client: Redis = this.redis): Promise<number> {
+		let acked = 0;
 		for (const [id, fields] of messages) {
 			try {
 				const event = parseUserRegisteredFields(fields);
 				await this.accountsService.createFromEvent(event);
 				await client.xack(STREAM, GROUP, id);
 				this.logger.log(`XACK ${id} userId=${event.userId}`);
+				acked++;
 			} catch (err) {
 				this.logger.error(
 					`Failed to process ${id}; leaving pending for retry`,
@@ -168,6 +193,7 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 				);
 			}
 		}
+		return acked;
 	}
 }
 
