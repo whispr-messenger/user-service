@@ -2,18 +2,13 @@ name: 🚀 CI Pipeline
 
 on:
   push:
-    branches: [main, develop, deploy/preprod]
     paths-ignore:
       - '**.md'
       - 'documentation/**'
-  pull_request:
-    branches: [main, develop, deploy/preprod]
-    paths-ignore:
-      - '**.md'
-      - 'documentation/**'
+      - '.github/workflows/cd.yml'
 
 permissions:
-  contents: read
+  contents: write
   checks: write
   pull-requests: write
   packages: write
