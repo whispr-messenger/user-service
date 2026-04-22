@@ -4,6 +4,7 @@ import { SanctionsService } from './sanctions.service';
 import { SanctionsRepository } from '../repositories/sanctions.repository';
 import { UserRepository } from '../../common/repositories';
 import { RolesService } from '../../roles/services/roles.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { UserSanction } from '../entities/user-sanction.entity';
 
 describe('SanctionsService — extended features', () => {
@@ -53,6 +54,12 @@ describe('SanctionsService — extended features', () => {
 					provide: RolesService,
 					useValue: {
 						ensureAdminOrModerator: jest.fn(),
+					},
+				},
+				{
+					provide: AuditService,
+					useValue: {
+						log: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],

@@ -35,6 +35,8 @@ export class AuditService {
 				actorId: query.actorId,
 				targetType: query.targetType,
 				action: query.action,
+				dateFrom: query.dateFrom,
+				dateTo: query.dateTo,
 			}),
 		]);
 
