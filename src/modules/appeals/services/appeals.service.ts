@@ -135,6 +135,36 @@ export class AppealsService {
 		return updated;
 	}
 
+	// WHISPR-1063: bulk review — process a batch of appeals with the same
+	// decision. We call reviewAppeal per-id inside a per-item try/catch so one
+	// bad appeal (already resolved, not found, …) doesn't abort the whole
+	// batch. The role check runs once up-front to short-circuit a non-admin.
+	async bulkReviewAppeals(
+		adminId: string,
+		appealIds: string[],
+		dto: ReviewAppealDto
+	): Promise<{
+		succeeded: string[];
+		failed: Array<{ appealId: string; error: string }>;
+	}> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+
+		const succeeded: string[] = [];
+		const failed: Array<{ appealId: string; error: string }> = [];
+		for (const appealId of appealIds) {
+			try {
+				await this.reviewAppeal(appealId, adminId, dto);
+				succeeded.push(appealId);
+			} catch (err) {
+				failed.push({
+					appealId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+		return { succeeded, failed };
+	}
+
 	private async publishBlockedImageDecision(appeal: Appeal): Promise<void> {
 		const channel =
 			appeal.status === 'accepted' ? BLOCKED_IMAGE_APPROVED_CHANNEL : BLOCKED_IMAGE_REJECTED_CHANNEL;

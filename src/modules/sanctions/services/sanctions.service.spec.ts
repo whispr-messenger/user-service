@@ -290,4 +290,69 @@ describe('SanctionsService', () => {
 			expect(sanctionsRepository.expireOldSanctions).toHaveBeenCalled();
 		});
 	});
+
+	// WHISPR-1063
+	describe('bulkLiftSanctions', () => {
+		it('processes every id and groups successes vs failures', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			sanctionsRepository.findById.mockImplementation(async (id: string) => {
+				if (id === 's-lifted') return mockSanction({ id: 's-lifted', active: false });
+				if (id === 's-missing') return null;
+				return mockSanction({ id, active: true });
+			});
+			sanctionsRepository.lift.mockImplementation(async (s: UserSanction) => ({
+				...s,
+				active: false,
+			}));
+
+			const result = await service.bulkLiftSanctions('admin-1', [
+				's-1',
+				's-lifted',
+				's-missing',
+				's-2',
+			]);
+
+			expect(result.succeeded).toEqual(['s-1', 's-2']);
+			expect(result.failed.map((f) => f.sanctionId)).toEqual(['s-lifted', 's-missing']);
+			expect(result.failed[0].error).toMatch(/already lifted/i);
+			expect(result.failed[1].error).toMatch(/not found/i);
+		});
+
+		it('checks the caller role up-front before touching any sanction', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			const order: string[] = [];
+			rolesService.ensureAdminOrModerator.mockImplementation(async () => {
+				order.push('role');
+			});
+			sanctionsRepository.findById.mockImplementation(async () => {
+				order.push('find');
+				return mockSanction({ active: true });
+			});
+			sanctionsRepository.lift.mockImplementation(async (s: UserSanction) => ({
+				...s,
+				active: false,
+			}));
+
+			await service.bulkLiftSanctions('admin-1', ['a', 'b', 'c']);
+
+			expect(order[0]).toBe('role');
+		});
+
+		it('throws ForbiddenException before touching any sanction when caller lacks role', async () => {
+			rolesService.ensureAdminOrModerator.mockRejectedValue(new ForbiddenException());
+
+			await expect(service.bulkLiftSanctions('user-1', ['a'])).rejects.toThrow(ForbiddenException);
+
+			expect(sanctionsRepository.findById).not.toHaveBeenCalled();
+		});
+
+		it('returns empty buckets for an empty id list (defensive)', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+
+			const result = await service.bulkLiftSanctions('admin-1', []);
+
+			expect(result).toEqual({ succeeded: [], failed: [] });
+			expect(sanctionsRepository.findById).not.toHaveBeenCalled();
+		});
+	});
 });
