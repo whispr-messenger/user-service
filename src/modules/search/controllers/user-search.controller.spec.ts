@@ -58,7 +58,7 @@ describe('UserSearchController', () => {
 			const user = { id: 'u1' } as User;
 			service.searchByUsername.mockResolvedValue(user);
 
-			const result = await controller.searchByUsername('alice');
+			const result = await controller.searchByUsername({ username: 'alice' });
 
 			expect(result).toBe(user);
 			expect(service.searchByUsername).toHaveBeenCalledWith('alice');

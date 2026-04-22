@@ -6,6 +6,7 @@ import { User } from '../../common/entities/user.entity';
 import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
 import { PhoneSearchQueryDto } from '../dto/phone-search-query.dto';
 import { NameSearchQueryDto } from '../dto/name-search-query.dto';
+import { UsernameSearchQueryDto } from '../dto/username-search-query.dto';
 
 const SEARCH_THROTTLE_TTL_MS = 60_000;
 const SEARCH_THROTTLE_LIMIT = 20;
@@ -36,11 +37,12 @@ export class UserSearchController {
 
 	@Get('username')
 	@ApiOperation({ summary: 'Search user by username' })
-	@ApiQuery({ name: 'username', type: 'string', description: 'Username' })
+	@ApiQuery({ name: 'username', type: 'string', description: 'Username (1-64 chars)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'User found or null' })
+	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid or missing username' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async searchByUsername(@Query('username') username: string): Promise<User | null> {
-		return this.userSearchService.searchByUsername(username);
+	async searchByUsername(@Query() dto: UsernameSearchQueryDto): Promise<User | null> {
+		return this.userSearchService.searchByUsername(dto.username);
 	}
 
 	@Get('name')
