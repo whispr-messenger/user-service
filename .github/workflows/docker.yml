@@ -86,7 +86,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Docker Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('docker-trivy-results.sarif') != ''
         with:
           sarif_file: 'docker-trivy-results.sarif'
