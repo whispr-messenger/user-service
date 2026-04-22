@@ -19,6 +19,7 @@ import { RolesModule } from './roles/roles.module';
 import { SanctionsModule } from './sanctions/sanctions.module';
 import { AppealsModule } from './appeals/appeals.module';
 import { AuditModule } from './audit/audit.module';
+import { RetentionModule } from './retention/retention.module';
 import { ModerationSubscriberModule } from './moderation-subscriber/moderation-subscriber.module';
 import { ReputationModule } from './reputation/reputation.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
@@ -51,6 +52,7 @@ const GLOBAL_THROTTLE_LIMIT = 300;
 		SanctionsModule,
 		AppealsModule,
 		AuditModule,
+		RetentionModule,
 		ModerationSubscriberModule,
 		ReputationModule,
 		WebhooksModule,

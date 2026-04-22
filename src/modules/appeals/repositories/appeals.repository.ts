@@ -83,6 +83,20 @@ export class AppealsRepository {
 			.getRawMany();
 	}
 
+	// WHISPR-1057: GDPR retention — delete appeals that were resolved
+	// (accepted / rejected) strictly before the cutoff. Returns the number
+	// of rows removed so the scheduler can log.
+	async deleteResolvedBefore(cutoff: Date): Promise<number> {
+		const result = await this.repo
+			.createQueryBuilder()
+			.delete()
+			.from(Appeal)
+			.where('status IN (:...statuses)', { statuses: ['accepted', 'rejected'] })
+			.andWhere('resolved_at < :cutoff', { cutoff })
+			.execute();
+		return result.affected ?? 0;
+	}
+
 	async getTimeline(appealId: string): Promise<Appeal | null> {
 		return this.repo.findOne({
 			where: { id: appealId },
