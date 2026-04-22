@@ -478,4 +478,76 @@ describe('AppealsService', () => {
 			);
 		});
 	});
+
+	// WHISPR-1063
+	describe('bulkReviewAppeals', () => {
+		const dto = { status: 'rejected' as any, reviewerNotes: 'batch' };
+
+		it('processes every id and groups successes vs failures', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			let call = 0;
+			appealsRepository.findById.mockImplementation(async (id: string) => {
+				call += 1;
+				if (id === 'appeal-bad') {
+					return mockAppeal({ id: 'appeal-bad', status: 'accepted' });
+				}
+				if (id === 'appeal-missing') {
+					return null;
+				}
+				return mockAppeal({ id, status: 'pending' });
+			});
+			appealsRepository.update.mockImplementation(async (a: Appeal) => a);
+
+			const result = await service.bulkReviewAppeals(
+				'admin-1',
+				['appeal-1', 'appeal-bad', 'appeal-missing', 'appeal-2'],
+				dto
+			);
+
+			expect(result.succeeded).toEqual(['appeal-1', 'appeal-2']);
+			expect(result.failed.map((f) => f.appealId)).toEqual(['appeal-bad', 'appeal-missing']);
+			expect(result.failed[0].error).toMatch(/resolved/i);
+			expect(result.failed[1].error).toMatch(/not found/i);
+			expect(call).toBe(4);
+		});
+
+		it('checks the caller role up-front before touching any appeal', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			appealsRepository.findById.mockResolvedValue(mockAppeal({ status: 'pending' }));
+			appealsRepository.update.mockResolvedValue(mockAppeal({ status: 'rejected' }));
+
+			const order: string[] = [];
+			rolesService.ensureAdminOrModerator.mockImplementation(async () => {
+				order.push('role');
+			});
+			appealsRepository.findById.mockImplementation(async () => {
+				order.push('find');
+				return mockAppeal({ status: 'pending' });
+			});
+
+			await service.bulkReviewAppeals('admin-1', ['a', 'b', 'c'], dto);
+
+			// First ever call is the upfront role check.
+			expect(order[0]).toBe('role');
+		});
+
+		it('throws ForbiddenException before touching any appeal when caller lacks role', async () => {
+			rolesService.ensureAdminOrModerator.mockRejectedValue(new ForbiddenException());
+
+			await expect(service.bulkReviewAppeals('user-1', ['a', 'b'], dto)).rejects.toThrow(
+				ForbiddenException
+			);
+
+			expect(appealsRepository.findById).not.toHaveBeenCalled();
+		});
+
+		it('returns empty buckets for an empty id list (unreachable from the DTO, defensive)', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+
+			const result = await service.bulkReviewAppeals('admin-1', [], dto);
+
+			expect(result).toEqual({ succeeded: [], failed: [] });
+			expect(appealsRepository.findById).not.toHaveBeenCalled();
+		});
+	});
 });

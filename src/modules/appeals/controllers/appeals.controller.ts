@@ -31,6 +31,7 @@ import {
 	AppealStatsResponseDto,
 	AppealTimelineResponseDto,
 } from '../dto/appeal-response.dto';
+import { BulkReviewAppealsDto, BulkReviewAppealsResponseDto } from '../dto/bulk-review-appeals.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -156,5 +157,32 @@ export class AppealsController {
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	) {
 		return this.appealsService.reviewAppeal(id, req.user.sub, dto);
+	}
+
+	// WHISPR-1063: batch endpoint for the moderation queue — up to 100
+	// appeals reviewed with the same decision in a single request. The
+	// response separates successes from failures so the UI can highlight
+	// the specific rows that couldn't be applied (already resolved, etc.).
+	@Put('bulk-review')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
+	@ApiOperation({ summary: 'Bulk-review multiple appeals (admin/moderator only)' })
+	@ApiBody({ type: BulkReviewAppealsDto })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Per-appeal result',
+		type: BulkReviewAppealsResponseDto,
+	})
+	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async bulkReviewAppeals(
+		@Body() dto: BulkReviewAppealsDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.bulkReviewAppeals(req.user.sub, dto.appealIds, {
+			status: dto.status,
+			reviewerNotes: dto.reviewerNotes,
+		});
 	}
 }

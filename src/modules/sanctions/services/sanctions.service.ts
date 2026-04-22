@@ -77,6 +77,34 @@ export class SanctionsService {
 		return this.sanctionsRepository.lift(sanction);
 	}
 
+	// WHISPR-1063: bulk lift — iterate liftSanction in a per-item try/catch
+	// so one bad sanction (already lifted, not found) doesn't abort the batch.
+	// Role check runs once up-front.
+	async bulkLiftSanctions(
+		adminId: string,
+		sanctionIds: string[]
+	): Promise<{
+		succeeded: string[];
+		failed: Array<{ sanctionId: string; error: string }>;
+	}> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+
+		const succeeded: string[] = [];
+		const failed: Array<{ sanctionId: string; error: string }> = [];
+		for (const sanctionId of sanctionIds) {
+			try {
+				await this.liftSanction(sanctionId, adminId);
+				succeeded.push(sanctionId);
+			} catch (err) {
+				failed.push({
+					sanctionId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+		return { succeeded, failed };
+	}
+
 	async hasActiveBan(userId: string): Promise<boolean> {
 		const sanctions = await this.sanctionsRepository.findActiveSanctionsForUser(userId);
 		return sanctions.some((s) => s.type === 'temp_ban' || s.type === 'perm_ban');

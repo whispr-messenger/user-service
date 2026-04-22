@@ -16,6 +16,7 @@ import { SanctionsService } from '../services/sanctions.service';
 import { CreateSanctionDto } from '../dto/create-sanction.dto';
 import { QuerySanctionsDto } from '../dto/query-sanctions.dto';
 import { SanctionResponseDto, SanctionStatsResponseDto } from '../dto/sanction-response.dto';
+import { BulkLiftSanctionsDto, BulkLiftSanctionsResponseDto } from '../dto/bulk-lift-sanctions.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { RolesGuard } from '../../roles/roles.guard';
@@ -103,5 +104,28 @@ export class SanctionsController {
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	) {
 		return this.sanctionsService.liftSanction(id, req.user.sub);
+	}
+
+	// WHISPR-1063: batch endpoint — up to 100 sanctions lifted in a single
+	// request. Response separates successes from failures so the UI can
+	// highlight rows that couldn't be lifted (already lifted, not found, …).
+	@Put('bulk-lift')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
+	@ApiOperation({ summary: 'Bulk-lift multiple sanctions (admin/moderator only)' })
+	@ApiBody({ type: BulkLiftSanctionsDto })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Per-sanction result',
+		type: BulkLiftSanctionsResponseDto,
+	})
+	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async bulkLiftSanctions(
+		@Body() dto: BulkLiftSanctionsDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.sanctionsService.bulkLiftSanctions(req.user.sub, dto.sanctionIds);
 	}
 }
