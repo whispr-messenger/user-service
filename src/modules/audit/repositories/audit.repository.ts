@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { AuditLog } from '../entities/audit-log.entity';
 
 export interface AuditQueryOptions {
@@ -9,6 +9,10 @@ export interface AuditQueryOptions {
 	actorId?: string;
 	targetType?: string;
 	action?: string;
+	// WHISPR-1053: optional time-window filters — useful to scope an admin
+	// audit review to a specific incident window without pagination scrolling.
+	dateFrom?: Date;
+	dateTo?: Date;
 }
 
 @Injectable()
@@ -24,8 +28,17 @@ export class AuditRepository {
 	}
 
 	async findAll(opts: AuditQueryOptions): Promise<AuditLog[]> {
-		const qb = this.repo.createQueryBuilder('audit');
+		const qb = this.applyFilters(this.repo.createQueryBuilder('audit'), opts);
+		return qb.orderBy('audit.created_at', 'DESC').take(opts.limit).skip(opts.offset).getMany();
+	}
 
+	// WHISPR-1053: centralised filter application so findAll + countAll stay
+	// in sync when a new filter is added (previously they drifted and added
+	// a filter to one but not the other).
+	private applyFilters(
+		qb: SelectQueryBuilder<AuditLog>,
+		opts: Partial<AuditQueryOptions>
+	): SelectQueryBuilder<AuditLog> {
 		if (opts.actorId) {
 			qb.andWhere('audit.actor_id = :actorId', { actorId: opts.actorId });
 		}
@@ -35,8 +48,13 @@ export class AuditRepository {
 		if (opts.action) {
 			qb.andWhere('audit.action = :action', { action: opts.action });
 		}
-
-		return qb.orderBy('audit.created_at', 'DESC').take(opts.limit).skip(opts.offset).getMany();
+		if (opts.dateFrom) {
+			qb.andWhere('audit.created_at >= :dateFrom', { dateFrom: opts.dateFrom });
+		}
+		if (opts.dateTo) {
+			qb.andWhere('audit.created_at <= :dateTo', { dateTo: opts.dateTo });
+		}
+		return qb;
 	}
 
 	// WHISPR-1057: GDPR retention — drop audit logs strictly older than the
@@ -52,18 +70,7 @@ export class AuditRepository {
 	}
 
 	async countAll(opts: Omit<AuditQueryOptions, 'limit' | 'offset'>): Promise<number> {
-		const qb = this.repo.createQueryBuilder('audit');
-
-		if (opts.actorId) {
-			qb.andWhere('audit.actor_id = :actorId', { actorId: opts.actorId });
-		}
-		if (opts.targetType) {
-			qb.andWhere('audit.target_type = :targetType', { targetType: opts.targetType });
-		}
-		if (opts.action) {
-			qb.andWhere('audit.action = :action', { action: opts.action });
-		}
-
+		const qb = this.applyFilters(this.repo.createQueryBuilder('audit'), opts);
 		return qb.getCount();
 	}
 }

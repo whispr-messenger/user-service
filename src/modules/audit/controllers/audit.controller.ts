@@ -6,6 +6,14 @@ import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { RolesGuard } from '../../roles/roles.guard';
 import { Roles } from '../../roles/roles.decorator';
 
+// WHISPR-1053: parse ISO 8601 query params. Invalid or empty → undefined
+// so the repository layer treats them as "no filter".
+function parseIsoDate(value?: string): Date | undefined {
+	if (!value) return undefined;
+	const d = new Date(value);
+	return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
 @ApiTags('Audit Logs')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
@@ -36,6 +44,18 @@ export class AuditController {
 		description: 'Filter by target type (e.g. sanction, appeal, user)',
 	})
 	@ApiQuery({ name: 'action', required: false, type: String, description: 'Filter by action type' })
+	@ApiQuery({
+		name: 'dateFrom',
+		required: false,
+		type: String,
+		description: 'Inclusive lower bound on created_at (ISO 8601, WHISPR-1053)',
+	})
+	@ApiQuery({
+		name: 'dateTo',
+		required: false,
+		type: String,
+		description: 'Inclusive upper bound on created_at (ISO 8601, WHISPR-1053)',
+	})
 	@ApiResponse({ status: HttpStatus.OK, description: 'Paginated audit logs' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
@@ -45,6 +65,8 @@ export class AuditController {
 		@Query('actorId') actorId: string,
 		@Query('targetType') targetType: string,
 		@Query('action') action: string,
+		@Query('dateFrom') dateFrom: string,
+		@Query('dateTo') dateTo: string,
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	) {
 		return this.auditService.list(req.user.sub, {
@@ -53,6 +75,8 @@ export class AuditController {
 			actorId: actorId || undefined,
 			targetType: targetType || undefined,
 			action: action || undefined,
+			dateFrom: parseIsoDate(dateFrom),
+			dateTo: parseIsoDate(dateTo),
 		});
 	}
 

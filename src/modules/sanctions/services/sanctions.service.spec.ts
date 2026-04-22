@@ -4,6 +4,7 @@ import { SanctionsService } from './sanctions.service';
 import { SanctionsRepository } from '../repositories/sanctions.repository';
 import { UserRepository } from '../../common/repositories';
 import { RolesService } from '../../roles/services/roles.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { UserSanction } from '../entities/user-sanction.entity';
 import { SanctionType } from '../dto/create-sanction.dto';
 
@@ -12,6 +13,7 @@ describe('SanctionsService', () => {
 	let sanctionsRepository: jest.Mocked<SanctionsRepository>;
 	let userRepository: jest.Mocked<UserRepository>;
 	let rolesService: jest.Mocked<RolesService>;
+	let auditService: jest.Mocked<AuditService>;
 
 	const mockSanction = (overrides: Partial<UserSanction> = {}): UserSanction => ({
 		id: 'sanction-1',
@@ -55,6 +57,12 @@ describe('SanctionsService', () => {
 						ensureAdminOrModerator: jest.fn(),
 					},
 				},
+				{
+					provide: AuditService,
+					useValue: {
+						log: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 			],
 		}).compile();
 
@@ -62,6 +70,7 @@ describe('SanctionsService', () => {
 		sanctionsRepository = module.get(SanctionsRepository);
 		userRepository = module.get(UserRepository);
 		rolesService = module.get(RolesService);
+		auditService = module.get(AuditService);
 	});
 
 	describe('createSanction', () => {
@@ -88,6 +97,17 @@ describe('SanctionsService', () => {
 					reason: 'Spam',
 					issuedBy: 'admin-1',
 					active: true,
+				})
+			);
+			expect(auditService.log).toHaveBeenCalledWith(
+				'admin-1',
+				'sanction_issued',
+				'sanction',
+				created.id,
+				expect.objectContaining({
+					user_id: created.userId,
+					type: created.type,
+					reason: created.reason,
 				})
 			);
 			expect(result).toEqual(created);
@@ -224,6 +244,13 @@ describe('SanctionsService', () => {
 
 			expect(rolesService.ensureAdminOrModerator).toHaveBeenCalledWith('admin-1');
 			expect(sanctionsRepository.lift).toHaveBeenCalledWith(sanction);
+			expect(auditService.log).toHaveBeenCalledWith(
+				'admin-1',
+				'sanction_lifted',
+				'sanction',
+				lifted.id,
+				expect.objectContaining({ user_id: lifted.userId, type: lifted.type })
+			);
 			expect(result).toEqual(lifted);
 		});
 
