@@ -124,16 +124,18 @@ describe('AppealsController', () => {
 			const appeal = { id: 'a1' } as Appeal;
 			service.getAppeal.mockResolvedValue(appeal);
 
-			const result = await controller.getAppeal('a1');
+			const result = await controller.getAppeal('a1', makeReq('user-1'));
 
 			expect(result).toBe(appeal);
-			expect(service.getAppeal).toHaveBeenCalledWith('a1');
+			expect(service.getAppeal).toHaveBeenCalledWith('a1', 'user-1');
 		});
 
 		it('propagates NotFoundException when appeal not found', async () => {
 			service.getAppeal.mockRejectedValue(new NotFoundException());
 
-			await expect(controller.getAppeal('missing')).rejects.toThrow(NotFoundException);
+			await expect(controller.getAppeal('missing', makeReq('user-1'))).rejects.toThrow(
+				NotFoundException
+			);
 		});
 	});
 
@@ -184,10 +186,10 @@ describe('AppealsController', () => {
 			const timeline = { id: 'a1', sanction: { id: 's1' } } as any;
 			service.getTimeline.mockResolvedValue(timeline);
 
-			const result = await controller.getTimeline('a1');
+			const result = await controller.getTimeline('a1', makeReq('user-1'));
 
 			expect(result).toBe(timeline);
-			expect(service.getTimeline).toHaveBeenCalledWith('a1');
+			expect(service.getTimeline).toHaveBeenCalledWith('a1', 'user-1');
 		});
 	});
 });

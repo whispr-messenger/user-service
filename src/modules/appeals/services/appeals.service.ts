@@ -107,10 +107,16 @@ export class AppealsService {
 		return this.appealsRepository.findPendingQueue(limit, offset);
 	}
 
-	async getAppeal(id: string): Promise<Appeal> {
+	async getAppeal(id: string, requesterId?: string): Promise<Appeal> {
 		const appeal = await this.appealsRepository.findById(id);
 		if (!appeal) {
 			throw new NotFoundException('Appeal not found');
+		}
+		if (requesterId && appeal.userId !== requesterId) {
+			const isStaff = await this.rolesService.isAdminOrModerator(requesterId);
+			if (!isStaff) {
+				throw new NotFoundException('Appeal not found');
+			}
 		}
 		return appeal;
 	}
@@ -233,11 +239,18 @@ export class AppealsService {
 	}
 
 	async getTimeline(
-		id: string
+		id: string,
+		requesterId?: string
 	): Promise<{ appeal: Appeal; events: Array<{ event: string; timestamp: Date; details?: string }> }> {
 		const appeal = await this.appealsRepository.getTimeline(id);
 		if (!appeal) {
 			throw new NotFoundException('Appeal not found');
+		}
+		if (requesterId && appeal.userId !== requesterId) {
+			const isStaff = await this.rolesService.isAdminOrModerator(requesterId);
+			if (!isStaff) {
+				throw new NotFoundException('Appeal not found');
+			}
 		}
 
 		const events: Array<{ event: string; timestamp: Date; details?: string }> = [];

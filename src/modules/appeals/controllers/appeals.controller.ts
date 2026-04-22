@@ -126,8 +126,11 @@ export class AppealsController {
 	})
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Appeal not found' })
-	async getTimeline(@Param('id', ParseUUIDPipe) id: string) {
-		return this.appealsService.getTimeline(id);
+	async getTimeline(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.getTimeline(id, req.user.sub);
 	}
 
 	@Get(':id')
@@ -136,8 +139,11 @@ export class AppealsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'Appeal detail', type: AppealResponseDto })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Appeal not found' })
-	async getAppeal(@Param('id', ParseUUIDPipe) id: string) {
-		return this.appealsService.getAppeal(id);
+	async getAppeal(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.getAppeal(id, req.user.sub);
 	}
 
 	@Put(':id/review')
