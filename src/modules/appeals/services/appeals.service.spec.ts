@@ -9,6 +9,7 @@ import { AppealsService } from './appeals.service';
 import { AppealsRepository } from '../repositories/appeals.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { SanctionsService } from '../../sanctions/services/sanctions.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { RedisConfig } from '../../../config/redis.config';
 import { Appeal } from '../entities/appeal.entity';
 import { UserSanction } from '../../sanctions/entities/user-sanction.entity';
@@ -18,6 +19,7 @@ describe('AppealsService', () => {
 	let appealsRepository: jest.Mocked<AppealsRepository>;
 	let rolesService: jest.Mocked<RolesService>;
 	let sanctionsService: jest.Mocked<SanctionsService>;
+	let auditService: jest.Mocked<AuditService>;
 	let redisPublish: jest.Mock;
 
 	const mockSanction = (overrides: Partial<UserSanction> = {}): UserSanction => ({
@@ -88,6 +90,12 @@ describe('AppealsService', () => {
 						}),
 					},
 				},
+				{
+					provide: AuditService,
+					useValue: {
+						log: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 			],
 		}).compile();
 
@@ -95,6 +103,7 @@ describe('AppealsService', () => {
 		appealsRepository = module.get(AppealsRepository);
 		rolesService = module.get(RolesService);
 		sanctionsService = module.get(SanctionsService);
+		auditService = module.get(AuditService);
 	});
 
 	describe('createAppeal', () => {
@@ -243,6 +252,13 @@ describe('AppealsService', () => {
 			expect(rolesService.ensureAdminOrModerator).toHaveBeenCalledWith('admin-1');
 			expect(sanctionsService.liftSanction).toHaveBeenCalledWith('sanction-1', 'admin-1');
 			expect(appealsRepository.update).toHaveBeenCalled();
+			expect(auditService.log).toHaveBeenCalledWith(
+				'admin-1',
+				'appeal_accepted',
+				'appeal',
+				updated.id,
+				expect.objectContaining({ user_id: updated.userId, sanction_id: updated.sanctionId })
+			);
 			expect(result).toEqual(updated);
 		});
 
@@ -258,6 +274,13 @@ describe('AppealsService', () => {
 			});
 
 			expect(sanctionsService.liftSanction).not.toHaveBeenCalled();
+			expect(auditService.log).toHaveBeenCalledWith(
+				'admin-1',
+				'appeal_rejected',
+				'appeal',
+				updated.id,
+				expect.any(Object)
+			);
 			expect(result).toEqual(updated);
 		});
 

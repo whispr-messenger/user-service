@@ -8,6 +8,7 @@ import {
 import { AppealsRepository } from '../repositories/appeals.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { SanctionsService } from '../../sanctions/services/sanctions.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { RedisConfig } from '../../../config/redis.config';
 import { CreateAppealDto, AppealTypeEnum } from '../dto/create-appeal.dto';
 import { ReviewAppealDto } from '../dto/review-appeal.dto';
@@ -24,7 +25,10 @@ export class AppealsService {
 		private readonly appealsRepository: AppealsRepository,
 		private readonly rolesService: RolesService,
 		private readonly sanctionsService: SanctionsService,
-		private readonly redisConfig: RedisConfig
+		private readonly redisConfig: RedisConfig,
+		// WHISPR-1053: admin actions land in audit_logs for the consolidated
+		// admin audit feed. Mirror the pattern used in SanctionsService.
+		private readonly auditService: AuditService
 	) {}
 
 	async createAppeal(dto: CreateAppealDto, userId: string): Promise<Appeal> {
@@ -131,6 +135,16 @@ export class AppealsService {
 		} else if (dto.status === 'accepted' && updated.sanctionId) {
 			await this.sanctionsService.liftSanction(updated.sanctionId, adminId);
 		}
+
+		// WHISPR-1053: consolidated audit trail — mirror SanctionsService so
+		// reviewed appeals surface in GET /audit-logs alongside sanctions and
+		// role changes.
+		await this.auditService.log(adminId, `appeal_${updated.status}`, 'appeal', updated.id, {
+			user_id: updated.userId,
+			sanction_id: updated.sanctionId,
+			type: updated.type,
+			reviewer_notes: updated.reviewerNotes,
+		});
 
 		return updated;
 	}
