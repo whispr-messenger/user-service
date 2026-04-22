@@ -138,11 +138,14 @@ describe('Functional E2E Scenarios', () => {
 			await createUser(USER_A_ID, '+33600000001', 'alice');
 			await createUser(USER_B_ID, '+33600000002', 'bob');
 
-			await request(app.getHttpServer())
+			const res = await request(app.getHttpServer())
 				.patch(`/user/v1/profile/${USER_B_ID}`)
 				.set(asUser(USER_A_ID))
 				.send({ username: 'hacked' })
 				.expect(403);
+
+			expect(res.status).toBe(403);
+			expect(res.body.message).toBeDefined();
 		});
 	});
 
