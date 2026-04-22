@@ -4,6 +4,9 @@ import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
 import { Request, Response } from 'express';
 
+// WHISPR-1068 : propage le request_id via header, format JSON cohérent avec
+// JsonLogger. Les lignes de log ne sont plus des chaînes libres mais une
+// string + objet structuré — JsonLogger les sérialise en JSON.
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
 	private readonly logger = new Logger(LoggingInterceptor.name);
@@ -19,23 +22,39 @@ export class LoggingInterceptor implements NestInterceptor {
 
 		response.setHeader('X-Request-Id', requestId);
 
-		this.logger.log(
-			`[${requestId}] Incoming Request: ${method} ${url} - IP: ${ip} - User-Agent: ${userAgent}`
-		);
+		this.logger.log({
+			event: 'http_request',
+			request_id: requestId,
+			method,
+			url,
+			ip,
+			user_agent: userAgent,
+		});
 
 		return next.handle().pipe(
 			tap({
 				next: () => {
 					const duration = Date.now() - startTime;
-					this.logger.log(
-						`[${requestId}] Outgoing Response: ${method} ${url} - Status: ${response.statusCode} - Duration: ${duration}ms`
-					);
+					this.logger.log({
+						event: 'http_response',
+						request_id: requestId,
+						method,
+						url,
+						status: response.statusCode,
+						duration_ms: duration,
+					});
 				},
 				error: (error) => {
 					const duration = Date.now() - startTime;
-					this.logger.error(
-						`[${requestId}] Request Error: ${method} ${url} - Status: ${error.status || 500} - Duration: ${duration}ms - Error: ${error.message}`
-					);
+					this.logger.error({
+						event: 'http_error',
+						request_id: requestId,
+						method,
+						url,
+						status: error.status || 500,
+						duration_ms: duration,
+						error_message: error.message,
+					});
 				},
 			})
 		);
