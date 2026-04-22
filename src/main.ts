@@ -8,6 +8,7 @@ import compression from 'compression';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
+import { JsonLogger } from './utils/json-logger';
 
 const logger = new Logger('UnhandledErrors');
 
@@ -20,7 +21,13 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 export async function bootstrap() {
-	const app = await NestFactory.create<NestExpressApplication>(AppModule);
+	// WHISPR-1068 : active le logger JSON dès le bootstrap quand
+	// LOG_FORMAT=json (default en production via ArgoCD). Laisse le logger
+	// natif (texte coloré) en local pour ne pas gêner `npm run start:dev`.
+	const useJsonLogger = (process.env.LOG_FORMAT ?? '').toLowerCase() === 'json';
+	const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+		logger: useJsonLogger ? new JsonLogger({ service: 'user-service' }) : undefined,
+	});
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
 	const port = configService.get<number>('HTTP_PORT', 3002);
