@@ -34,5 +34,7 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		{ name: 'REDIS_SENTINELS', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_MASTER_NAME', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_SENTINEL_PASSWORD', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'MEDIA_SERVICE_URL', default: '(required to resolve media metadata)' },
+		{ name: 'MESSAGING_SERVICE_URL', default: '(required to restore backups)' },
 	],
 };

@@ -58,4 +58,26 @@ export class BackupsController {
 	): Promise<UserBackup> {
 		return this.backupsService.get(req.user.sub, id);
 	}
+
+	@Post(':id/restore')
+	@ApiOperation({
+		summary: 'Restore a backup by forwarding its payload to the messaging-service',
+		description:
+			'Reads the stored backup payload and POSTs it to the messaging-service restore endpoint so the user conversations are re-materialised server side.',
+	})
+	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Backup ID' })
+	@ApiResponse({ status: HttpStatus.OK, description: 'Restore job accepted by messaging-service' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Backup not found' })
+	@ApiResponse({ status: HttpStatus.BAD_GATEWAY, description: 'Messaging-service rejected the restore' })
+	@ApiResponse({
+		status: HttpStatus.SERVICE_UNAVAILABLE,
+		description: 'Messaging-service unreachable',
+	})
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	async restore(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<{ status: string; backupId: string }> {
+		return this.backupsService.restore(req.user.sub, id);
+	}
 }

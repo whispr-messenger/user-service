@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, HttpException, HttpStatus } from '@nestj
 import { UserRepository } from '../../common/repositories';
 import { UserBackupRepository } from '../repositories/user-backup.repository';
 import { UserBackup } from '../entities/user-backup.entity';
+import { MessagingClientService } from './messaging-client.service';
 
 export const BACKUP_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 export const BACKUP_UPLOAD_COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -10,7 +11,8 @@ export const BACKUP_UPLOAD_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 export class BackupsService {
 	constructor(
 		private readonly userRepository: UserRepository,
-		private readonly userBackupRepository: UserBackupRepository
+		private readonly userBackupRepository: UserBackupRepository,
+		private readonly messagingClient: MessagingClientService
 	) {}
 
 	private async ensureUserExists(userId: string): Promise<void> {
@@ -64,5 +66,15 @@ export class BackupsService {
 			throw new NotFoundException('Backup not found');
 		}
 		return backup;
+	}
+
+	async restore(userId: string, backupId: string): Promise<{ status: string; backupId: string }> {
+		const backup = await this.get(userId, backupId);
+		await this.messagingClient.restoreBackup({
+			userId,
+			backupId: backup.id,
+			data: backup.data as Record<string, unknown>,
+		});
+		return { status: 'accepted', backupId: backup.id };
 	}
 }
