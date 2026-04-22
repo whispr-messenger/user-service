@@ -27,7 +27,10 @@ export class BackupsService {
 		const sizeBytes = Buffer.byteLength(serialized, 'utf8');
 
 		if (sizeBytes > BACKUP_MAX_SIZE_BYTES) {
-			throw new HttpException('Backup payload exceeds the maximum allowed size', HttpStatus.PAYLOAD_TOO_LARGE);
+			throw new HttpException(
+				'Backup payload exceeds the maximum allowed size',
+				HttpStatus.PAYLOAD_TOO_LARGE
+			);
 		}
 
 		await this.enforceUploadCooldown(userId);

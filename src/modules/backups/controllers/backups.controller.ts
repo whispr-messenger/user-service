@@ -20,7 +20,10 @@ export class BackupsController {
 	})
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Backup created successfully' })
 	@ApiResponse({ status: HttpStatus.PAYLOAD_TOO_LARGE, description: 'Backup payload too large' })
-	@ApiResponse({ status: HttpStatus.TOO_MANY_REQUESTS, description: 'Upload rate limit exceeded (1 per 24h)' })
+	@ApiResponse({
+		status: HttpStatus.TOO_MANY_REQUESTS,
+		description: 'Upload rate limit exceeded (1 per 24h)',
+	})
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	async create(
 		@Body() dto: CreateBackupDto,
