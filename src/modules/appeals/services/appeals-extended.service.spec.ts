@@ -4,6 +4,7 @@ import { AppealsService } from './appeals.service';
 import { AppealsRepository } from '../repositories/appeals.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { SanctionsService } from '../../sanctions/services/sanctions.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { RedisConfig } from '../../../config/redis.config';
 import { Appeal } from '../entities/appeal.entity';
 
@@ -66,6 +67,12 @@ describe('AppealsService — extended features', () => {
 						getClient: jest.fn().mockReturnValue({
 							publish: jest.fn().mockResolvedValue(1),
 						}),
+					},
+				},
+				{
+					provide: AuditService,
+					useValue: {
+						log: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
