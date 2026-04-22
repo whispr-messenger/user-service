@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, JoinColumn, ManyToOne, Index } from 'typeorm';
+import {
+	Entity,
+	PrimaryGeneratedColumn,
+	Column,
+	CreateDateColumn,
+	JoinColumn,
+	ManyToOne,
+	Index,
+} from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
 @Entity({ name: 'user_backups', schema: 'users' })
