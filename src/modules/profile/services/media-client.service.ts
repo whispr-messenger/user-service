@@ -39,7 +39,7 @@ export class MediaClientService {
 	 * @returns        MediaMetadata including the public URL
 	 */
 	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
-		const url = `${this.baseUrl}/media/${mediaId}`;
+		const url = `${this.baseUrl}/media/v1/${mediaId}`;
 		this.logger.debug(`Fetching media metadata: ${url}`);
 
 		let res: Response;
