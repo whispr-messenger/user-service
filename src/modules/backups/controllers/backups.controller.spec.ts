@@ -20,6 +20,7 @@ describe('BackupsController', () => {
 						create: jest.fn(),
 						list: jest.fn(),
 						get: jest.fn(),
+						restore: jest.fn(),
 					},
 				},
 			],
@@ -63,6 +64,17 @@ describe('BackupsController', () => {
 
 			expect(result).toBe(backup);
 			expect(service.get).toHaveBeenCalledWith('user-1', 'backup-1');
+		});
+	});
+
+	describe('restore', () => {
+		it('delegates to the service and returns the accepted status', async () => {
+			service.restore.mockResolvedValue({ status: 'accepted', backupId: 'backup-1' });
+
+			const result = await controller.restore('backup-1', makeReq('user-1'));
+
+			expect(result).toEqual({ status: 'accepted', backupId: 'backup-1' });
+			expect(service.restore).toHaveBeenCalledWith('user-1', 'backup-1');
 		});
 	});
 });
