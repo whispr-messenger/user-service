@@ -12,6 +12,7 @@ beforeAll(async () => {
 	process.env.DB_SYNCHRONIZE = process.env.DB_SYNCHRONIZE || 'true';
 	process.env.DB_LOGGING = process.env.DB_LOGGING || 'false';
 	process.env.MEDIA_SERVICE_URL = process.env.MEDIA_SERVICE_URL || 'http://localhost:3003'; // NOSONAR
+	process.env.MESSAGING_SERVICE_URL = process.env.MESSAGING_SERVICE_URL || 'http://localhost:4000'; // NOSONAR
 });
 
 // Global E2E teardown

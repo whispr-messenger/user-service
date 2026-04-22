@@ -5,6 +5,7 @@ import { UserRepository } from '../../common/repositories';
 import { UserBackupRepository } from '../repositories/user-backup.repository';
 import { UserBackup } from '../entities/user-backup.entity';
 import { User } from '../../common/entities/user.entity';
+import { MessagingClientService } from './messaging-client.service';
 
 const mockUser = (): User => ({ id: 'user-1' }) as User;
 
@@ -22,6 +23,7 @@ describe('BackupsService', () => {
 	let service: BackupsService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let userBackupRepository: jest.Mocked<UserBackupRepository>;
+	let messagingClient: jest.Mocked<MessagingClientService>;
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -40,12 +42,17 @@ describe('BackupsService', () => {
 						findByIdForUser: jest.fn(),
 					},
 				},
+				{
+					provide: MessagingClientService,
+					useValue: { restoreBackup: jest.fn() },
+				},
 			],
 		}).compile();
 
 		service = module.get(BackupsService);
 		userRepository = module.get(UserRepository);
 		userBackupRepository = module.get(UserBackupRepository);
+		messagingClient = module.get(MessagingClientService);
 	});
 
 	describe('create', () => {
@@ -146,6 +153,32 @@ describe('BackupsService', () => {
 			userBackupRepository.findByIdForUser.mockResolvedValue(null);
 
 			await expect(service.get('user-1', 'backup-1')).rejects.toThrow(NotFoundException);
+		});
+	});
+
+	describe('restore', () => {
+		it('forwards the backup payload to the messaging-service and returns the accepted status', async () => {
+			userRepository.findById.mockResolvedValue(mockUser());
+			const backup = mockBackup();
+			userBackupRepository.findByIdForUser.mockResolvedValue(backup);
+			messagingClient.restoreBackup.mockResolvedValue(undefined);
+
+			const result = await service.restore('user-1', 'backup-1');
+
+			expect(messagingClient.restoreBackup).toHaveBeenCalledWith({
+				userId: 'user-1',
+				backupId: backup.id,
+				data: backup.data,
+			});
+			expect(result).toEqual({ status: 'accepted', backupId: backup.id });
+		});
+
+		it('throws NotFoundException when the backup does not belong to the user', async () => {
+			userRepository.findById.mockResolvedValue(mockUser());
+			userBackupRepository.findByIdForUser.mockResolvedValue(null);
+
+			await expect(service.restore('user-1', 'backup-1')).rejects.toThrow(NotFoundException);
+			expect(messagingClient.restoreBackup).not.toHaveBeenCalled();
 		});
 	});
 });
