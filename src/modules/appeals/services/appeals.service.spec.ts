@@ -73,6 +73,7 @@ describe('AppealsService', () => {
 					provide: RolesService,
 					useValue: {
 						ensureAdminOrModerator: jest.fn(),
+						isAdminOrModerator: jest.fn(),
 					},
 				},
 				{
@@ -232,6 +233,34 @@ describe('AppealsService', () => {
 			appealsRepository.findById.mockResolvedValue(null);
 
 			await expect(service.getAppeal('unknown')).rejects.toThrow(NotFoundException);
+		});
+
+		it('hides appeal from non-owner who is not staff', async () => {
+			const appeal = mockAppeal({ userId: 'user-1' });
+			appealsRepository.findById.mockResolvedValue(appeal);
+			rolesService.isAdminOrModerator.mockResolvedValue(false);
+
+			await expect(service.getAppeal('appeal-1', 'user-2')).rejects.toThrow(NotFoundException);
+		});
+
+		it('returns appeal to owner', async () => {
+			const appeal = mockAppeal({ userId: 'user-1' });
+			appealsRepository.findById.mockResolvedValue(appeal);
+
+			const result = await service.getAppeal('appeal-1', 'user-1');
+
+			expect(result).toEqual(appeal);
+			expect(rolesService.isAdminOrModerator).not.toHaveBeenCalled();
+		});
+
+		it('returns appeal to admin/moderator', async () => {
+			const appeal = mockAppeal({ userId: 'user-1' });
+			appealsRepository.findById.mockResolvedValue(appeal);
+			rolesService.isAdminOrModerator.mockResolvedValue(true);
+
+			const result = await service.getAppeal('appeal-1', 'admin-1');
+
+			expect(result).toEqual(appeal);
 		});
 	});
 
