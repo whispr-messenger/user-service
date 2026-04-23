@@ -36,6 +36,10 @@ export class MediaClientService {
 		return this.baseUrl;
 	}
 
+	resolveProfilePictureUrl(mediaId: string): string {
+		return `${this.baseUrl}/media/v1/${mediaId}/blob`;
+	}
+
 	/**
 	 * Fetch media metadata from media-service by ID.
 	 *

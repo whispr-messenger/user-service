@@ -37,13 +37,22 @@ export class ProfileService {
 	}
 
 	public async getProfile(id: string): Promise<User> {
-		return this.findOne(id);
+		const user = await this.findOne(id);
+		if (user.profilePictureUrl) {
+			user.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(user.profilePictureUrl);
+		}
+		return user;
 	}
 
 	public async getProfileWithPrivacy(id: string, requesterId: string): Promise<User> {
 		const user = await this.findOne(id);
 
-		if (requesterId === id) return user;
+		if (requesterId === id) {
+			if (user.profilePictureUrl) {
+				user.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(user.profilePictureUrl);
+			}
+			return user;
+		}
 
 		const settings = await this.privacyService.getSettings(id);
 		const isContact = await this.contactsService.isContact(id, requesterId);
@@ -60,15 +69,13 @@ export class ProfileService {
 		if (!canSee(settings.biographyPrivacy)) masked.biography = null;
 		if (!canSee(settings.profilePicturePrivacy)) masked.profilePictureUrl = null;
 		if (!canSee(settings.lastSeenPrivacy)) masked.lastSeen = null;
+		if (masked.profilePictureUrl) {
+			masked.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(masked.profilePictureUrl);
+		}
 		return masked;
 	}
 
-	public async updateProfile(
-		id: string,
-		dto: UpdateProfileDto,
-		authorization?: string,
-		requestBaseUrl?: string
-	): Promise<User> {
+	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
 		const previousSnapshot = { ...user };
 
@@ -90,9 +97,7 @@ export class ProfileService {
 			if (media.ownerId !== id) {
 				throw new BadRequestException('Media does not belong to this user');
 			}
-			let base = requestBaseUrl ?? this.mediaClient.getBaseUrl();
-			while (base.endsWith('/')) base = base.slice(0, -1);
-			user.profilePictureUrl = `${base}/media/v1/${dto.avatarMediaId}/blob`;
+			user.profilePictureUrl = dto.avatarMediaId;
 		}
 
 		// Remove avatarMediaId before saving — it's not a DB column
@@ -116,6 +121,9 @@ export class ProfileService {
 			}
 		}
 
+		if (saved.profilePictureUrl) {
+			saved.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(saved.profilePictureUrl);
+		}
 		return saved;
 	}
 }
