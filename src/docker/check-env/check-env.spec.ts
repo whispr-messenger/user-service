@@ -15,6 +15,7 @@ const TEST_CONFIG: EnvCheckConfig = {
 		'REDIS_DB',
 		'HTTP_PORT',
 		'GRPC_PORT',
+		'MEDIA_SERVICE_URL',
 	],
 	optional: [
 		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
@@ -49,6 +50,7 @@ const REQUIRED_VALUES: Record<string, string> = {
 	REDIS_DB: '1',
 	HTTP_PORT: '3000',
 	GRPC_PORT: '50051',
+	MEDIA_SERVICE_URL: 'http://media-service:3000',
 };
 
 describe('runEnvChecks', () => {
