@@ -63,7 +63,12 @@ export class ProfileService {
 		return masked;
 	}
 
-	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
+	public async updateProfile(
+		id: string,
+		dto: UpdateProfileDto,
+		authorization?: string,
+		requestBaseUrl?: string
+	): Promise<User> {
 		const user = await this.findOne(id);
 		const previousSnapshot = { ...user };
 
@@ -85,7 +90,9 @@ export class ProfileService {
 			if (media.ownerId !== id) {
 				throw new BadRequestException('Media does not belong to this user');
 			}
-			user.profilePictureUrl = media.url;
+			let base = requestBaseUrl ?? this.mediaClient.getBaseUrl();
+			while (base.endsWith('/')) base = base.slice(0, -1);
+			user.profilePictureUrl = `${base}/media/v1/${dto.avatarMediaId}/blob`;
 		}
 
 		// Remove avatarMediaId before saving — it's not a DB column
