@@ -26,12 +26,14 @@ const mockUser = (): User =>
 
 const mockMediaMetadata = (overrides: Partial<MediaMetadata> = {}): MediaMetadata => ({
 	id: 'media-uuid-1',
-	url: 'https://cdn.whispr.epitech.beer/avatars/media-uuid-1.webp',
-	thumbnailUrl: null,
-	context: 'avatar',
-	mimeType: 'image/webp',
-	sizeBytes: 12345,
 	ownerId: 'uuid-1',
+	context: 'avatar',
+	contentType: 'image/webp',
+	blobSize: 12345,
+	hasThumbnail: false,
+	isActive: true,
+	createdAt: '2026-04-01T00:00:00Z',
+	expiresAt: null,
 	...overrides,
 });
 
@@ -73,6 +75,7 @@ describe('ProfileService', () => {
 					provide: MediaClientService,
 					useValue: {
 						getMediaMetadata: jest.fn(),
+						getBaseUrl: jest.fn().mockReturnValue('http://media-service:3000'),
 					},
 				},
 				{
@@ -236,10 +239,24 @@ describe('ProfileService', () => {
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
 			userRepository.save.mockImplementation(async (u) => u as User);
 
-			const result = await service.updateProfile('uuid-1', dto);
+			const result = await service.updateProfile('uuid-1', dto, undefined, 'https://api.whispr.beer');
 
 			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
-			expect(result.profilePictureUrl).toBe(metadata.url);
+			expect(result.profilePictureUrl).toBe('https://api.whispr.beer/media/v1/media-uuid-1/blob');
+		});
+
+		it('falls back to media-service base URL when requestBaseUrl is not provided', async () => {
+			const user = mockUser();
+			const metadata = mockMediaMetadata();
+			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
+
+			userRepository.findById.mockResolvedValue(user);
+			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
+			userRepository.save.mockImplementation(async (u) => u as User);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
 		});
 
 		it('throws BadRequestException when media context is not avatar', async () => {
@@ -278,7 +295,7 @@ describe('ProfileService', () => {
 			const savedArg = userRepository.save.mock.calls[0][0] as any;
 			expect(savedArg.avatarMediaId).toBeUndefined();
 			expect(savedArg.firstName).toBe('Alice');
-			expect(savedArg.profilePictureUrl).toBe(metadata.url);
+			expect(savedArg.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
 		});
 	});
 
