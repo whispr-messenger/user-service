@@ -39,12 +39,14 @@ describe('MediaClientService', () => {
 	describe('getMediaMetadata', () => {
 		const validBody = {
 			id: 'media-1',
-			url: 'https://cdn.whispr.epitech.beer/avatars/media-1.webp',
-			thumbnailUrl: null,
-			context: 'avatar',
-			mimeType: 'image/webp',
-			sizeBytes: 1024,
 			ownerId: 'user-1',
+			context: 'avatar',
+			contentType: 'image/webp',
+			blobSize: 1024,
+			hasThumbnail: false,
+			isActive: true,
+			createdAt: '2026-04-01T00:00:00Z',
+			expiresAt: null,
 		};
 
 		it('returns metadata on success', async () => {

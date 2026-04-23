@@ -4,21 +4,23 @@ import { ConfigService } from '@nestjs/config';
 /**
  * Lightweight HTTP client for the media-service.
  *
- * The media-service contract (see WHISPR-332):
- *   GET  /media/:id          → { id, url, thumbnailUrl, context, mimeType, ... }
- *   POST /media/upload       → multipart upload (handled by mobile/frontend)
+ * The media-service contract (MediaMetadataDto from Swagger):
+ *   GET  /media/v1/:id       → { id, ownerId, context, contentType, blobSize, ... }
+ *   POST /media/v1/upload    → multipart upload (handled by mobile/frontend)
  *
- * This client only needs to call GET /media/:id to resolve a mediaId
- * into a public URL for avatar storage.
+ * This client calls GET /media/v1/:id to validate a mediaId
+ * before storing the corresponding blob URL as the profile picture.
  */
 export interface MediaMetadata {
 	id: string;
-	url: string;
-	thumbnailUrl: string | null;
-	context: string;
-	mimeType: string;
-	sizeBytes: number;
 	ownerId: string;
+	context: string;
+	contentType: string;
+	blobSize: number;
+	hasThumbnail: boolean;
+	isActive: boolean;
+	createdAt: string;
+	expiresAt: string | null;
 }
 
 @Injectable()
@@ -30,13 +32,17 @@ export class MediaClientService {
 		this.baseUrl = this.configService.getOrThrow<string>('MEDIA_SERVICE_URL');
 	}
 
+	getBaseUrl(): string {
+		return this.baseUrl;
+	}
+
 	/**
 	 * Fetch media metadata from media-service by ID.
 	 *
 	 * @param mediaId  UUID of the uploaded media
 	 * @param userId   UUID of the requesting user (forwarded as x-user-id)
 	 * @param authorization Optional Authorization header from the caller ("Bearer ...")
-	 * @returns        MediaMetadata including the public URL
+	 * @returns        MediaMetadata as returned by the media-service
 	 */
 	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
 		const url = `${this.baseUrl}/media/v1/${mediaId}`;
