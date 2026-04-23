@@ -90,7 +90,8 @@ export class ProfileService {
 			if (media.ownerId !== id) {
 				throw new BadRequestException('Media does not belong to this user');
 			}
-			const base = requestBaseUrl?.replace(/\/+$/, '') ?? this.mediaClient.getBaseUrl();
+			let base = requestBaseUrl ?? this.mediaClient.getBaseUrl();
+			while (base.endsWith('/')) base = base.slice(0, -1);
 			user.profilePictureUrl = `${base}/media/v1/${dto.avatarMediaId}/blob`;
 		}
 
