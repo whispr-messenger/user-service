@@ -76,6 +76,11 @@ describe('ProfileService', () => {
 					useValue: {
 						getMediaMetadata: jest.fn(),
 						getBaseUrl: jest.fn().mockReturnValue('http://media-service:3000'),
+						resolveProfilePictureUrl: jest
+							.fn()
+							.mockImplementation(
+								(id: string) => `http://media-service:3000/media/v1/${id}/blob`
+							),
 					},
 				},
 				{
@@ -117,6 +122,25 @@ describe('ProfileService', () => {
 
 			expect(result).toBe(user);
 			expect(userRepository.findById).toHaveBeenCalledWith('uuid-1');
+		});
+
+		it('resolves profilePictureUrl to blob URL when set', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+
+		it('returns null profilePictureUrl when not set', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result.profilePictureUrl).toBeNull();
+			expect(mediaClient.resolveProfilePictureUrl).not.toHaveBeenCalled();
 		});
 
 		it('throws NotFoundException when user does not exist', async () => {
@@ -230,32 +254,25 @@ describe('ProfileService', () => {
 	});
 
 	describe('updateProfile with avatarMediaId', () => {
-		it('resolves avatarMediaId to profilePictureUrl via media-service', async () => {
+		it('stores the raw mediaId and returns a resolved blob URL', async () => {
 			const user = mockUser();
 			const metadata = mockMediaMetadata();
 			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
 
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
-			userRepository.save.mockImplementation(async (u) => u as User);
-
-			const result = await service.updateProfile('uuid-1', dto, undefined, 'https://api.whispr.beer');
-
-			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
-			expect(result.profilePictureUrl).toBe('https://api.whispr.beer/media/v1/media-uuid-1/blob');
-		});
-
-		it('falls back to media-service base URL when requestBaseUrl is not provided', async () => {
-			const user = mockUser();
-			const metadata = mockMediaMetadata();
-			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
-
-			userRepository.findById.mockResolvedValue(user);
-			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
-			userRepository.save.mockImplementation(async (u) => u as User);
+			let savedProfilePictureUrl: string | null = null;
+			userRepository.save.mockImplementation(async (u) => {
+				savedProfilePictureUrl = (u as User).profilePictureUrl;
+				return u as User;
+			});
 
 			const result = await service.updateProfile('uuid-1', dto);
 
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
+			// DB receives the raw mediaId
+			expect(savedProfilePictureUrl).toBe('media-uuid-1');
+			// Returned value is the resolved URL
 			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
 		});
 
@@ -288,14 +305,17 @@ describe('ProfileService', () => {
 
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
-			userRepository.save.mockImplementation(async (u) => u as User);
+			let savedSnapshot: Record<string, unknown> = {};
+			userRepository.save.mockImplementation(async (u) => {
+				savedSnapshot = { ...(u as any) };
+				return u as User;
+			});
 
 			await service.updateProfile('uuid-1', dto);
 
-			const savedArg = userRepository.save.mock.calls[0][0] as any;
-			expect(savedArg.avatarMediaId).toBeUndefined();
-			expect(savedArg.firstName).toBe('Alice');
-			expect(savedArg.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+			expect(savedSnapshot.avatarMediaId).toBeUndefined();
+			expect(savedSnapshot.firstName).toBe('Alice');
+			expect(savedSnapshot.profilePictureUrl).toBe('media-uuid-1');
 		});
 	});
 
@@ -306,8 +326,30 @@ describe('ProfileService', () => {
 
 			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-1');
 
-			expect(result).toBe(user);
+			expect(result.firstName).toBe('Alice');
+			expect(result.lastName).toBe('Smith');
 			expect(privacyService.getSettings).not.toHaveBeenCalled();
+		});
+
+		it('resolves profilePictureUrl for owner', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-1');
+
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+
+		it('returns null profilePictureUrl when user has no avatar', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.profilePictureUrl).toBeNull();
+			expect(mediaClient.resolveProfilePictureUrl).not.toHaveBeenCalled();
 		});
 
 		it('returns full profile when all fields are set to EVERYONE', async () => {
@@ -316,7 +358,7 @@ describe('ProfileService', () => {
 				firstName: 'Alice',
 				lastName: 'Smith',
 				biography: 'Hello',
-				profilePictureUrl: 'https://cdn.example.com/pic.jpg',
+				profilePictureUrl: 'media-uuid-1',
 				lastSeen: new Date(),
 			} as User;
 			userRepository.findById.mockResolvedValue(user);
@@ -328,7 +370,7 @@ describe('ProfileService', () => {
 			expect(result.firstName).toBe('Alice');
 			expect(result.lastName).toBe('Smith');
 			expect(result.biography).toBe('Hello');
-			expect(result.profilePictureUrl).toBe('https://cdn.example.com/pic.jpg');
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
 		});
 
 		it('masks fields set to NOBODY when requester is not the owner', async () => {
@@ -337,7 +379,7 @@ describe('ProfileService', () => {
 				firstName: 'Alice',
 				lastName: 'Smith',
 				biography: 'Hello',
-				profilePictureUrl: 'https://cdn.example.com/pic.jpg',
+				profilePictureUrl: 'media-uuid-1',
 				lastSeen: new Date(),
 			} as User;
 			userRepository.findById.mockResolvedValue(user);

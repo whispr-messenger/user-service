@@ -36,6 +36,13 @@ describe('MediaClientService', () => {
 		globalThis.fetch = originalFetch;
 	});
 
+	describe('resolveProfilePictureUrl', () => {
+		it('constructs the blob URL from a mediaId', () => {
+			const url = service.resolveProfilePictureUrl('media-uuid-1');
+			expect(url).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+	});
+
 	describe('getMediaMetadata', () => {
 		const validBody = {
 			id: 'media-1',
