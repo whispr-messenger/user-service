@@ -78,12 +78,7 @@ describe('ProfileController', () => {
 
 			expect(result.id).toBe('user-1');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				'Bearer token',
-				'http://localhost:3000'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, 'Bearer token');
 		});
 
 		it('passes undefined authorization when the header is missing', async () => {
@@ -93,12 +88,7 @@ describe('ProfileController', () => {
 
 			await controller.updateProfile('user-1', dto, makeReq('user-1'));
 
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				undefined,
-				'http://localhost:3000'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, undefined);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {
