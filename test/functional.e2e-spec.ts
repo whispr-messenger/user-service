@@ -132,6 +132,26 @@ describe('Functional E2E Scenarios', () => {
 		});
 	});
 
+	// Scenario 1b: GET /profile/me returns authenticated profile with phoneNumber
+	describe('Scenario 1b: Get own profile via /profile/me', () => {
+		it('should return 200 with phoneNumber for the authenticated user', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/profile/me')
+				.set(asUser(USER_A_ID))
+				.expect(200);
+
+			expect(res.body.id).toBe(USER_A_ID);
+			expect(res.body.phoneNumber).toBe('+33600000001');
+			expect(res.body.username).toBe('alice');
+		});
+
+		it('should return 401 without a bearer token', async () => {
+			await request(app.getHttpServer()).get('/user/v1/profile/me').expect(401);
+		});
+	});
+
 	// Scenario 2: PATCH /profile/:id of another user returns 403
 	describe('Scenario 2: Cannot update another user profile', () => {
 		it('should return 403 when updating another user profile', async () => {

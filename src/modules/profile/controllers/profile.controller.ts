@@ -4,6 +4,7 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UserResponseDto } from '../../common/dto/user-response.dto';
+import { SelfProfileResponseDto } from '../dto/self-profile-response.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
@@ -13,6 +14,23 @@ import { assertOwnership } from '../../jwt-auth/ownership.util';
 @Controller('profile')
 export class ProfileController {
 	constructor(private readonly profileService: ProfileService) {}
+
+	@Get('me')
+	@SkipThrottle()
+	@ApiOperation({ summary: 'Get my own profile (includes phoneNumber)' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Profile retrieved successfully',
+		type: SelfProfileResponseDto,
+	})
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+	async getMyProfile(
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<SelfProfileResponseDto> {
+		const user = await this.profileService.getProfile(req.user.sub);
+		return SelfProfileResponseDto.fromEntity(user);
+	}
 
 	@Get(':id')
 	@SkipThrottle()
