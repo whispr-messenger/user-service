@@ -65,23 +65,12 @@ describe('LoggingInterceptor', () => {
 			await lastValueFrom(interceptor.intercept(context, next));
 
 			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.objectContaining({
-					event: 'http_request',
-					request_id: 'test-request-id',
-					method: 'GET',
-					url: '/test',
-					ip: '127.0.0.1',
-					user_agent: 'TestAgent',
-				})
+				expect.stringMatching(
+					/^Incoming GET \/test req=test-request-id ip=127\.0\.0\.1 ua="TestAgent"$/
+				)
 			);
 			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.objectContaining({
-					event: 'http_response',
-					request_id: 'test-request-id',
-					method: 'GET',
-					url: '/test',
-					status: 200,
-				})
+				expect.stringMatching(/^Outgoing GET \/test 200 \d+ms req=test-request-id$/)
 			);
 		});
 
@@ -105,9 +94,7 @@ describe('LoggingInterceptor', () => {
 
 			await lastValueFrom(interceptor.intercept(context, next));
 
-			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.objectContaining({ event: 'http_request', request_id: expect.any(String) })
-			);
+			expect(loggerSpy).toHaveBeenCalledWith(expect.stringMatching(/^Incoming GET \/test req=/));
 			const mockResponse = context.switchToHttp().getResponse();
 			expect(mockResponse.setHeader).toHaveBeenCalledWith('X-Request-Id', expect.any(String));
 		});
@@ -139,17 +126,9 @@ describe('LoggingInterceptor', () => {
 
 			await expect(lastValueFrom(interceptor.intercept(context, next))).rejects.toEqual(error);
 
-			expect(loggerSpy).toHaveBeenCalledWith(
-				expect.objectContaining({ event: 'http_request', method: 'GET', url: '/test' })
-			);
+			expect(loggerSpy).toHaveBeenCalledWith(expect.stringMatching(/^Incoming GET \/test /));
 			expect(errorLoggerSpy).toHaveBeenCalledWith(
-				expect.objectContaining({
-					event: 'http_error',
-					method: 'GET',
-					url: '/test',
-					status: 404,
-					error_message: 'Not Found',
-				})
+				expect.stringMatching(/^Error GET \/test 404 \d+ms req=test-request-id message="Not Found"$/)
 			);
 		});
 
@@ -159,7 +138,7 @@ describe('LoggingInterceptor', () => {
 
 			await expect(lastValueFrom(interceptor.intercept(context, next))).rejects.toEqual(error);
 
-			expect(errorLoggerSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 500 }));
+			expect(errorLoggerSpy).toHaveBeenCalledWith(expect.stringMatching(/ 500 \d+ms req=/));
 		});
 	});
 });
