@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { ProfileController } from './profile.controller';
 import { ProfileService } from '../services/profile.service';
@@ -33,6 +33,7 @@ describe('ProfileController', () => {
 				{
 					provide: ProfileService,
 					useValue: {
+						getProfile: jest.fn(),
 						getProfileWithPrivacy: jest.fn(),
 						updateProfile: jest.fn(),
 					},
@@ -42,6 +43,37 @@ describe('ProfileController', () => {
 
 		controller = module.get<ProfileController>(ProfileController);
 		service = module.get(ProfileService);
+	});
+
+	describe('getMyProfile', () => {
+		it('returns a SelfProfileResponseDto including phoneNumber for req.user.sub', async () => {
+			const user = {
+				id: 'user-1',
+				phoneNumber: '+33600000001',
+				username: 'alice',
+				firstName: 'Alice',
+				lastName: null,
+				biography: null,
+				profilePictureUrl: null,
+				lastSeen: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfile.mockResolvedValue(user);
+
+			const result = await controller.getMyProfile(makeReq('user-1'));
+
+			expect(result.id).toBe('user-1');
+			expect(result.phoneNumber).toBe('+33600000001');
+			expect(result.username).toBe('alice');
+			expect((service as any).getProfile).toHaveBeenCalledWith('user-1');
+		});
+
+		it('propagates NotFoundException from the service', async () => {
+			(service as any).getProfile.mockRejectedValue(new NotFoundException('User not found'));
+
+			await expect(controller.getMyProfile(makeReq('missing-user'))).rejects.toThrow(NotFoundException);
+		});
 	});
 
 	describe('getProfile', () => {
