@@ -1,0 +1,22 @@
+# Flux de contact
+
+## Schéma complet
+
+```
+User A envoie demande
+     │
+     ▼
+┌───────────┐
+│  PENDING  │
+└─────┬─────┘
+      │
+User B répond
+      │
+ ┌────┼────┐
+ │         │
+┌▼────┐ ┌──▼──────┐
+│ACCEPT│ │ REJECT  │
+└──┬──┘ └─────────┘
+   │
+Contacts mutuels
+```
