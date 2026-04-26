@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/commo
 import Redis from 'ioredis';
 import { buildRedisOptions } from '../../config/redis.config';
 import { ConfigService } from '@nestjs/config';
+import { withStreamLogging } from '../../interceptors/stream-event.logging';
 import { SanctionsService } from '../sanctions/services/sanctions.service';
 import { AuditService } from '../audit/services/audit.service';
 
@@ -80,107 +81,112 @@ export class ModerationSubscriberService implements OnModuleInit, OnModuleDestro
 
 		const { reported_user_id, threshold_level, report_count } = payload;
 
-		this.logger.log(
-			`Processing threshold_reached: user=${reported_user_id}, level=${threshold_level}, reports=${report_count}`
-		);
-
 		try {
-			// Check if user already has an active sanction of the target type to avoid duplicates
-			const sanctionType =
-				threshold_level === 'auto_mute'
-					? 'warning'
-					: threshold_level === 'temp_ban'
-						? 'temp_ban'
-						: 'warning';
-			const existing = await this.sanctionsService.getMySanctions(reported_user_id);
-			const hasActiveSanction = existing.some((s) => s.active && s.type === sanctionType);
-			if (hasActiveSanction) {
-				this.logger.log(`User ${reported_user_id} already has active ${sanctionType}, skipping`);
-				return;
-			}
+			await withStreamLogging(
+				{
+					eventName: payload.event,
+					channel: CHANNEL,
+					messageId: reported_user_id,
+				},
+				async () => {
+					// Check if user already has an active sanction of the target type to avoid duplicates
+					const sanctionType =
+						threshold_level === 'auto_mute'
+							? 'warning'
+							: threshold_level === 'temp_ban'
+								? 'temp_ban'
+								: 'warning';
+					const existing = await this.sanctionsService.getMySanctions(reported_user_id);
+					const hasActiveSanction = existing.some((s) => s.active && s.type === sanctionType);
+					if (hasActiveSanction) {
+						this.logger.log(
+							`User ${reported_user_id} already has active ${sanctionType}, skipping`
+						);
+						return;
+					}
 
-			switch (threshold_level) {
-				case 'auto_mute': {
-					const reason = `Auto-escalation: ${report_count} reports received`;
-					const sanction = await this.sanctionsService.createAutoSanction(
-						reported_user_id,
-						'warning',
-						reason
-					);
-					await this.auditService.log(
-						SYSTEM_ACTOR,
-						'auto_sanction_warning',
-						'user',
-						reported_user_id,
-						{
-							sanction_id: sanction.id,
-							threshold_level,
-							report_count,
+					switch (threshold_level) {
+						case 'auto_mute': {
+							const reason = `Auto-escalation: ${report_count} reports received`;
+							const sanction = await this.sanctionsService.createAutoSanction(
+								reported_user_id,
+								'warning',
+								reason
+							);
+							await this.auditService.log(
+								SYSTEM_ACTOR,
+								'auto_sanction_warning',
+								'user',
+								reported_user_id,
+								{
+									sanction_id: sanction.id,
+									threshold_level,
+									report_count,
+								}
+							);
+							this.logger.log(`Warning sanction created for user ${reported_user_id}`);
+							break;
 						}
-					);
-					this.logger.log(`Warning sanction created for user ${reported_user_id}`);
-					break;
-				}
 
-				case 'temp_ban': {
-					const expiresAt = new Date();
-					expiresAt.setDate(expiresAt.getDate() + TEMP_BAN_DAYS);
-					const reason = `Auto-escalation: ${report_count} reports received - temporary ban (${TEMP_BAN_DAYS} days)`;
-					const sanction = await this.sanctionsService.createAutoSanction(
-						reported_user_id,
-						'temp_ban',
-						reason,
-						expiresAt
-					);
-					await this.auditService.log(
-						SYSTEM_ACTOR,
-						'auto_sanction_temp_ban',
-						'user',
-						reported_user_id,
-						{
-							sanction_id: sanction.id,
-							threshold_level,
-							report_count,
-							expires_at: expiresAt.toISOString(),
+						case 'temp_ban': {
+							const expiresAt = new Date();
+							expiresAt.setDate(expiresAt.getDate() + TEMP_BAN_DAYS);
+							const reason = `Auto-escalation: ${report_count} reports received - temporary ban (${TEMP_BAN_DAYS} days)`;
+							const sanction = await this.sanctionsService.createAutoSanction(
+								reported_user_id,
+								'temp_ban',
+								reason,
+								expiresAt
+							);
+							await this.auditService.log(
+								SYSTEM_ACTOR,
+								'auto_sanction_temp_ban',
+								'user',
+								reported_user_id,
+								{
+									sanction_id: sanction.id,
+									threshold_level,
+									report_count,
+									expires_at: expiresAt.toISOString(),
+								}
+							);
+							this.logger.log(
+								`Temp ban sanction created for user ${reported_user_id} (expires ${expiresAt.toISOString()})`
+							);
+							break;
 						}
-					);
-					this.logger.log(
-						`Temp ban sanction created for user ${reported_user_id} (expires ${expiresAt.toISOString()})`
-					);
-					break;
-				}
 
-				case 'permanent_review': {
-					const reason = `Auto-escalation: ${report_count} reports received - flagged for admin review (permanent ban consideration)`;
-					const sanction = await this.sanctionsService.createAutoSanction(
-						reported_user_id,
-						'warning',
-						reason
-					);
-					await this.auditService.log(
-						SYSTEM_ACTOR,
-						'auto_sanction_permanent_review',
-						'user',
-						reported_user_id,
-						{
-							sanction_id: sanction.id,
-							threshold_level,
-							report_count,
-							requires_admin_review: true,
+						case 'permanent_review': {
+							const reason = `Auto-escalation: ${report_count} reports received - flagged for admin review (permanent ban consideration)`;
+							const sanction = await this.sanctionsService.createAutoSanction(
+								reported_user_id,
+								'warning',
+								reason
+							);
+							await this.auditService.log(
+								SYSTEM_ACTOR,
+								'auto_sanction_permanent_review',
+								'user',
+								reported_user_id,
+								{
+									sanction_id: sanction.id,
+									threshold_level,
+									report_count,
+									requires_admin_review: true,
+								}
+							);
+							this.logger.log(`Permanent review warning created for user ${reported_user_id}`);
+							break;
 						}
-					);
-					this.logger.log(`Permanent review warning created for user ${reported_user_id}`);
-					break;
-				}
 
-				default:
-					this.logger.warn(`Unknown threshold_level: ${threshold_level}`);
-			}
-		} catch (err) {
-			this.logger.error(
-				`Failed to process auto-escalation for user ${reported_user_id} (level=${threshold_level})`,
-				err instanceof Error ? err.stack : err
+						default:
+							this.logger.warn(`Unknown threshold_level: ${threshold_level}`);
+					}
+				}
 			);
+		} catch {
+			// withStreamLogging a déjà tracé "Failed ..."; le Pub/Sub n'a pas de replay,
+			// on absorbe l'erreur pour ne pas tuer le subscriber sur le message suivant.
 		}
 	}
 }
