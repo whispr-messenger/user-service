@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/commo
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
 import { buildRedisOptions } from '../../../config/redis.config';
+import { withStreamLogging } from '../../../interceptors/stream-event.logging';
 import { USER_REGISTERED_PATTERN, UserRegisteredEvent } from '../../shared/events';
 import { AccountsService } from './accounts.service';
 
@@ -181,16 +182,23 @@ export class UserRegisteredStreamConsumer implements OnModuleInit, OnModuleDestr
 		let acked = 0;
 		for (const [id, fields] of messages) {
 			try {
-				const event = parseUserRegisteredFields(fields);
-				await this.accountsService.createFromEvent(event);
-				await client.xack(STREAM, GROUP, id);
-				this.logger.log(`XACK ${id} userId=${event.userId}`);
-				acked++;
-			} catch (err) {
-				this.logger.error(
-					`Failed to process ${id}; leaving pending for retry`,
-					err instanceof Error ? err.stack : String(err)
+				await withStreamLogging(
+					{
+						eventName: USER_REGISTERED_PATTERN,
+						stream: STREAM,
+						group: GROUP,
+						messageId: id,
+					},
+					async () => {
+						const event = parseUserRegisteredFields(fields);
+						await this.accountsService.createFromEvent(event);
+						await client.xack(STREAM, GROUP, id);
+					}
 				);
+				acked++;
+			} catch {
+				// withStreamLogging a déjà tracé "Failed ..."; on n'XACK pas afin que
+				// le message reste dans la PEL et soit rejoué par drainPending.
 			}
 		}
 		return acked;
