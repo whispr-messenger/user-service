@@ -341,4 +341,47 @@ describe('Functional E2E Scenarios', () => {
 				.expect(400);
 		});
 	});
+
+	// Scenario 7: Search endpoints return a JSON envelope { user } even when no user matches
+	describe('Scenario 7: GET /search/{username,phone} envelope response', () => {
+		it('returns { user: null } as valid JSON when no username matches', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/username?username=does-not-exist')
+				.set(asUser(USER_A_ID))
+				.expect(200)
+				.expect('Content-Type', /application\/json/);
+
+			expect(res.body).toEqual({ user: null });
+			expect(res.text.length).toBeGreaterThan(0);
+		});
+
+		it('returns { user: null } as valid JSON when no phone number matches', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/phone?phoneNumber=%2B33699999999')
+				.set(asUser(USER_A_ID))
+				.expect(200)
+				.expect('Content-Type', /application\/json/);
+
+			expect(res.body).toEqual({ user: null });
+			expect(res.text.length).toBeGreaterThan(0);
+		});
+
+		it('wraps the matched user in { user } when username search succeeds', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/username?username=bob')
+				.set(asUser(USER_A_ID))
+				.expect(200);
+
+			expect(res.body.user).toBeDefined();
+			expect(res.body.user.id).toBe(USER_B_ID);
+			expect(res.body.user.username).toBe('bob');
+		});
+	});
 });
