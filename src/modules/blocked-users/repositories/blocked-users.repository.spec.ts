@@ -7,6 +7,7 @@ const mockTypeormRepo = {
 	findOne: jest.fn(),
 	find: jest.fn(),
 	remove: jest.fn(),
+	exists: jest.fn(),
 };
 
 describe('BlockedUsersRepository', () => {
@@ -77,6 +78,30 @@ describe('BlockedUsersRepository', () => {
 			await repo.remove(row);
 
 			expect(mockTypeormRepo.remove).toHaveBeenCalledWith(row);
+		});
+	});
+
+	describe('existsEitherDirection', () => {
+		it('returns true when a block exists in either direction', async () => {
+			mockTypeormRepo.exists.mockResolvedValue(true);
+
+			const result = await repo.existsEitherDirection('user-a', 'user-b');
+
+			expect(mockTypeormRepo.exists).toHaveBeenCalledWith({
+				where: [
+					{ blockerId: 'user-a', blockedId: 'user-b' },
+					{ blockerId: 'user-b', blockedId: 'user-a' },
+				],
+			});
+			expect(result).toBe(true);
+		});
+
+		it('returns false when no block exists', async () => {
+			mockTypeormRepo.exists.mockResolvedValue(false);
+
+			const result = await repo.existsEitherDirection('user-a', 'user-b');
+
+			expect(result).toBe(false);
 		});
 	});
 
