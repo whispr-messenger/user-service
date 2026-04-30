@@ -16,6 +16,7 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		'JWT_ISSUER',
 		'JWT_AUDIENCE',
 		'MEDIA_SERVICE_URL',
+		'INTERNAL_API_TOKEN',
 	],
 	optional: [
 		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
