@@ -7,6 +7,7 @@ const mockTypeormRepo = {
 	findOne: jest.fn(),
 	find: jest.fn(),
 	remove: jest.fn(),
+	exists: jest.fn(),
 };
 
 describe('BlockedUsersRepository', () => {
@@ -81,35 +82,22 @@ describe('BlockedUsersRepository', () => {
 	});
 
 	describe('existsEitherDirection', () => {
-		const mockQb = {
-			where: jest.fn().mockReturnThis(),
-			limit: jest.fn().mockReturnThis(),
-			getCount: jest.fn(),
-		};
-
-		beforeEach(() => {
-			(mockTypeormRepo as any).createQueryBuilder = jest.fn().mockReturnValue(mockQb);
-			mockQb.where.mockClear();
-			mockQb.limit.mockClear();
-			mockQb.getCount.mockClear();
-			mockQb.where.mockReturnValue(mockQb);
-			mockQb.limit.mockReturnValue(mockQb);
-		});
-
 		it('returns true when a block exists in either direction', async () => {
-			mockQb.getCount.mockResolvedValue(1);
+			mockTypeormRepo.exists.mockResolvedValue(true);
 
 			const result = await repo.existsEitherDirection('user-a', 'user-b');
 
-			expect(mockQb.where).toHaveBeenCalledWith(expect.any(String), {
-				userA: 'user-a',
-				userB: 'user-b',
+			expect(mockTypeormRepo.exists).toHaveBeenCalledWith({
+				where: [
+					{ blockerId: 'user-a', blockedId: 'user-b' },
+					{ blockerId: 'user-b', blockedId: 'user-a' },
+				],
 			});
 			expect(result).toBe(true);
 		});
 
 		it('returns false when no block exists', async () => {
-			mockQb.getCount.mockResolvedValue(0);
+			mockTypeormRepo.exists.mockResolvedValue(false);
 
 			const result = await repo.existsEitherDirection('user-a', 'user-b');
 

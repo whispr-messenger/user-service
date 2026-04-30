@@ -33,15 +33,12 @@ export class BlockedUsersRepository {
 	}
 
 	async existsEitherDirection(userA: string, userB: string): Promise<boolean> {
-		const count = await this.repo
-			.createQueryBuilder('blocked')
-			.where(
-				'(blocked.blockerId = :userA AND blocked.blockedId = :userB) OR (blocked.blockerId = :userB AND blocked.blockedId = :userA)',
-				{ userA, userB }
-			)
-			.limit(1)
-			.getCount();
-		return count > 0;
+		return this.repo.exists({
+			where: [
+				{ blockerId: userA, blockedId: userB },
+				{ blockerId: userB, blockedId: userA },
+			],
+		});
 	}
 
 	async create(blockerId: string, blockedId: string): Promise<BlockedUser> {

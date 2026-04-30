@@ -45,8 +45,10 @@ class TestJwtStrategy extends PassportStrategy(Strategy) {
 describe('Functional E2E Scenarios', () => {
 	let app: INestApplication;
 	let dataSource: DataSource;
+	let previousInternalToken: string | undefined;
 
 	beforeAll(async () => {
+		previousInternalToken = process.env.INTERNAL_API_TOKEN;
 		process.env.INTERNAL_API_TOKEN = INTERNAL_TOKEN;
 		const moduleFixture: TestingModule = await Test.createTestingModule({
 			imports: [AppModule],
@@ -86,6 +88,11 @@ describe('Functional E2E Scenarios', () => {
 
 	afterAll(async () => {
 		if (app) await app.close();
+		if (previousInternalToken === undefined) {
+			delete process.env.INTERNAL_API_TOKEN;
+		} else {
+			process.env.INTERNAL_API_TOKEN = previousInternalToken;
+		}
 	});
 
 	beforeEach(async () => {
