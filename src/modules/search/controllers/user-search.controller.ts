@@ -7,6 +7,7 @@ import { BatchPhoneSearchDto } from '../dto/batch-phone-search.dto';
 import { PhoneSearchQueryDto } from '../dto/phone-search-query.dto';
 import { NameSearchQueryDto } from '../dto/name-search-query.dto';
 import { UsernameSearchQueryDto } from '../dto/username-search-query.dto';
+import { UserSearchResponseDto } from '../dto/user-search-response.dto';
 
 const SEARCH_THROTTLE_TTL_MS = 60_000;
 const SEARCH_THROTTLE_LIMIT = 20;
@@ -21,10 +22,14 @@ export class UserSearchController {
 	@Get('phone')
 	@ApiOperation({ summary: 'Search user by phone number' })
 	@ApiQuery({ name: 'phoneNumber', type: 'string', description: 'E.164 phone number' })
-	@ApiResponse({ status: HttpStatus.OK, description: 'User found or null' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Envelope { user } — user is null when no match',
+		type: UserSearchResponseDto,
+	})
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async searchByPhone(@Query() dto: PhoneSearchQueryDto): Promise<User | null> {
-		return this.userSearchService.searchByPhone(dto.phoneNumber);
+	async searchByPhone(@Query() dto: PhoneSearchQueryDto): Promise<UserSearchResponseDto> {
+		return { user: await this.userSearchService.searchByPhone(dto.phoneNumber) };
 	}
 
 	@Post('phone/batch')
@@ -38,11 +43,15 @@ export class UserSearchController {
 	@Get('username')
 	@ApiOperation({ summary: 'Search user by username' })
 	@ApiQuery({ name: 'username', type: 'string', description: 'Username (1-64 chars)' })
-	@ApiResponse({ status: HttpStatus.OK, description: 'User found or null' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Envelope { user } — user is null when no match',
+		type: UserSearchResponseDto,
+	})
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid or missing username' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async searchByUsername(@Query() dto: UsernameSearchQueryDto): Promise<User | null> {
-		return this.userSearchService.searchByUsername(dto.username);
+	async searchByUsername(@Query() dto: UsernameSearchQueryDto): Promise<UserSearchResponseDto> {
+		return { user: await this.userSearchService.searchByUsername(dto.username) };
 	}
 
 	@Get('name')

@@ -29,14 +29,22 @@ describe('UserSearchController', () => {
 	});
 
 	describe('searchByPhone', () => {
-		it('delegates to the service', async () => {
+		it('wraps the matched user in a { user } envelope', async () => {
 			const user = { id: 'u1' } as User;
 			service.searchByPhone.mockResolvedValue(user);
 
 			const result = await controller.searchByPhone({ phoneNumber: '+33600000000' });
 
-			expect(result).toBe(user);
+			expect(result).toEqual({ user });
 			expect(service.searchByPhone).toHaveBeenCalledWith('+33600000000');
+		});
+
+		it('returns { user: null } when no user matches', async () => {
+			service.searchByPhone.mockResolvedValue(null);
+
+			const result = await controller.searchByPhone({ phoneNumber: '+33600000000' });
+
+			expect(result).toEqual({ user: null });
 		});
 	});
 
@@ -54,14 +62,22 @@ describe('UserSearchController', () => {
 	});
 
 	describe('searchByUsername', () => {
-		it('delegates to the service', async () => {
+		it('wraps the matched user in a { user } envelope', async () => {
 			const user = { id: 'u1' } as User;
 			service.searchByUsername.mockResolvedValue(user);
 
 			const result = await controller.searchByUsername({ username: 'alice' });
 
-			expect(result).toBe(user);
+			expect(result).toEqual({ user });
 			expect(service.searchByUsername).toHaveBeenCalledWith('alice');
+		});
+
+		it('returns { user: null } when no user matches', async () => {
+			service.searchByUsername.mockResolvedValue(null);
+
+			const result = await controller.searchByUsername({ username: 'alice' });
+
+			expect(result).toEqual({ user: null });
 		});
 	});
 
