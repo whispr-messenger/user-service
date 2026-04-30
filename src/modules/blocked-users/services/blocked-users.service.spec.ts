@@ -51,6 +51,7 @@ describe('BlockedUsersService', () => {
 						findOne: jest.fn(),
 						create: jest.fn(),
 						remove: jest.fn(),
+						existsEitherDirection: jest.fn(),
 					},
 				},
 			],
@@ -152,6 +153,25 @@ describe('BlockedUsersService', () => {
 			await expect(service.blockUser('uuid-1', { blockedId: 'uuid-2' })).rejects.toThrow(
 				ConflictException
 			);
+		});
+	});
+
+	describe('isBlockedEitherWay', () => {
+		it('delegates to repository.existsEitherDirection and returns the result', async () => {
+			blockedUsersRepository.existsEitherDirection.mockResolvedValue(true);
+
+			const result = await service.isBlockedEitherWay('uuid-1', 'uuid-2');
+
+			expect(blockedUsersRepository.existsEitherDirection).toHaveBeenCalledWith('uuid-1', 'uuid-2');
+			expect(result).toBe(true);
+		});
+
+		it('returns false when no block exists in either direction', async () => {
+			blockedUsersRepository.existsEitherDirection.mockResolvedValue(false);
+
+			const result = await service.isBlockedEitherWay('uuid-1', 'uuid-2');
+
+			expect(result).toBe(false);
 		});
 	});
 

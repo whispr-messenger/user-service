@@ -1,5 +1,5 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
@@ -58,7 +58,9 @@ export async function bootstrap() {
 	app.use(json({ limit: '2mb' }));
 	app.use(urlencoded({ limit: '2mb', extended: true }));
 
-	app.setGlobalPrefix(globalPrefix);
+	app.setGlobalPrefix(globalPrefix, {
+		exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
+	});
 
 	app.enableVersioning({
 		type: VersioningType.URI,
