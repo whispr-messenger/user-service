@@ -80,6 +80,43 @@ describe('BlockedUsersRepository', () => {
 		});
 	});
 
+	describe('existsEitherDirection', () => {
+		const mockQb = {
+			where: jest.fn().mockReturnThis(),
+			limit: jest.fn().mockReturnThis(),
+			getCount: jest.fn(),
+		};
+
+		beforeEach(() => {
+			(mockTypeormRepo as any).createQueryBuilder = jest.fn().mockReturnValue(mockQb);
+			mockQb.where.mockClear();
+			mockQb.limit.mockClear();
+			mockQb.getCount.mockClear();
+			mockQb.where.mockReturnValue(mockQb);
+			mockQb.limit.mockReturnValue(mockQb);
+		});
+
+		it('returns true when a block exists in either direction', async () => {
+			mockQb.getCount.mockResolvedValue(1);
+
+			const result = await repo.existsEitherDirection('user-a', 'user-b');
+
+			expect(mockQb.where).toHaveBeenCalledWith(expect.any(String), {
+				userA: 'user-a',
+				userB: 'user-b',
+			});
+			expect(result).toBe(true);
+		});
+
+		it('returns false when no block exists', async () => {
+			mockQb.getCount.mockResolvedValue(0);
+
+			const result = await repo.existsEitherDirection('user-a', 'user-b');
+
+			expect(result).toBe(false);
+		});
+	});
+
 	describe('findAllByBlockerPaginated', () => {
 		const mockQb = {
 			leftJoinAndSelect: jest.fn().mockReturnThis(),

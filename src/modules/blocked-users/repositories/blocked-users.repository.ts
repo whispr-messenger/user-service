@@ -32,6 +32,18 @@ export class BlockedUsersRepository {
 		return this.repo.findOne({ where: { blockerId, blockedId } });
 	}
 
+	async existsEitherDirection(userA: string, userB: string): Promise<boolean> {
+		const count = await this.repo
+			.createQueryBuilder('blocked')
+			.where(
+				'(blocked.blockerId = :userA AND blocked.blockedId = :userB) OR (blocked.blockerId = :userB AND blocked.blockedId = :userA)',
+				{ userA, userB }
+			)
+			.limit(1)
+			.getCount();
+		return count > 0;
+	}
+
 	async create(blockerId: string, blockedId: string): Promise<BlockedUser> {
 		const blockedUser = this.repo.create({ blockerId, blockedId });
 		return this.repo.save(blockedUser);

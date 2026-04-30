@@ -24,6 +24,7 @@ import { ModerationSubscriberModule } from './moderation-subscriber/moderation-s
 import { ReputationModule } from './reputation/reputation.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { BackupsModule } from './backups/backups.module';
+import { InternalModule } from './internal/internal.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -58,6 +59,7 @@ const GLOBAL_THROTTLE_LIMIT = 300;
 		ReputationModule,
 		WebhooksModule,
 		BackupsModule,
+		InternalModule,
 	],
 	providers: [
 		{

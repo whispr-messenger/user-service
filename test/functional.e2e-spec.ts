@@ -1,6 +1,6 @@
 import * as jwt from 'jsonwebtoken';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AppModule } from '../src/modules/app.module';
@@ -14,6 +14,7 @@ const request = require('supertest');
 const JWT_SECRET = 'test-e2e-secret';
 const JWT_ISSUER = 'test-issuer';
 const JWT_AUDIENCE = 'test-audience';
+const INTERNAL_TOKEN = 'test-internal-token';
 const USER_A_ID = 'a0000000-0000-4000-a000-000000000001';
 const USER_B_ID = 'b0000000-0000-4000-b000-000000000002';
 
@@ -46,6 +47,7 @@ describe('Functional E2E Scenarios', () => {
 	let dataSource: DataSource;
 
 	beforeAll(async () => {
+		process.env.INTERNAL_API_TOKEN = INTERNAL_TOKEN;
 		const moduleFixture: TestingModule = await Test.createTestingModule({
 			imports: [AppModule],
 		})
@@ -62,7 +64,9 @@ describe('Functional E2E Scenarios', () => {
 			.compile();
 
 		app = moduleFixture.createNestApplication();
-		app.setGlobalPrefix('user');
+		app.setGlobalPrefix('user', {
+			exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
+		});
 		app.enableVersioning({
 			type: VersioningType.URI,
 			defaultVersion: '1',
@@ -274,6 +278,60 @@ describe('Functional E2E Scenarios', () => {
 				.expect(200);
 
 			expect(verifyRes.body.searchByPhone).toBe(false);
+		});
+	});
+
+	// Scenario 6: Internal contact-check endpoint (machine-to-machine)
+	describe('Scenario 6: Internal /internal/v1/contacts/check (M2M)', () => {
+		const internalHeader = { 'x-internal-token': INTERNAL_TOKEN };
+
+		it('returns isContact:true and isBlocked:false for an existing contact relationship', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			// Establish the contact relationship through the public flow
+			const sendRes = await request(app.getHttpServer())
+				.post('/user/v1/contact-requests')
+				.set(asUser(USER_A_ID))
+				.send({ contactId: USER_B_ID })
+				.expect(201);
+
+			await request(app.getHttpServer())
+				.patch(`/user/v1/contact-requests/${sendRes.body.id}/accept`)
+				.set(asUser(USER_B_ID))
+				.expect(200);
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body).toEqual({ isContact: true, isBlocked: false });
+		});
+
+		it('returns 200 with isContact:false when no contact row exists', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body).toEqual({ isContact: false, isBlocked: false });
+		});
+
+		it('returns 401 when the internal token header is missing', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.expect(401);
+		});
+
+		it('returns 400 when ownerId is not a UUID', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=not-a-uuid&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(400);
 		});
 	});
 });
