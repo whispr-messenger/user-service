@@ -43,6 +43,88 @@ describe('MediaClientService', () => {
 		});
 	});
 
+	describe('presignProfilePictureUrl', () => {
+		it('returns the presigned URL from media-service when Authorization is provided', async () => {
+			mockFetch.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					url: 'https://minio.example/avatars/media-1?X-Amz-Signature=abc',
+					expiresAt: '2026-05-01T00:00:00Z',
+				}),
+			});
+
+			const url = await service.presignProfilePictureUrl('media-1', 'Bearer token-xyz');
+
+			expect(url).toBe('https://minio.example/avatars/media-1?X-Amz-Signature=abc');
+			expect(mockFetch).toHaveBeenCalledWith(
+				'http://media-service:3000/media/v1/media-1/blob',
+				expect.objectContaining({
+					method: 'GET',
+					headers: expect.objectContaining({
+						Authorization: 'Bearer token-xyz',
+					}),
+				})
+			);
+		});
+
+		it('falls back to the blob endpoint URL when no Authorization is provided', async () => {
+			const url = await service.presignProfilePictureUrl('media-1');
+
+			expect(url).toBe('http://media-service:3000/media/v1/media-1/blob');
+			expect(mockFetch).not.toHaveBeenCalled();
+		});
+
+		it('falls back to the blob endpoint URL when media-service is unreachable', async () => {
+			mockFetch.mockRejectedValue(new Error('ECONNREFUSED'));
+
+			const url = await service.presignProfilePictureUrl('media-1', 'Bearer token-xyz');
+
+			expect(url).toBe('http://media-service:3000/media/v1/media-1/blob');
+		});
+
+		it('falls back to the blob endpoint URL on a non-2xx response', async () => {
+			mockFetch.mockResolvedValue({
+				ok: false,
+				status: 500,
+			});
+
+			const url = await service.presignProfilePictureUrl('media-1', 'Bearer token-xyz');
+
+			expect(url).toBe('http://media-service:3000/media/v1/media-1/blob');
+		});
+
+		it('caches the presigned URL across calls within the TTL window', async () => {
+			mockFetch.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({
+					url: 'https://minio.example/avatars/cached?sig=1',
+					expiresAt: null,
+				}),
+			});
+
+			const first = await service.presignProfilePictureUrl('cached', 'Bearer t');
+			const second = await service.presignProfilePictureUrl('cached', 'Bearer t');
+
+			expect(first).toBe('https://minio.example/avatars/cached?sig=1');
+			expect(second).toBe(first);
+			expect(mockFetch).toHaveBeenCalledTimes(1);
+		});
+
+		it('falls back when the response body has no url field', async () => {
+			mockFetch.mockResolvedValue({
+				ok: true,
+				status: 200,
+				json: async () => ({ expiresAt: null }),
+			});
+
+			const url = await service.presignProfilePictureUrl('media-1', 'Bearer t');
+
+			expect(url).toBe('http://media-service:3000/media/v1/media-1/blob');
+		});
+	});
+
 	describe('getMediaMetadata', () => {
 		const validBody = {
 			id: 'media-1',
