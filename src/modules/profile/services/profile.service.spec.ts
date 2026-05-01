@@ -81,6 +81,11 @@ describe('ProfileService', () => {
 							.mockImplementation(
 								(id: string) => `http://media-service:3000/media/v1/${id}/blob`
 							),
+						presignProfilePictureUrl: jest
+							.fn()
+							.mockImplementation(
+								async (id: string) => `http://media-service:3000/media/v1/${id}/blob`
+							),
 					},
 				},
 				{
@@ -140,13 +145,31 @@ describe('ProfileService', () => {
 			const result = await service.getProfile('uuid-1');
 
 			expect(result.profilePictureUrl).toBeNull();
-			expect(mediaClient.resolveProfilePictureUrl).not.toHaveBeenCalled();
+			expect(mediaClient.presignProfilePictureUrl).not.toHaveBeenCalled();
 		});
 
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
 			await expect(service.getProfile('uuid-1')).rejects.toThrow(NotFoundException);
+		});
+
+		it('forwards the Authorization header to the media client when presigning', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+			(mediaClient.presignProfilePictureUrl as jest.Mock).mockResolvedValue(
+				'https://minio.example/avatars/media-uuid-1?X-Amz-Signature=abc'
+			);
+
+			const result = await service.getProfile('uuid-1', 'Bearer token-123');
+
+			expect(mediaClient.presignProfilePictureUrl).toHaveBeenCalledWith(
+				'media-uuid-1',
+				'Bearer token-123'
+			);
+			expect(result.profilePictureUrl).toBe(
+				'https://minio.example/avatars/media-uuid-1?X-Amz-Signature=abc'
+			);
 		});
 	});
 
@@ -349,7 +372,7 @@ describe('ProfileService', () => {
 			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
 
 			expect(result.profilePictureUrl).toBeNull();
-			expect(mediaClient.resolveProfilePictureUrl).not.toHaveBeenCalled();
+			expect(mediaClient.presignProfilePictureUrl).not.toHaveBeenCalled();
 		});
 
 		it('returns full profile when all fields are set to EVERYONE', async () => {

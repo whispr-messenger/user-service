@@ -66,13 +66,29 @@ describe('ProfileController', () => {
 			expect(result.id).toBe('user-1');
 			expect(result.phoneNumber).toBe('+33600000001');
 			expect(result.username).toBe('alice');
-			expect((service as any).getProfile).toHaveBeenCalledWith('user-1');
+			expect((service as any).getProfile).toHaveBeenCalledWith('user-1', undefined);
 		});
 
 		it('propagates NotFoundException from the service', async () => {
 			(service as any).getProfile.mockRejectedValue(new NotFoundException('User not found'));
 
 			await expect(controller.getMyProfile(makeReq('missing-user'))).rejects.toThrow(NotFoundException);
+		});
+
+		it('forwards the Authorization header so avatar URLs can be presigned', async () => {
+			const user = {
+				id: 'user-1',
+				phoneNumber: '+33600000001',
+				username: 'alice',
+				profilePictureUrl: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfile.mockResolvedValue(user);
+
+			await controller.getMyProfile(makeReq('user-1', 'Bearer token-xyz'));
+
+			expect((service as any).getProfile).toHaveBeenCalledWith('user-1', 'Bearer token-xyz');
 		});
 	});
 
@@ -91,7 +107,30 @@ describe('ProfileController', () => {
 			expect(result.id).toBe('user-1');
 			expect(result.username).toBe('alice');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith('user-1', 'requester-1');
+			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith(
+				'user-1',
+				'requester-1',
+				undefined
+			);
+		});
+
+		it('forwards the Authorization header so avatar URLs can be presigned', async () => {
+			const user = {
+				id: 'user-1',
+				username: 'alice',
+				profilePictureUrl: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfileWithPrivacy.mockResolvedValue(user);
+
+			await controller.getProfile('user-1', makeReq('requester-1', 'Bearer token-xyz'));
+
+			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith(
+				'user-1',
+				'requester-1',
+				'Bearer token-xyz'
+			);
 		});
 	});
 

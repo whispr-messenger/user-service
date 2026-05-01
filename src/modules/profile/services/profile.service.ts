@@ -36,20 +36,30 @@ export class ProfileService {
 		return user;
 	}
 
-	public async getProfile(id: string): Promise<User> {
+	public async getProfile(id: string, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
 		if (user.profilePictureUrl) {
-			user.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(user.profilePictureUrl);
+			user.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				user.profilePictureUrl,
+				authorization
+			);
 		}
 		return user;
 	}
 
-	public async getProfileWithPrivacy(id: string, requesterId: string): Promise<User> {
+	public async getProfileWithPrivacy(
+		id: string,
+		requesterId: string,
+		authorization?: string
+	): Promise<User> {
 		const user = await this.findOne(id);
 
 		if (requesterId === id) {
 			if (user.profilePictureUrl) {
-				user.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(user.profilePictureUrl);
+				user.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+					user.profilePictureUrl,
+					authorization
+				);
 			}
 			return user;
 		}
@@ -70,7 +80,10 @@ export class ProfileService {
 		if (!canSee(settings.profilePicturePrivacy)) masked.profilePictureUrl = null;
 		if (!canSee(settings.lastSeenPrivacy)) masked.lastSeen = null;
 		if (masked.profilePictureUrl) {
-			masked.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(masked.profilePictureUrl);
+			masked.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				masked.profilePictureUrl,
+				authorization
+			);
 		}
 		return masked;
 	}
@@ -122,7 +135,10 @@ export class ProfileService {
 		}
 
 		if (saved.profilePictureUrl) {
-			saved.profilePictureUrl = this.mediaClient.resolveProfilePictureUrl(saved.profilePictureUrl);
+			saved.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				saved.profilePictureUrl,
+				authorization
+			);
 		}
 		return saved;
 	}
