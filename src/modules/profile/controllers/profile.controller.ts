@@ -28,7 +28,8 @@ export class ProfileController {
 	async getMyProfile(
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<SelfProfileResponseDto> {
-		const user = await this.profileService.getProfile(req.user.sub);
+		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
+		const user = await this.profileService.getProfile(req.user.sub, authorization);
 		return SelfProfileResponseDto.fromEntity(user);
 	}
 
@@ -48,7 +49,8 @@ export class ProfileController {
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	): Promise<UserResponseDto> {
 		const requesterId: string = req.user?.sub ?? '';
-		const user = await this.profileService.getProfileWithPrivacy(id, requesterId);
+		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
+		const user = await this.profileService.getProfileWithPrivacy(id, requesterId, authorization);
 		return UserResponseDto.fromEntity(user);
 	}
 
