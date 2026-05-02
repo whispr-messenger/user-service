@@ -55,7 +55,11 @@ describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
+	let searchIndexService: {
+		indexUser: jest.Mock;
+		removeUserFromIndex: jest.Mock;
+		updateUserIndex: jest.Mock;
+	};
 	let privacyService: { getSettings: jest.Mock };
 	let contactsService: { isContact: jest.Mock };
 
@@ -93,6 +97,7 @@ describe('ProfileService', () => {
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
 						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
+						updateUserIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 				{
@@ -218,7 +223,7 @@ describe('ProfileService', () => {
 			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
 		});
 
-		it('indexes user in search when username is updated', async () => {
+		it('reconciles search indexes via updateUserIndex when a username is set', async () => {
 			const user = mockUser();
 			const dto: UpdateProfileDto = { username: 'alice' };
 			const saved = { ...user, username: 'alice' } as User;
@@ -229,10 +234,13 @@ describe('ProfileService', () => {
 
 			await service.updateProfile('uuid-1', dto);
 
-			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ id: user.id, username: null }),
+				saved
+			);
 		});
 
-		it('removes old index entries when username changes', async () => {
+		it('passes both prev and next snapshots when username changes', async () => {
 			const user = { ...mockUser(), username: 'old-name' } as User;
 			const dto: UpdateProfileDto = { username: 'new-name' };
 			const saved = { ...user, username: 'new-name' } as User;
@@ -243,9 +251,49 @@ describe('ProfileService', () => {
 
 			await service.updateProfile('uuid-1', dto);
 
-			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(
-				expect.objectContaining({ username: 'old-name' })
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ username: 'old-name' }),
+				expect.objectContaining({ username: 'new-name' })
 			);
+		});
+
+		// WHISPR-1271 — the legacy indexUser+removeUserFromIndex pair would
+		// HDEL/DEL keys it had just rewritten when only firstName changed.
+		// The fix routes through updateUserIndex; the legacy pair must never fire.
+		it('does not call legacy indexUser/removeUserFromIndex when only firstName changes', async () => {
+			const user = { ...mockUser(), firstName: 'Alice' } as User;
+			const dto: UpdateProfileDto = { firstName: 'Alicia' };
+			const saved = { ...user, firstName: 'Alicia' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.indexUser).not.toHaveBeenCalled();
+			expect(searchIndexService.removeUserFromIndex).not.toHaveBeenCalled();
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ firstName: 'Alice' }),
+				expect.objectContaining({ firstName: 'Alicia' })
+			);
+		});
+
+		// WHISPR-1271 — guard against re-introducing an `if` that fires the
+		// reconciliation for biography-only / no-name updates (would burn a
+		// Redis pipeline for nothing and risk re-introducing the wipe bug).
+		it('does not touch search indexes when no name/username/lastName changes', async () => {
+			const user = { ...mockUser(), firstName: 'Alice', username: 'alice' } as User;
+			const dto: UpdateProfileDto = { biography: 'Hello world' };
+			const saved = { ...user, biography: 'Hello world' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.updateUserIndex).not.toHaveBeenCalled();
+			expect(searchIndexService.indexUser).not.toHaveBeenCalled();
+			expect(searchIndexService.removeUserFromIndex).not.toHaveBeenCalled();
 		});
 
 		it('swallows search indexing errors without failing the update', async () => {
@@ -255,7 +303,7 @@ describe('ProfileService', () => {
 
 			userRepository.findById.mockResolvedValue(user);
 			userRepository.save.mockResolvedValue(saved);
-			searchIndexService.indexUser.mockRejectedValue(new Error('Redis down'));
+			searchIndexService.updateUserIndex.mockRejectedValue(new Error('Redis down'));
 
 			const result = await service.updateProfile('uuid-1', dto);
 
