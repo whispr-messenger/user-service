@@ -160,6 +160,96 @@ describe('SearchIndexService', () => {
 		});
 	});
 
+	// WHISPR-1271 — the legacy pair `indexUser + removeUserFromIndex` would
+	// HDEL/DEL keys it had just (re)written when phone/userId/unchanged
+	// username were involved. `updateUserIndex` must only emit the commands
+	// strictly needed for the diff between `prev` and `next`.
+	describe('updateUserIndex', () => {
+		it('only re-writes the phone index and user cache when phone is unchanged', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const prev = makeUser({ firstName: 'Alice' });
+			const next = makeUser({ firstName: 'Alicia' });
+
+			await service.updateUserIndex(prev, next);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands).toContainEqual(['hset', 'search:phone', next.phoneNumber, next.id]);
+			expect(commands.some((cmd: any[]) => cmd[0] === 'hdel' && cmd[1] === 'search:phone')).toBe(false);
+			expect(
+				commands.some((cmd: any[]) => cmd[0] === 'del' && String(cmd[1]).startsWith('user:cache:'))
+			).toBe(false);
+		});
+
+		it('emits exactly HDEL old + HSET new when username changes alice → alicia', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const prev = makeUser({ username: 'alice' });
+			const next = makeUser({ username: 'alicia' });
+
+			await service.updateUserIndex(prev, next);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			const usernameOps = commands.filter((cmd: any[]) => cmd[1] === 'search:username');
+			expect(usernameOps).toEqual([
+				['hdel', 'search:username', 'alice'],
+				['hset', 'search:username', 'alicia', next.id],
+			]);
+		});
+
+		it('does not HDEL the username index when username is unchanged', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const prev = makeUser({ username: 'alice', firstName: 'Alice' });
+			const next = makeUser({ username: 'alice', firstName: 'Alicia' });
+
+			await service.updateUserIndex(prev, next);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands.some((cmd: any[]) => cmd[0] === 'hdel' && cmd[1] === 'search:username')).toBe(
+				false
+			);
+			// Stable HSET keeps the alice → user-1 mapping warm in the cache.
+			expect(commands).toContainEqual(['hset', 'search:username', 'alice', next.id]);
+		});
+
+		it('drops old firstName zset and adds the new one when firstName changes', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const prev = makeUser({ firstName: 'Alice', lastName: 'Smith' });
+			const next = makeUser({ firstName: 'Alicia', lastName: 'Smith' });
+
+			await service.updateUserIndex(prev, next);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			expect(commands).toContainEqual(['zrem', 'search:name:alice', next.id]);
+			expect(commands).toContainEqual([
+				'zadd',
+				'search:name:alicia',
+				next.createdAt.getTime(),
+				next.id,
+			]);
+			// lastName didn't change, so its zset is rewritten (zadd) but never removed.
+			expect(commands.some((cmd: any[]) => cmd[0] === 'zrem' && cmd[1] === 'search:name:smith')).toBe(
+				false
+			);
+		});
+
+		it('does not emit zrem for unchanged firstName/lastName/fullName', async () => {
+			mockCacheService.pipeline = jest.fn().mockResolvedValue(undefined);
+			const prev = makeUser({ firstName: 'Alice', lastName: 'Smith', username: 'alice' });
+			const next = makeUser({ firstName: 'Alice', lastName: 'Smith', username: 'alicia' });
+
+			await service.updateUserIndex(prev, next);
+
+			const [commands] = (mockCacheService.pipeline as jest.Mock).mock.calls[0];
+			const zremOps = commands.filter((cmd: any[]) => cmd[0] === 'zrem');
+			expect(zremOps).toEqual([]);
+		});
+
+		it('throws when pipeline fails', async () => {
+			mockCacheService.pipeline = jest.fn().mockRejectedValue(new Error('Redis error'));
+
+			await expect(service.updateUserIndex(makeUser(), makeUser())).rejects.toThrow('Redis error');
+		});
+	});
+
 	describe('getCachedUser', () => {
 		it('should return cached user entry', async () => {
 			const entry = { userId: 'user-1', phoneNumber: '+1' } as any;
