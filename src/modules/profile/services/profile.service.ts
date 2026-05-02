@@ -125,10 +125,10 @@ export class ProfileService {
 			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
-				// Index new data first, then remove old entries — if indexUser fails,
-				// the user remains discoverable under the old keys instead of vanishing.
-				await this.searchIndexService.indexUser(saved);
-				await this.searchIndexService.removeUserFromIndex(previousSnapshot as User);
+				// WHISPR-1271 : single-pipeline diff. The previous
+				// `indexUser(saved) + removeUserFromIndex(prev)` pair deleted phone /
+				// user-cache / unchanged-username keys that had just been rewritten.
+				await this.searchIndexService.updateUserIndex(previousSnapshot as User, saved);
 			} catch (err) {
 				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
