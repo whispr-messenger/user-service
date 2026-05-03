@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { User } from '../entities/user.entity';
+import { User, UserVisualPreferences } from '../entities/user.entity';
 
 export class UserResponseDto {
 	@ApiProperty()
@@ -20,6 +20,15 @@ export class UserResponseDto {
 	@ApiPropertyOptional({ nullable: true })
 	profilePictureUrl: string | null;
 
+	@ApiPropertyOptional({ nullable: true, type: 'object' })
+	visualPreferences: UserVisualPreferences | null;
+
+	@ApiPropertyOptional({ nullable: true })
+	backgroundMediaId: string | null;
+
+	@ApiPropertyOptional({ nullable: true })
+	backgroundMediaUrl: string | null;
+
 	@ApiPropertyOptional({ nullable: true })
 	lastSeen: Date | null;
 
@@ -37,6 +46,9 @@ export class UserResponseDto {
 		dto.lastName = user.lastName;
 		dto.biography = user.biography ?? null;
 		dto.profilePictureUrl = user.profilePictureUrl ?? null;
+		dto.visualPreferences = user.visualPreferences ?? null;
+		dto.backgroundMediaId = user.visualPreferences?.backgroundMediaId ?? null;
+		dto.backgroundMediaUrl = user.visualPreferences?.backgroundMediaUrl ?? null;
 		dto.lastSeen = user.lastSeen ?? null;
 		dto.createdAt = user.createdAt;
 		dto.updatedAt = user.updatedAt;

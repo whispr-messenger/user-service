@@ -4,6 +4,7 @@ import { ProfileService } from './profile.service';
 import { UserRepository } from '../../common/repositories';
 import { MediaClientService, MediaMetadata } from './media-client.service';
 import { SearchIndexService } from '../../cache/search-index.service';
+import { CacheService } from '../../cache/cache.service';
 import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 
@@ -16,6 +17,7 @@ const mockUser = (): User =>
 		lastName: null,
 		biography: null,
 		profilePictureUrl: null,
+		visualPreferences: null,
 		isActive: true,
 		createdAt: new Date(),
 		updatedAt: new Date(),
@@ -37,6 +39,7 @@ describe('ProfileService', () => {
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
 	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
+	let cacheService: { get: jest.Mock; pipeline: jest.Mock; delMany: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -63,6 +66,14 @@ describe('ProfileService', () => {
 						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
 					},
 				},
+				{
+					provide: CacheService,
+					useValue: {
+						get: jest.fn().mockResolvedValue(null),
+						pipeline: jest.fn().mockResolvedValue(undefined),
+						delMany: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 			],
 		}).compile();
 
@@ -70,23 +81,40 @@ describe('ProfileService', () => {
 		userRepository = module.get(UserRepository);
 		mediaClient = module.get(MediaClientService);
 		searchIndexService = module.get(SearchIndexService);
+		cacheService = module.get(CacheService);
 	});
 
 	describe('getProfile', () => {
 		it('returns the user when found', async () => {
 			const user = mockUser();
+			cacheService.get.mockResolvedValue(null);
 			userRepository.findById.mockResolvedValue(user);
 
 			const result = await service.getProfile('uuid-1');
 
 			expect(result).toBe(user);
 			expect(userRepository.findById).toHaveBeenCalledWith('uuid-1');
+			expect(cacheService.pipeline).toHaveBeenCalledWith(
+				expect.arrayContaining([
+					['setex', 'profile:cache:uuid-1', 300, JSON.stringify(user)],
+				])
+			);
 		});
 
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
 			await expect(service.getProfile('uuid-1')).rejects.toThrow(NotFoundException);
+		});
+
+		it('returns the cached profile when available', async () => {
+			const user = mockUser();
+			cacheService.get.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result).toBe(user);
+			expect(userRepository.findById).not.toHaveBeenCalled();
 		});
 	});
 
@@ -102,6 +130,12 @@ describe('ProfileService', () => {
 			const result = await service.updateProfile('uuid-1', dto);
 
 			expect(userRepository.save).toHaveBeenCalledWith(expect.objectContaining(dto));
+			expect(cacheService.delMany).toHaveBeenCalledWith(['profile:cache:uuid-1']);
+			expect(cacheService.pipeline).toHaveBeenCalledWith(
+				expect.arrayContaining([
+					['setex', 'profile:cache:uuid-1', 300, JSON.stringify(saved)],
+				])
+			);
 			expect(result).toBe(saved);
 		});
 
@@ -190,6 +224,75 @@ describe('ProfileService', () => {
 			await service.updateProfile('uuid-1', dto);
 
 			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
+		});
+
+		it('stores synchronized visual preferences on the user profile', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = {
+				visualPreferences: {
+					theme: 'light',
+					language: 'en',
+					fontSize: 'large',
+					backgroundPreset: 'midnight',
+					updatedAt: '2026-05-02T15:00:00.000Z',
+				},
+			};
+			const saved = {
+				...user,
+				visualPreferences: dto.visualPreferences,
+			} as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(userRepository.save).toHaveBeenCalledWith(
+				expect.objectContaining({
+					visualPreferences: expect.objectContaining({
+						theme: 'light',
+						language: 'en',
+						fontSize: 'large',
+						backgroundPreset: 'midnight',
+						updatedAt: '2026-05-02T15:00:00.000Z',
+					}),
+				})
+			);
+			expect(result.visualPreferences).toEqual(dto.visualPreferences);
+		});
+
+		it('maps legacy background fields into visual preferences for backward compatibility', async () => {
+			const user = mockUser();
+			const dto: UpdateProfileDto = {
+				backgroundMediaId: '2e8c81c8-3a4f-4b5f-8ae4-e138f4bb96b6',
+				backgroundMediaUrl: 'https://cdn.whispr/background.jpg',
+				visualPreferences: {
+					backgroundPreset: 'custom',
+					updatedAt: '2026-05-02T16:00:00.000Z',
+				},
+			};
+			const saved = {
+				...user,
+				visualPreferences: {
+					backgroundPreset: 'custom',
+					backgroundMediaId: dto.backgroundMediaId,
+					backgroundMediaUrl: dto.backgroundMediaUrl,
+					updatedAt: '2026-05-02T16:00:00.000Z',
+				},
+			} as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			const result = await service.updateProfile('uuid-1', dto);
+
+			expect(result.visualPreferences).toEqual(
+				expect.objectContaining({
+					backgroundPreset: 'custom',
+					backgroundMediaId: dto.backgroundMediaId,
+					backgroundMediaUrl: dto.backgroundMediaUrl,
+				})
+			);
 		});
 	});
 
