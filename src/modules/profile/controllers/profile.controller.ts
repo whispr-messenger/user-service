@@ -14,6 +14,20 @@ import { assertOwnership } from '../../jwt-auth/ownership.util';
 export class ProfileController {
 	constructor(private readonly profileService: ProfileService) {}
 
+	@Get('me')
+	@SkipThrottle()
+	@ApiOperation({ summary: 'Get current user profile' })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Profile retrieved successfully',
+		type: UserResponseDto,
+	})
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	async getMyProfile(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<UserResponseDto> {
+		const user = await this.profileService.getProfile(req.user.sub);
+		return UserResponseDto.fromEntity(user);
+	}
+
 	@Get(':id')
 	@SkipThrottle()
 	@ApiOperation({ summary: 'Get user profile' })
