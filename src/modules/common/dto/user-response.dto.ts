@@ -20,7 +20,7 @@ export class UserResponseDto {
 	@ApiPropertyOptional({ nullable: true })
 	profilePictureUrl: string | null;
 
-	@ApiPropertyOptional({ nullable: true, type: 'object' })
+	@ApiPropertyOptional({ nullable: true })
 	visualPreferences: UserVisualPreferences | null;
 
 	@ApiPropertyOptional({ nullable: true })
