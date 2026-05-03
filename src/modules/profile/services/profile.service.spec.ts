@@ -95,9 +95,7 @@ describe('ProfileService', () => {
 			expect(result).toBe(user);
 			expect(userRepository.findById).toHaveBeenCalledWith('uuid-1');
 			expect(cacheService.pipeline).toHaveBeenCalledWith(
-				expect.arrayContaining([
-					['setex', 'profile:cache:uuid-1', 300, JSON.stringify(user)],
-				])
+				expect.arrayContaining([['setex', 'profile:cache:uuid-1', 300, JSON.stringify(user)]])
 			);
 		});
 
@@ -132,9 +130,7 @@ describe('ProfileService', () => {
 			expect(userRepository.save).toHaveBeenCalledWith(expect.objectContaining(dto));
 			expect(cacheService.delMany).toHaveBeenCalledWith(['profile:cache:uuid-1']);
 			expect(cacheService.pipeline).toHaveBeenCalledWith(
-				expect.arrayContaining([
-					['setex', 'profile:cache:uuid-1', 300, JSON.stringify(saved)],
-				])
+				expect.arrayContaining([['setex', 'profile:cache:uuid-1', 300, JSON.stringify(saved)]])
 			);
 			expect(result).toBe(saved);
 		});

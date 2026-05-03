@@ -49,7 +49,10 @@ export class VisualPreferencesDto {
 	@MaxLength(500)
 	backgroundMediaUrl?: string | null;
 
-	@ApiPropertyOptional({ nullable: true, description: 'ISO timestamp for conflict resolution between devices' })
+	@ApiPropertyOptional({
+		nullable: true,
+		description: 'ISO timestamp for conflict resolution between devices',
+	})
 	@ValidateIf((_, value) => value !== null && value !== undefined)
 	@IsISO8601()
 	updatedAt?: string | null;
@@ -90,7 +93,8 @@ export class UpdateProfileDto {
 	avatarMediaId?: string;
 
 	@ApiPropertyOptional({
-		description: 'Legacy custom background media UUID. Mapped into visualPreferences for backward compatibility.',
+		description:
+			'Legacy custom background media UUID. Mapped into visualPreferences for backward compatibility.',
 		nullable: true,
 		format: 'uuid',
 	})
@@ -99,7 +103,8 @@ export class UpdateProfileDto {
 	backgroundMediaId?: string | null;
 
 	@ApiPropertyOptional({
-		description: 'Legacy custom background media URL. Mapped into visualPreferences for backward compatibility.',
+		description:
+			'Legacy custom background media URL. Mapped into visualPreferences for backward compatibility.',
 		nullable: true,
 		maxLength: 500,
 	})
