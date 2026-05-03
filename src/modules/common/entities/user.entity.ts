@@ -12,12 +12,7 @@ import { PrivacySettings } from '../../privacy/entities/privacy-settings.entity'
 export type UserThemePreference = 'light' | 'dark' | 'auto';
 export type UserLanguagePreference = 'fr' | 'en';
 export type UserFontSizePreference = 'small' | 'medium' | 'large';
-export type UserBackgroundPresetPreference =
-	| 'whispr'
-	| 'midnight'
-	| 'sunset'
-	| 'aurora'
-	| 'custom';
+export type UserBackgroundPresetPreference = 'whispr' | 'midnight' | 'sunset' | 'aurora' | 'custom';
 
 export interface UserVisualPreferences {
 	theme?: UserThemePreference;
