@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ContactRequestsService } from './contact-requests.service';
+import { ContactsNotificationPublisher } from './contacts-notification-publisher.service';
 import { UserRepository } from '../../common/repositories';
 import { ContactRequestsRepository } from '../repositories/contact-requests.repository';
 import { ContactsRepository } from '../repositories/contacts.repository';
@@ -102,6 +103,13 @@ describe('ContactRequestsService', () => {
 				{
 					provide: getDataSourceToken(),
 					useValue: dataSource,
+				},
+				{
+					provide: ContactsNotificationPublisher,
+					useValue: {
+						publishRequestReceived: jest.fn().mockResolvedValue(undefined),
+						publishRequestAccepted: jest.fn().mockResolvedValue(undefined),
+					},
 				},
 			],
 		}).compile();
