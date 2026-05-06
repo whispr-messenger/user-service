@@ -37,7 +37,7 @@ jobs:
  
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref || github.event.client_payload.ref }}
 
@@ -70,20 +70,23 @@ jobs:
           context: .
           file: ./docker/prod/Dockerfile
           push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          load: true
+          tags: local/user-service:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run Trivy on Docker image
         uses: aquasecurity/trivy-action@v0.35.0
         with:
-          image-ref: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          image-ref: 'local/user-service:${{ github.sha }}'
           format: 'sarif'
           output: 'docker-trivy-results.sarif'
-        continue-on-error: true
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          ignore-unfixed: true
 
       - name: Upload Docker Trivy scan results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always() && hashFiles('docker-trivy-results.sarif') != ''
         with:
           sarif_file: 'docker-trivy-results.sarif'
@@ -106,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref || github.event.client_payload.ref }}
 

@@ -326,16 +326,20 @@ export const searchService = {
     return response.data;
   },
 
-  // Recherche par téléphone
+  // Recherche par téléphone — la réponse est toujours un objet { user: User | null }
   async searchByPhone(phoneNumber) {
-    const response = await apiClient.get(`/search/phone/${encodeURIComponent(phoneNumber)}`);
-    return response.data;
+    const response = await apiClient.get(
+      `/search/phone?phoneNumber=${encodeURIComponent(phoneNumber)}`
+    );
+    return response.data.user;
   },
 
-  // Recherche par nom d'utilisateur
+  // Recherche par nom d'utilisateur — la réponse est toujours un objet { user: User | null }
   async searchByUsername(username) {
-    const response = await apiClient.get(`/search/username/${username}`);
-    return response.data;
+    const response = await apiClient.get(
+      `/search/username?username=${encodeURIComponent(username)}`
+    );
+    return response.data.user;
   },
 };
 ```

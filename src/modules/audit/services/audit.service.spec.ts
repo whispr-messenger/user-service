@@ -170,5 +170,25 @@ describe('AuditService', () => {
 			// Double quotes inside the JSON should be escaped as ""
 			expect(dataRow).toContain('""');
 		});
+
+		it('should neutralise formula injection vectors', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			const log = mockAuditLog({
+				action: '=cmd|calc!A1',
+				targetType: '+SUM(A1)',
+				targetId: '-1+1',
+				metadata: { note: '@evil' },
+				createdAt: new Date('2026-01-15T10:00:00.000Z'),
+			});
+			auditRepository.findAll.mockResolvedValue([log]);
+
+			const result = await service.exportCsv('admin-1');
+			const dataRow = result.split('\n')[1];
+
+			// Each cell starting with =+-@ must be prefixed with a single quote.
+			expect(dataRow).toContain(`"'=cmd|calc!A1"`);
+			expect(dataRow).toContain(`"'+SUM(A1)"`);
+			expect(dataRow).toContain(`"'-1+1"`);
+		});
 	});
 });

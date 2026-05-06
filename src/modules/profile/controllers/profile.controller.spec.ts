@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { Request as ExpressRequest } from 'express';
 import { ProfileController } from './profile.controller';
 import { ProfileService } from '../services/profile.service';
@@ -10,8 +10,8 @@ import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 const makeReq = (
 	sub: string,
 	authorization?: string,
-	host: string = 'api.test.local',
-	proto: string = 'https'
+	host = 'localhost:3000',
+	proto = 'http'
 ): ExpressRequest & { user: JwtPayload } =>
 	({
 		user: { sub } as JwtPayload,
@@ -34,6 +34,7 @@ describe('ProfileController', () => {
 					provide: ProfileService,
 					useValue: {
 						getProfile: jest.fn(),
+						getProfileWithPrivacy: jest.fn(),
 						updateProfile: jest.fn(),
 					},
 				},
@@ -44,22 +45,92 @@ describe('ProfileController', () => {
 		service = module.get(ProfileService);
 	});
 
+	describe('getMyProfile', () => {
+		it('returns a SelfProfileResponseDto including phoneNumber for req.user.sub', async () => {
+			const user = {
+				id: 'user-1',
+				phoneNumber: '+33600000001',
+				username: 'alice',
+				firstName: 'Alice',
+				lastName: null,
+				biography: null,
+				profilePictureUrl: null,
+				lastSeen: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfile.mockResolvedValue(user);
+
+			const result = await controller.getMyProfile(makeReq('user-1'));
+
+			expect(result.id).toBe('user-1');
+			expect(result.phoneNumber).toBe('+33600000001');
+			expect(result.username).toBe('alice');
+			expect((service as any).getProfile).toHaveBeenCalledWith('user-1', undefined);
+		});
+
+		it('propagates NotFoundException from the service', async () => {
+			(service as any).getProfile.mockRejectedValue(new NotFoundException('User not found'));
+
+			await expect(controller.getMyProfile(makeReq('missing-user'))).rejects.toThrow(NotFoundException);
+		});
+
+		it('forwards the Authorization header so avatar URLs can be presigned', async () => {
+			const user = {
+				id: 'user-1',
+				phoneNumber: '+33600000001',
+				username: 'alice',
+				profilePictureUrl: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfile.mockResolvedValue(user);
+
+			await controller.getMyProfile(makeReq('user-1', 'Bearer token-xyz'));
+
+			expect((service as any).getProfile).toHaveBeenCalledWith('user-1', 'Bearer token-xyz');
+		});
+	});
+
 	describe('getProfile', () => {
-		it('delegates to the service and returns a UserResponseDto', async () => {
+		it('delegates to the service with requesterId and returns a UserResponseDto', async () => {
 			const user = {
 				id: 'user-1',
 				username: 'alice',
 				createdAt: new Date(),
 				updatedAt: new Date(),
 			} as User;
-			service.getProfile.mockResolvedValue(user);
+			(service as any).getProfileWithPrivacy.mockResolvedValue(user);
 
-			const result = await controller.getProfile('user-1');
+			const result = await controller.getProfile('user-1', makeReq('requester-1'));
 
 			expect(result.id).toBe('user-1');
 			expect(result.username).toBe('alice');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.getProfile).toHaveBeenCalledWith('user-1');
+			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith(
+				'user-1',
+				'requester-1',
+				undefined
+			);
+		});
+
+		it('forwards the Authorization header so avatar URLs can be presigned', async () => {
+			const user = {
+				id: 'user-1',
+				username: 'alice',
+				profilePictureUrl: null,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as User;
+			(service as any).getProfileWithPrivacy.mockResolvedValue(user);
+
+			await controller.getProfile('user-1', makeReq('requester-1', 'Bearer token-xyz'));
+
+			expect((service as any).getProfileWithPrivacy).toHaveBeenCalledWith(
+				'user-1',
+				'requester-1',
+				'Bearer token-xyz'
+			);
 		});
 	});
 
@@ -78,12 +149,7 @@ describe('ProfileController', () => {
 
 			expect(result.id).toBe('user-1');
 			expect((result as any).phoneNumber).toBeUndefined();
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				'Bearer token',
-				'https://api.test.local'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, 'Bearer token');
 		});
 
 		it('passes undefined authorization when the header is missing', async () => {
@@ -93,12 +159,7 @@ describe('ProfileController', () => {
 
 			await controller.updateProfile('user-1', dto, makeReq('user-1'));
 
-			expect(service.updateProfile).toHaveBeenCalledWith(
-				'user-1',
-				dto,
-				undefined,
-				'https://api.test.local'
-			);
+			expect(service.updateProfile).toHaveBeenCalledWith('user-1', dto, undefined);
 		});
 
 		it('throws Forbidden when the caller targets another user', async () => {
