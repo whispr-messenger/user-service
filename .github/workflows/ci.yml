@@ -2,12 +2,6 @@ name: 🚀 CI Pipeline
 
 on:
   push:
-    branches: [main, develop, deploy/preprod]
-    paths-ignore:
-      - '**.md'
-      - 'documentation/**'
-  pull_request:
-    branches: [main, develop, deploy/preprod]
     paths-ignore:
       - '**.md'
       - 'documentation/**'
@@ -23,7 +17,7 @@ permissions:
   id-token: write
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '22.21'
 
 jobs:
   # ================================
@@ -50,13 +44,34 @@ jobs:
       should_deploy: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod') && github.event_name == 'push' }}
 
   # ================================
-  # Docker Build
+  # CodeQL Analysis
+  # ================================
+  codeql:
+    name: 🔐 CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v5
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: javascript-typescript
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:javascript-typescript
+
+  # ================================
+  # Docker Build & Push (deploy branches only)
   # ================================
   docker:
     name: 📦 Container Registry
     needs: [tests, security]
-    if: success()
+    if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod')
     uses: ./.github/workflows/docker.yml
     with:
       ref: ${{ github.ref }}
-      should_deploy: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy/preprod') && github.event_name == 'push' }}
+      should_deploy: 'true'

@@ -1,6 +1,6 @@
 import * as jwt from 'jsonwebtoken';
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AppModule } from '../src/modules/app.module';
@@ -14,6 +14,7 @@ const request = require('supertest');
 const JWT_SECRET = 'test-e2e-secret';
 const JWT_ISSUER = 'test-issuer';
 const JWT_AUDIENCE = 'test-audience';
+const INTERNAL_TOKEN = 'test-internal-token';
 const USER_A_ID = 'a0000000-0000-4000-a000-000000000001';
 const USER_B_ID = 'b0000000-0000-4000-b000-000000000002';
 
@@ -44,8 +45,11 @@ class TestJwtStrategy extends PassportStrategy(Strategy) {
 describe('Functional E2E Scenarios', () => {
 	let app: INestApplication;
 	let dataSource: DataSource;
+	let previousInternalToken: string | undefined;
 
 	beforeAll(async () => {
+		previousInternalToken = process.env.INTERNAL_API_TOKEN;
+		process.env.INTERNAL_API_TOKEN = INTERNAL_TOKEN;
 		const moduleFixture: TestingModule = await Test.createTestingModule({
 			imports: [AppModule],
 		})
@@ -62,7 +66,9 @@ describe('Functional E2E Scenarios', () => {
 			.compile();
 
 		app = moduleFixture.createNestApplication();
-		app.setGlobalPrefix('user');
+		app.setGlobalPrefix('user', {
+			exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
+		});
 		app.enableVersioning({
 			type: VersioningType.URI,
 			defaultVersion: '1',
@@ -82,6 +88,11 @@ describe('Functional E2E Scenarios', () => {
 
 	afterAll(async () => {
 		if (app) await app.close();
+		if (previousInternalToken === undefined) {
+			delete process.env.INTERNAL_API_TOKEN;
+		} else {
+			process.env.INTERNAL_API_TOKEN = previousInternalToken;
+		}
 	});
 
 	beforeEach(async () => {
@@ -132,17 +143,40 @@ describe('Functional E2E Scenarios', () => {
 		});
 	});
 
+	// Scenario 1b: GET /profile/me returns authenticated profile with phoneNumber
+	describe('Scenario 1b: Get own profile via /profile/me', () => {
+		it('should return 200 with phoneNumber for the authenticated user', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/profile/me')
+				.set(asUser(USER_A_ID))
+				.expect(200);
+
+			expect(res.body.id).toBe(USER_A_ID);
+			expect(res.body.phoneNumber).toBe('+33600000001');
+			expect(res.body.username).toBe('alice');
+		});
+
+		it('should return 401 without a bearer token', async () => {
+			await request(app.getHttpServer()).get('/user/v1/profile/me').expect(401);
+		});
+	});
+
 	// Scenario 2: PATCH /profile/:id of another user returns 403
 	describe('Scenario 2: Cannot update another user profile', () => {
 		it('should return 403 when updating another user profile', async () => {
 			await createUser(USER_A_ID, '+33600000001', 'alice');
 			await createUser(USER_B_ID, '+33600000002', 'bob');
 
-			await request(app.getHttpServer())
+			const res = await request(app.getHttpServer())
 				.patch(`/user/v1/profile/${USER_B_ID}`)
 				.set(asUser(USER_A_ID))
 				.send({ username: 'hacked' })
 				.expect(403);
+
+			expect(res.status).toBe(403);
+			expect(res.body.message).toBeDefined();
 		});
 	});
 
@@ -251,6 +285,103 @@ describe('Functional E2E Scenarios', () => {
 				.expect(200);
 
 			expect(verifyRes.body.searchByPhone).toBe(false);
+		});
+	});
+
+	// Scenario 6: Internal contact-check endpoint (machine-to-machine)
+	describe('Scenario 6: Internal /internal/v1/contacts/check (M2M)', () => {
+		const internalHeader = { 'x-internal-token': INTERNAL_TOKEN };
+
+		it('returns isContact:true and isBlocked:false for an existing contact relationship', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			// Establish the contact relationship through the public flow
+			const sendRes = await request(app.getHttpServer())
+				.post('/user/v1/contact-requests')
+				.set(asUser(USER_A_ID))
+				.send({ contactId: USER_B_ID })
+				.expect(201);
+
+			await request(app.getHttpServer())
+				.patch(`/user/v1/contact-requests/${sendRes.body.id}/accept`)
+				.set(asUser(USER_B_ID))
+				.expect(200);
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body).toEqual({ isContact: true, isBlocked: false });
+		});
+
+		it('returns 200 with isContact:false when no contact row exists', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body).toEqual({ isContact: false, isBlocked: false });
+		});
+
+		it('returns 401 when the internal token header is missing', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=${USER_A_ID}&contactId=${USER_B_ID}`)
+				.expect(401);
+		});
+
+		it('returns 400 when ownerId is not a UUID', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/contacts/check?ownerId=not-a-uuid&contactId=${USER_B_ID}`)
+				.set(internalHeader)
+				.expect(400);
+		});
+	});
+
+	// Scenario 7: Search endpoints return a JSON envelope { user } even when no user matches
+	describe('Scenario 7: GET /search/{username,phone} envelope response', () => {
+		it('returns { user: null } as valid JSON when no username matches', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/username?username=does-not-exist')
+				.set(asUser(USER_A_ID))
+				.expect(200)
+				.expect('Content-Type', /application\/json/);
+
+			expect(res.body).toEqual({ user: null });
+			expect(res.text.length).toBeGreaterThan(0);
+		});
+
+		it('returns { user: null } as valid JSON when no phone number matches', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/phone?phoneNumber=%2B33699999999')
+				.set(asUser(USER_A_ID))
+				.expect(200)
+				.expect('Content-Type', /application\/json/);
+
+			expect(res.body).toEqual({ user: null });
+			expect(res.text.length).toBeGreaterThan(0);
+		});
+
+		it('wraps the matched user in { user } when username search succeeds', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			const res = await request(app.getHttpServer())
+				.get('/user/v1/search/username?username=bob')
+				.set(asUser(USER_A_ID))
+				.expect(200);
+
+			expect(res.body.user).toBeDefined();
+			expect(res.body.user.id).toBe(USER_B_ID);
+			expect(res.body.user.username).toBe('bob');
 		});
 	});
 });

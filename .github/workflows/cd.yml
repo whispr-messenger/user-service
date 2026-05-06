@@ -29,13 +29,13 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: generate_token
-        uses: tibdex/github-app-token@v2
+        uses: actions/create-github-app-token@v1
         with:
-          app_id: ${{ secrets.ACTIONS_CD }}
-          private_key: ${{ secrets.ACTIONS_CD_PRIVATE_KEY }}
+          app-id: ${{ secrets.ACTIONS_CD }}
+          private-key: ${{ secrets.ACTIONS_CD_PRIVATE_KEY }}
 
       - name: Checkout user-service
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
           path: user-service
@@ -130,7 +130,7 @@ jobs:
           fi
 
       - name: Checkout infrastructure repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: whispr-messenger/infrastructure
           path: infrastructure
@@ -261,21 +261,3 @@ jobs:
           INFRA_BRANCH="${{ steps.branch.outputs.infra_branch }}"
           git pull origin "${INFRA_BRANCH}" --rebase
           git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git HEAD:"${INFRA_BRANCH}"
-
-      - name: Fast-forward deploy/preprod with main on infrastructure repo
-        if: steps.branch.outputs.infra_branch == 'main'
-        working-directory: infrastructure
-        env:
-          INFRA_TOKEN: ${{ steps.generate_token.outputs.token }}
-        run: |
-          # When the trigger branch is main, infra/main has been updated above.
-          # ArgoCD preprod tracks infra/deploy/preprod, so fast-forward it from main.
-          # Fast-forward only — never force-push, never delete the branch.
-          git fetch origin main deploy/preprod
-          git checkout deploy/preprod
-          if git merge --ff-only origin/main; then
-            git push "https://x-access-token:${INFRA_TOKEN}@github.com/whispr-messenger/infrastructure.git" deploy/preprod
-            echo "✅ deploy/preprod fast-forwarded to main"
-          else
-            echo "::warning::Cannot fast-forward deploy/preprod from main (diverged). Manual merge required."
-          fi

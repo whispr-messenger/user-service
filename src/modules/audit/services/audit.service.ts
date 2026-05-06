@@ -35,6 +35,8 @@ export class AuditService {
 				actorId: query.actorId,
 				targetType: query.targetType,
 				action: query.action,
+				dateFrom: query.dateFrom,
+				dateTo: query.dateTo,
 			}),
 		]);
 
@@ -47,11 +49,30 @@ export class AuditService {
 		const logs = await this.auditRepository.findAll({ limit: 1000, offset: 0 });
 
 		const header = 'id,actor_id,action,target_type,target_id,metadata,created_at';
-		const rows = logs.map(
-			(l) =>
-				`${l.id},${l.actorId},${l.action},${l.targetType},${l.targetId},"${JSON.stringify(l.metadata).replace(/"/g, '""')}",${l.createdAt.toISOString()}`
+		const rows = logs.map((l) =>
+			[
+				csvEscape(l.id),
+				csvEscape(l.actorId),
+				csvEscape(l.action),
+				csvEscape(l.targetType),
+				csvEscape(l.targetId),
+				csvEscape(JSON.stringify(l.metadata ?? {})),
+				csvEscape(l.createdAt.toISOString()),
+			].join(',')
 		);
 
 		return [header, ...rows].join('\n');
 	}
+}
+
+/**
+ * Escape a value for CSV output. Always quotes the result and:
+ *   - doubles embedded quotes per RFC 4180
+ *   - neutralises formula-injection vectors by prefixing a single quote when
+ *     the value starts with =, +, -, @, tab or carriage return.
+ */
+function csvEscape(value: string): string {
+	const raw = value ?? '';
+	const sanitised = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+	return `"${sanitised.replace(/"/g, '""')}"`;
 }

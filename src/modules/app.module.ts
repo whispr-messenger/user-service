@@ -19,9 +19,12 @@ import { RolesModule } from './roles/roles.module';
 import { SanctionsModule } from './sanctions/sanctions.module';
 import { AppealsModule } from './appeals/appeals.module';
 import { AuditModule } from './audit/audit.module';
+import { RetentionModule } from './retention/retention.module';
 import { ModerationSubscriberModule } from './moderation-subscriber/moderation-subscriber.module';
 import { ReputationModule } from './reputation/reputation.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { BackupsModule } from './backups/backups.module';
+import { InternalModule } from './internal/internal.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 
@@ -51,9 +54,12 @@ const GLOBAL_THROTTLE_LIMIT = 300;
 		SanctionsModule,
 		AppealsModule,
 		AuditModule,
+		RetentionModule,
 		ModerationSubscriberModule,
 		ReputationModule,
 		WebhooksModule,
+		BackupsModule,
+		InternalModule,
 	],
 	providers: [
 		{
