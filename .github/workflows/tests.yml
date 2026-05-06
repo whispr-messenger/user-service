@@ -24,7 +24,7 @@ permissions:
   pull-requests: write
 
 env:
-  NODE_VERSION: '22'
+  NODE_VERSION: '22.21'
 
 jobs:
   test-and-quality:
@@ -64,13 +64,13 @@ jobs:
       # Setup
       ####################################################################################################
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ inputs.ref || github.event.client_payload.ref }}
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -85,7 +85,9 @@ jobs:
         run: npm run lint
 
       - name: Run format check
-        run: npx prettier --check "src/**/*.ts" "test/**/*.ts"
+        run: |
+          npx prettier --write "src/**/*.ts" "test/**/*.ts"
+          git diff --exit-code
 
       ####################################################################################################
       # Unit and E2E Tests
@@ -164,3 +166,19 @@ jobs:
       #     file: ./coverage/lcov.info
       #     flags: unittests
       #     name: codecov-umbrella
+
+      ####################################################################################################
+      # SBOM - Supply Chain Governance
+      ####################################################################################################
+      - name: Generate SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ github.sha }}
+          path: sbom.cdx.json
+          retention-days: 30

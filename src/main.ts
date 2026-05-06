@@ -1,13 +1,14 @@
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
-import { MicroserviceOptions, Transport } from '@nestjs/microservices';
+import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from './modules/app.module';
 import { createSwaggerDocumentation } from './swagger';
 import { LoggingInterceptor } from './interceptors';
+import { JsonLogger } from './utils/json-logger';
 
 const logger = new Logger('UnhandledErrors');
 
@@ -20,7 +21,13 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 export async function bootstrap() {
-	const app = await NestFactory.create<NestExpressApplication>(AppModule);
+	// WHISPR-1068 : active le logger JSON dès le bootstrap quand
+	// LOG_FORMAT=json (default en production via ArgoCD). Laisse le logger
+	// natif (texte coloré) en local pour ne pas gêner `npm run start:dev`.
+	const useJsonLogger = (process.env.LOG_FORMAT ?? '').toLowerCase() === 'json';
+	const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+		logger: useJsonLogger ? new JsonLogger({ service: 'user-service' }) : undefined,
+	});
 	const configService = app.get(ConfigService);
 	const bootstrapLogger = new Logger('Bootstrap');
 	const port = configService.get<number>('HTTP_PORT', 3002);
@@ -45,7 +52,15 @@ export async function bootstrap() {
 	);
 	app.use(compression());
 
-	app.setGlobalPrefix(globalPrefix);
+	// Raise body size limit to accept base64 thumbnails carried on
+	// blocked-image appeal submissions (evidence.thumbnailBase64). NestJS /
+	// express defaults to 100kb which is rejected as 413 for ~200KB payloads.
+	app.use(json({ limit: '2mb' }));
+	app.use(urlencoded({ limit: '2mb', extended: true }));
+
+	app.setGlobalPrefix(globalPrefix, {
+		exclude: [{ path: 'internal/(.*)', method: RequestMethod.ALL }],
+	});
 
 	app.enableVersioning({
 		type: VersioningType.URI,
@@ -54,16 +69,6 @@ export async function bootstrap() {
 	});
 
 	createSwaggerDocumentation(app, port, configService, globalPrefix);
-
-	app.connectMicroservice<MicroserviceOptions>({
-		transport: Transport.REDIS,
-		options: {
-			host: configService.get<string>('REDIS_HOST', 'localhost'),
-			port: configService.get<number>('REDIS_PORT', 6379),
-			username: configService.get<string>('REDIS_USERNAME'),
-			password: configService.get<string>('REDIS_PASSWORD'),
-		},
-	});
 
 	app.useGlobalPipes(
 		new ValidationPipe({
@@ -90,7 +95,6 @@ export async function bootstrap() {
 
 	app.enableShutdownHooks();
 
-	await app.startAllMicroservices();
 	await app.listen(port);
 
 	bootstrapLogger.log(`Application is running on: http://0.0.0.0:${port}`);

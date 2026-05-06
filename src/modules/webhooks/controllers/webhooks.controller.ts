@@ -9,16 +9,21 @@ import {
 	HttpStatus,
 	HttpCode,
 	Request,
+	UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
 import { WebhooksService } from '../services/webhooks.service';
 import { CreateWebhookDto } from '../dto/create-webhook.dto';
 import { RolesService } from '../../roles/services/roles.service';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
 @ApiTags('Webhooks')
 @ApiBearerAuth()
+@UseGuards(RolesGuard)
+@Roles('admin', 'moderator')
 @Controller('webhooks')
 export class WebhooksController {
 	constructor(

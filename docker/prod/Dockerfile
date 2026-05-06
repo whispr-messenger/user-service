@@ -1,4 +1,4 @@
-FROM node:22-alpine AS builder
+FROM node:22-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ RUN npm run build
 # Remove devDependencies to keep only production deps
 RUN npm prune --production
 
-FROM gcr.io/distroless/nodejs22-debian12 AS production
+FROM node:22-bookworm-slim AS production
 
 LABEL maintainer="Whispr Team" \
     service="users-service" \
@@ -31,17 +31,23 @@ LABEL maintainer="Whispr Team" \
     gcp.gke="compatible" \
     monitoring.prometheus="enabled"
 
+# Patch CVE-2026-28390 (libssl3) and other security updates, then strip npm
+# (not needed at runtime) to remove its transitive CVEs from the scan surface
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends --only-upgrade libssl3 \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
 
 WORKDIR /app
 
-# Copy built application and production deps from builder
-# Use numeric UID/GID 65532 for nonroot in distroless images
-COPY --from=builder --chown=65532:65532 /app/node_modules ./node_modules
-COPY --from=builder --chown=65532:65532 /app/dist ./dist
-COPY --from=builder --chown=65532:65532 /app/package*.json ./
+# Copy built application and production deps from builder (node user uid 1000 ships with node:slim)
+COPY --from=builder --chown=1000:1000 /app/node_modules ./node_modules
+COPY --from=builder --chown=1000:1000 /app/dist ./dist
+COPY --from=builder --chown=1000:1000 /app/package.json ./
 
-# Run as non-root (distroless typically maps to uid 65532)
-USER 65532
+# Run as the non-root node user shipped with the image
+USER 1000
 
 ENV NODE_ENV=production
 
@@ -50,9 +56,9 @@ EXPOSE 3001 50051
 
 # Health check (ensure dist/docker/health-check.js is produced by build)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD ["/nodejs/bin/node", "dist/docker/health-check.js"]
+    CMD ["node", "dist/docker/health-check.js"]
 
 # Start the application with environment checks (use compiled TS in dist)
-# Note: distroless images have 'node' as default ENTRYPOINT, so we only specify the script
+ENTRYPOINT ["node"]
 CMD ["dist/docker/entrypoint.js"]
 

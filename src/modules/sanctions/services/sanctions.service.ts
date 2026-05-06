@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { SanctionsRepository } from '../repositories/sanctions.repository';
 import { UserRepository } from '../../common/repositories';
 import { RolesService } from '../../roles/services/roles.service';
+import { AuditService } from '../../audit/services/audit.service';
 import { CreateSanctionDto } from '../dto/create-sanction.dto';
 import { UserSanction } from '../entities/user-sanction.entity';
 
@@ -10,7 +11,10 @@ export class SanctionsService {
 	constructor(
 		private readonly sanctionsRepository: SanctionsRepository,
 		private readonly userRepository: UserRepository,
-		private readonly rolesService: RolesService
+		private readonly rolesService: RolesService,
+		// WHISPR-1053: admin actions land in audit_logs for the consolidated
+		// admin audit feed.
+		private readonly auditService: AuditService
 	) {}
 
 	async createSanction(dto: CreateSanctionDto, issuedBy: string): Promise<UserSanction> {
@@ -21,7 +25,7 @@ export class SanctionsService {
 			throw new NotFoundException('User not found');
 		}
 
-		return this.sanctionsRepository.create({
+		const created = await this.sanctionsRepository.create({
 			userId: dto.userId,
 			type: dto.type,
 			reason: dto.reason,
@@ -30,6 +34,17 @@ export class SanctionsService {
 			expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
 			active: true,
 		});
+
+		// WHISPR-1053: consolidated audit trail — admin-issued sanctions
+		// show up in GET /admin/audit-logs alongside role changes and appeals.
+		await this.auditService.log(issuedBy, 'sanction_issued', 'sanction', created.id, {
+			user_id: created.userId,
+			type: created.type,
+			reason: created.reason,
+			expires_at: created.expiresAt?.toISOString() ?? null,
+		});
+
+		return created;
 	}
 
 	async createAutoSanction(
@@ -74,7 +89,44 @@ export class SanctionsService {
 			throw new ConflictException('Sanction already lifted');
 		}
 
-		return this.sanctionsRepository.lift(sanction);
+		const lifted = await this.sanctionsRepository.lift(sanction);
+
+		// WHISPR-1053: audit trail for lift — the caller may be reversing
+		// another admin's decision, keep the trail.
+		await this.auditService.log(adminId, 'sanction_lifted', 'sanction', lifted.id, {
+			user_id: lifted.userId,
+			type: lifted.type,
+		});
+
+		return lifted;
+	}
+
+	// WHISPR-1063: bulk lift — iterate liftSanction in a per-item try/catch
+	// so one bad sanction (already lifted, not found) doesn't abort the batch.
+	// Role check runs once up-front.
+	async bulkLiftSanctions(
+		adminId: string,
+		sanctionIds: string[]
+	): Promise<{
+		succeeded: string[];
+		failed: Array<{ sanctionId: string; error: string }>;
+	}> {
+		await this.rolesService.ensureAdminOrModerator(adminId);
+
+		const succeeded: string[] = [];
+		const failed: Array<{ sanctionId: string; error: string }> = [];
+		for (const sanctionId of sanctionIds) {
+			try {
+				await this.liftSanction(sanctionId, adminId);
+				succeeded.push(sanctionId);
+			} catch (err) {
+				failed.push({
+					sanctionId,
+					error: err instanceof Error ? err.message : String(err),
+				});
+			}
+		}
+		return { succeeded, failed };
 	}
 
 	async hasActiveBan(userId: string): Promise<boolean> {

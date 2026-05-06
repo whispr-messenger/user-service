@@ -4,6 +4,7 @@ import type { Request as ExpressRequest, Response } from 'express';
 import { AuditController } from './audit.controller';
 import { AuditService } from '../services/audit.service';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
+import { RolesGuard } from '../../roles/roles.guard';
 
 const makeReq = (sub: string): ExpressRequest & { user: JwtPayload } =>
 	({ user: { sub } as JwtPayload }) as ExpressRequest & { user: JwtPayload };
@@ -32,7 +33,10 @@ describe('AuditController', () => {
 					},
 				},
 			],
-		}).compile();
+		})
+			.overrideGuard(RolesGuard)
+			.useValue({ canActivate: () => true })
+			.compile();
 
 		controller = module.get<AuditController>(AuditController);
 		service = module.get(AuditService);
@@ -49,6 +53,8 @@ describe('AuditController', () => {
 				undefined as any,
 				undefined as any,
 				undefined as any,
+				undefined as any,
+				undefined as any,
 				makeReq('admin-1')
 			);
 
@@ -59,13 +65,24 @@ describe('AuditController', () => {
 				actorId: undefined,
 				targetType: undefined,
 				action: undefined,
+				dateFrom: undefined,
+				dateTo: undefined,
 			});
 		});
 
 		it('passes parsed numeric values and string filters', async () => {
 			service.list.mockResolvedValue({ data: [], total: 0 });
 
-			await controller.list('10', '5', 'actor-1', 'sanction', 'create', makeReq('admin-1'));
+			await controller.list(
+				'10',
+				'5',
+				'actor-1',
+				'sanction',
+				'create',
+				'2026-01-01T00:00:00Z',
+				'2026-02-01T00:00:00Z',
+				makeReq('admin-1')
+			);
 
 			expect(service.list).toHaveBeenCalledWith('admin-1', {
 				limit: 10,
@@ -73,6 +90,33 @@ describe('AuditController', () => {
 				actorId: 'actor-1',
 				targetType: 'sanction',
 				action: 'create',
+				dateFrom: new Date('2026-01-01T00:00:00Z'),
+				dateTo: new Date('2026-02-01T00:00:00Z'),
+			});
+		});
+
+		it('ignores invalid ISO dates and treats them as no filter', async () => {
+			service.list.mockResolvedValue({ data: [], total: 0 });
+
+			await controller.list(
+				undefined as any,
+				undefined as any,
+				undefined as any,
+				undefined as any,
+				undefined as any,
+				'not-a-date',
+				'',
+				makeReq('admin-1')
+			);
+
+			expect(service.list).toHaveBeenCalledWith('admin-1', {
+				limit: 50,
+				offset: 0,
+				actorId: undefined,
+				targetType: undefined,
+				action: undefined,
+				dateFrom: undefined,
+				dateTo: undefined,
 			});
 		});
 
@@ -81,6 +125,8 @@ describe('AuditController', () => {
 
 			await expect(
 				controller.list(
+					undefined as any,
+					undefined as any,
 					undefined as any,
 					undefined as any,
 					undefined as any,
