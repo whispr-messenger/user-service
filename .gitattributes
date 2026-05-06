@@ -1,0 +1,4 @@
+# Force LF line endings on shell scripts so they remain executable when
+# mounted into Linux containers (docker/test/entrypoint.sh, etc.) from
+# a Windows checkout where core.autocrlf=true would otherwise CRLF them.
+*.sh text eol=lf
