@@ -86,19 +86,6 @@ export class ContactRequestsService {
 	}
 
 	async acceptRequest(requestId: string, userId: string): Promise<ContactRequest> {
-		const request = await this.contactRequestsRepository.findById(requestId);
-		if (!request) {
-			throw new NotFoundException('Contact request not found');
-		}
-
-		if (request.recipientId !== userId) {
-			throw new ForbiddenException('Only the recipient can accept a contact request');
-		}
-
-		if (request.status !== ContactRequestStatus.PENDING) {
-			throw new ConflictException('Contact request is not pending');
-		}
-
 		const queryRunner = this.dataSource.createQueryRunner();
 		await queryRunner.connect();
 		await queryRunner.startTransaction();
@@ -106,6 +93,23 @@ export class ContactRequestsService {
 		try {
 			const contactRepo = queryRunner.manager.getRepository(Contact);
 			const requestRepo = queryRunner.manager.getRepository(ContactRequest);
+
+			// verrou ligne pour eviter double-accept en double-tap reseau
+			const request = await requestRepo.findOne({
+				where: { id: requestId },
+				lock: { mode: 'pessimistic_write' },
+			});
+			if (!request) {
+				throw new NotFoundException('Contact request not found');
+			}
+
+			if (request.recipientId !== userId) {
+				throw new ForbiddenException('Only the recipient can accept a contact request');
+			}
+
+			if (request.status !== ContactRequestStatus.PENDING) {
+				throw new ConflictException('Contact request is not pending');
+			}
 
 			const existingAB = await contactRepo.findOne({
 				where: { ownerId: request.requesterId, contactId: request.recipientId },
@@ -158,37 +162,75 @@ export class ContactRequestsService {
 	}
 
 	async rejectRequest(requestId: string, userId: string): Promise<ContactRequest> {
-		const request = await this.contactRequestsRepository.findById(requestId);
-		if (!request) {
-			throw new NotFoundException('Contact request not found');
-		}
+		const queryRunner = this.dataSource.createQueryRunner();
+		await queryRunner.connect();
+		await queryRunner.startTransaction();
 
-		if (request.recipientId !== userId) {
-			throw new ForbiddenException('Only the recipient can reject a contact request');
-		}
+		try {
+			const requestRepo = queryRunner.manager.getRepository(ContactRequest);
 
-		if (request.status !== ContactRequestStatus.PENDING) {
-			throw new ConflictException('Contact request is not pending');
-		}
+			// verrou ligne pour eviter de modifier un statut deja change en concurrent
+			const request = await requestRepo.findOne({
+				where: { id: requestId },
+				lock: { mode: 'pessimistic_write' },
+			});
+			if (!request) {
+				throw new NotFoundException('Contact request not found');
+			}
 
-		request.status = ContactRequestStatus.REJECTED;
-		return this.contactRequestsRepository.save(request);
+			if (request.recipientId !== userId) {
+				throw new ForbiddenException('Only the recipient can reject a contact request');
+			}
+
+			if (request.status !== ContactRequestStatus.PENDING) {
+				throw new ConflictException('Contact request is not pending');
+			}
+
+			request.status = ContactRequestStatus.REJECTED;
+			const saved = await requestRepo.save(request);
+
+			await queryRunner.commitTransaction();
+			return saved;
+		} catch (err) {
+			await queryRunner.rollbackTransaction();
+			throw err;
+		} finally {
+			await queryRunner.release();
+		}
 	}
 
 	async cancelRequest(requestId: string, userId: string): Promise<void> {
-		const request = await this.contactRequestsRepository.findById(requestId);
-		if (!request) {
-			throw new NotFoundException('Contact request not found');
-		}
+		const queryRunner = this.dataSource.createQueryRunner();
+		await queryRunner.connect();
+		await queryRunner.startTransaction();
 
-		if (request.requesterId !== userId) {
-			throw new ForbiddenException('Only the requester can cancel a contact request');
-		}
+		try {
+			const requestRepo = queryRunner.manager.getRepository(ContactRequest);
 
-		if (request.status !== ContactRequestStatus.PENDING) {
-			throw new ConflictException('Contact request is not pending');
-		}
+			// verrou ligne pour eviter cancel concurrent avec accept/reject
+			const request = await requestRepo.findOne({
+				where: { id: requestId },
+				lock: { mode: 'pessimistic_write' },
+			});
+			if (!request) {
+				throw new NotFoundException('Contact request not found');
+			}
 
-		await this.contactRequestsRepository.remove(request);
+			if (request.requesterId !== userId) {
+				throw new ForbiddenException('Only the requester can cancel a contact request');
+			}
+
+			if (request.status !== ContactRequestStatus.PENDING) {
+				throw new ConflictException('Contact request is not pending');
+			}
+
+			await requestRepo.remove(request);
+			await queryRunner.commitTransaction();
+		} catch (err) {
+			await queryRunner.rollbackTransaction();
+			throw err;
+		} finally {
+			await queryRunner.release();
+		}
 	}
 }
