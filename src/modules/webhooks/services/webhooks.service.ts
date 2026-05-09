@@ -26,8 +26,8 @@ export class WebhooksService {
 		});
 	}
 
-	async list(): Promise<Webhook[]> {
-		return this.webhooksRepository.findAll();
+	async list(opts: { take?: number; skip?: number } = {}): Promise<Webhook[]> {
+		return this.webhooksRepository.findAll(opts);
 	}
 
 	async remove(id: string): Promise<void> {
