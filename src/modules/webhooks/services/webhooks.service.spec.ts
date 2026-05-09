@@ -139,7 +139,6 @@ describe('WebhooksService', () => {
 
 			const event: WebhookEvent = {
 				type: 'sanction.created',
-				timestamp: '2026-01-01T00:00:00Z',
 				data: { sanctionId: 'sanc-1' },
 			};
 
@@ -165,7 +164,6 @@ describe('WebhooksService', () => {
 
 			const event: WebhookEvent = {
 				type: 'sanction.created',
-				timestamp: '2026-01-01T00:00:00Z',
 				data: {},
 			};
 
@@ -181,7 +179,6 @@ describe('WebhooksService', () => {
 
 			const event: WebhookEvent = {
 				type: 'sanction.created',
-				timestamp: '2026-01-01T00:00:00Z',
 				data: {},
 			};
 
@@ -197,7 +194,6 @@ describe('WebhooksService', () => {
 
 			const event: WebhookEvent = {
 				type: 'sanction.created',
-				timestamp: '2026-01-01T00:00:00Z',
 				data: {},
 			};
 
@@ -211,13 +207,64 @@ describe('WebhooksService', () => {
 
 			const event: WebhookEvent = {
 				type: 'sanction.created',
-				timestamp: '2026-01-01T00:00:00Z',
 				data: {},
 			};
 
 			await service.dispatch(event);
 
 			expect(fetchSpy).not.toHaveBeenCalled();
+		});
+
+		it('should set timestamp server-side and ignore caller-supplied value', async () => {
+			const webhook = mockWebhook({ secret: null });
+			repo.findActiveByEvent.mockResolvedValue([webhook]);
+
+			const fixedNow = new Date('2026-05-09T10:30:00.000Z');
+			jest.useFakeTimers().setSystemTime(fixedNow);
+
+			// caller try to inject an old timestamp pour replay - doit etre ignore
+			const eventWithStaleTs = {
+				type: 'sanction.created',
+				timestamp: '2020-01-01T00:00:00.000Z',
+				data: {},
+			} as unknown as WebhookEvent;
+
+			await service.dispatch(eventWithStaleTs);
+
+			const sentBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+			expect(sentBody.timestamp).toBe(fixedNow.toISOString());
+			expect(sentBody.timestamp).not.toBe('2020-01-01T00:00:00.000Z');
+
+			jest.useRealTimers();
+		});
+
+		it('should attach an AbortSignal with 5s timeout on each fetch call', async () => {
+			const webhook = mockWebhook({ secret: null });
+			repo.findActiveByEvent.mockResolvedValue([webhook]);
+
+			const event: WebhookEvent = {
+				type: 'sanction.created',
+				data: {},
+			};
+
+			await service.dispatch(event);
+
+			const callArgs = fetchSpy.mock.calls[0][1];
+			expect(callArgs.signal).toBeInstanceOf(AbortSignal);
+		});
+
+		it('should swallow AbortError from fetch timeout', async () => {
+			const abortErr = new Error('The operation was aborted');
+			abortErr.name = 'TimeoutError';
+			fetchSpy.mockRejectedValue(abortErr);
+			repo.findActiveByEvent.mockResolvedValue([mockWebhook()]);
+
+			const event: WebhookEvent = {
+				type: 'sanction.created',
+				data: {},
+			};
+
+			await expect(service.dispatch(event)).resolves.toBeUndefined();
 		});
 	});
 });
