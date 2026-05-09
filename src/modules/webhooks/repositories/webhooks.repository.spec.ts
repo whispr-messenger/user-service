@@ -47,14 +47,42 @@ describe('WebhooksRepository', () => {
 	});
 
 	describe('findAll', () => {
-		it('returns webhooks ordered by createdAt DESC', async () => {
+		it('returns webhooks ordered by createdAt DESC with default pagination', async () => {
 			const hooks = [{ id: 'w1' }] as Webhook[];
 			mockTypeormRepo.find.mockResolvedValue(hooks);
 
 			const result = await repo.findAll();
 
-			expect(mockTypeormRepo.find).toHaveBeenCalledWith({ order: { createdAt: 'DESC' } });
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				order: { createdAt: 'DESC' },
+				take: 50,
+				skip: 0,
+			});
 			expect(result).toBe(hooks);
+		});
+
+		it('honors custom take and skip when provided', async () => {
+			mockTypeormRepo.find.mockResolvedValue([]);
+
+			await repo.findAll({ take: 25, skip: 100 });
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				order: { createdAt: 'DESC' },
+				take: 25,
+				skip: 100,
+			});
+		});
+
+		it('caps take at 200 and floors negative skip at 0', async () => {
+			mockTypeormRepo.find.mockResolvedValue([]);
+
+			await repo.findAll({ take: 9999, skip: -10 });
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				order: { createdAt: 'DESC' },
+				take: 200,
+				skip: 0,
+			});
 		});
 	});
 

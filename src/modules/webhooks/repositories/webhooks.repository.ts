@@ -15,8 +15,11 @@ export class WebhooksRepository {
 		return this.repo.save(webhook);
 	}
 
-	async findAll(): Promise<Webhook[]> {
-		return this.repo.find({ order: { createdAt: 'DESC' } });
+	// pagination obligatoire pour eviter full table scan sur tenants avec milliers de webhooks (WHISPR-1382)
+	async findAll(opts: { take?: number; skip?: number } = {}): Promise<Webhook[]> {
+		const take = Math.min(Math.max(opts.take ?? 50, 1), 200);
+		const skip = Math.max(opts.skip ?? 0, 0);
+		return this.repo.find({ order: { createdAt: 'DESC' }, take, skip });
 	}
 
 	async findById(id: string): Promise<Webhook | null> {

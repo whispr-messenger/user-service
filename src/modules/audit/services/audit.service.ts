@@ -1,7 +1,17 @@
 import { Injectable } from '@nestjs/common';
+import { Readable } from 'stream';
 import { AuditRepository, AuditQueryOptions } from '../repositories/audit.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { AuditLog } from '../entities/audit-log.entity';
+
+const CSV_HEADER = 'id,actor_id,action,target_type,target_id,metadata,created_at';
+// taille de page pour streamer l export CSV sans tout charger en memoire (WHISPR-1382)
+const EXPORT_PAGE_SIZE = 1000;
+
+export interface CsvExportResult {
+	stream: Readable;
+	totalRows: () => number;
+}
 
 @Injectable()
 export class AuditService {
@@ -43,26 +53,54 @@ export class AuditService {
 		return { data, total };
 	}
 
-	async exportCsv(adminId: string): Promise<string> {
+	// streame l export par pages pour eviter la troncature silencieuse a 1000 lignes (WHISPR-1382)
+	async exportCsv(adminId: string): Promise<CsvExportResult> {
 		await this.rolesService.ensureAdminOrModerator(adminId);
 
-		const logs = await this.auditRepository.findAll({ limit: 1000, offset: 0 });
+		let totalRows = 0;
+		const repo = this.auditRepository;
 
-		const header = 'id,actor_id,action,target_type,target_id,metadata,created_at';
-		const rows = logs.map((l) =>
-			[
-				csvEscape(l.id),
-				csvEscape(l.actorId),
-				csvEscape(l.action),
-				csvEscape(l.targetType),
-				csvEscape(l.targetId),
-				csvEscape(JSON.stringify(l.metadata ?? {})),
-				csvEscape(l.createdAt.toISOString()),
-			].join(',')
-		);
+		const stream = new Readable({
+			read() {},
+		});
 
-		return [header, ...rows].join('\n');
+		(async () => {
+			try {
+				stream.push(CSV_HEADER);
+				let offset = 0;
+				while (true) {
+					const page = await repo.findAll({ limit: EXPORT_PAGE_SIZE, offset });
+					if (page.length === 0) break;
+					for (const log of page) {
+						stream.push('\n' + serialiseRow(log));
+					}
+					totalRows += page.length;
+					if (page.length < EXPORT_PAGE_SIZE) break;
+					offset += EXPORT_PAGE_SIZE;
+				}
+				stream.push(null);
+			} catch (err) {
+				stream.destroy(err as Error);
+			}
+		})();
+
+		return {
+			stream,
+			totalRows: () => totalRows,
+		};
 	}
+}
+
+function serialiseRow(l: AuditLog): string {
+	return [
+		csvEscape(l.id),
+		csvEscape(l.actorId),
+		csvEscape(l.action),
+		csvEscape(l.targetType),
+		csvEscape(l.targetId),
+		csvEscape(JSON.stringify(l.metadata ?? {})),
+		csvEscape(l.createdAt.toISOString()),
+	].join(',');
 }
 
 /**
