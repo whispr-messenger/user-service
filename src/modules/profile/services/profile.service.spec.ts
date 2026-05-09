@@ -287,9 +287,10 @@ describe('ProfileService', () => {
 			);
 		});
 
-		// WHISPR-1271 — the legacy indexUser+removeUserFromIndex pair would
-		// HDEL/DEL keys it had just rewritten when only firstName changed.
-		// The fix routes through updateUserIndex; the legacy pair must never fire.
+		// WHISPR-1271 - l'ancien duo indexUser+removeUserFromIndex faisait
+		// HDEL/DEL sur des cles qu'il venait de reecrire quand seul firstName
+		// changeait. Le fix passe par updateUserIndex ; l'ancien duo ne doit
+		// plus jamais etre appele.
 		it('does not call legacy indexUser/removeUserFromIndex when only firstName changes', async () => {
 			const user = { ...mockUser(), firstName: 'Alice' } as User;
 			const dto: UpdateProfileDto = { firstName: 'Alicia' };
@@ -308,9 +309,10 @@ describe('ProfileService', () => {
 			);
 		});
 
-		// WHISPR-1271 — guard against re-introducing an `if` that fires the
-		// reconciliation for biography-only / no-name updates (would burn a
-		// Redis pipeline for nothing and risk re-introducing the wipe bug).
+		// WHISPR-1271 - garde-fou contre la reintroduction d'un `if` qui
+		// declencherait la reconciliation sur des updates biography-only /
+		// sans changement de nom (gaspille un pipeline Redis et risque de
+		// faire revenir le bug de wipe).
 		it('does not touch search indexes when no name/username/lastName changes', async () => {
 			const user = { ...mockUser(), firstName: 'Alice', username: 'alice' } as User;
 			const dto: UpdateProfileDto = { biography: 'Hello world' };

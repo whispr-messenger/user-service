@@ -190,7 +190,7 @@ export class ProfileService {
 			}
 		}
 
-		// Resolve avatarMediaId → profilePictureUrl via media-service
+		// Resout avatarMediaId vers profilePictureUrl via le media-service
 		if (dto.avatarMediaId) {
 			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
 			if (media.context !== 'avatar') {
@@ -219,7 +219,7 @@ export class ProfileService {
 			user.visualPreferences = mergedVisualPreferences;
 		}
 
-		// Remove transient/non-column fields before saving.
+		// Enleve les champs transitoires / non-colonnes avant de sauvegarder.
 		const { avatarMediaId, visualPreferences, backgroundMediaId, backgroundMediaUrl, ...fields } = dto;
 		Object.assign(user, fields);
 
@@ -233,9 +233,9 @@ export class ProfileService {
 			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
-				// WHISPR-1271 : single-pipeline diff. The previous
-				// `indexUser(saved) + removeUserFromIndex(prev)` pair deleted phone /
-				// user-cache / unchanged-username keys that had just been rewritten.
+				// WHISPR-1271 : diff en un seul pipeline. L'ancien duo
+				// `indexUser(saved) + removeUserFromIndex(prev)` supprimait les cles
+				// phone / user-cache / username inchange qu'on venait de reecrire.
 				await this.searchIndexService.updateUserIndex(previousSnapshot as User, saved);
 			} catch (err) {
 				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
