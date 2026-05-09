@@ -2,16 +2,16 @@ import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 /**
- * Lightweight HTTP client for the media-service.
+ * Petit client HTTP pour le media-service.
  *
- * The media-service contract (MediaMetadataDto from Swagger):
- *   GET  /media/v1/:id       → { id, ownerId, context, contentType, blobSize, ... }
- *   GET  /media/v1/:id/blob  → { url, expiresAt } (presigned S3 URL)
- *   POST /media/v1/upload    → multipart upload (handled by mobile/frontend)
+ * Contrat du media-service (MediaMetadataDto cote Swagger) :
+ *   GET  /media/v1/:id       -> { id, ownerId, context, contentType, blobSize, ... }
+ *   GET  /media/v1/:id/blob  -> { url, expiresAt } (URL S3 presignee)
+ *   POST /media/v1/upload    -> upload multipart (gere par le mobile/frontend)
  *
- * This client calls GET /media/v1/:id to validate a mediaId before storing
- * the corresponding blob URL as the profile picture, and GET /media/v1/:id/blob
- * to get a presigned URL the browser can use directly in <img src>.
+ * On appelle GET /media/v1/:id pour valider un mediaId avant de stocker l'URL
+ * comme photo de profil, et GET /media/v1/:id/blob pour recuperer une URL
+ * presignee utilisable directement dans un <img src> cote navigateur.
  */
 export interface MediaMetadata {
 	id: string;
@@ -35,10 +35,10 @@ interface CachedPresignedUrl {
 	expiresAtMs: number;
 }
 
-// WHISPR-1253: keep a short in-memory cache so we don't re-presign the same
-// mediaId on every profile read. The presigned URL has a much longer TTL on
-// the media-service side (hours), but a 60s window is enough to absorb a
-// burst of conversations-list reads that touch the same avatars.
+// WHISPR-1253 : petit cache en memoire pour ne pas re-presigner le meme mediaId
+// a chaque lecture de profil. Le media-service garde l'URL presignee valide
+// plusieurs heures, mais une fenetre de 60s suffit a absorber un burst de
+// lectures de la liste de conversations qui tapent les memes avatars.
 const PRESIGN_CACHE_TTL_MS = 60 * 1000;
 const PRESIGN_CACHE_MAX_ENTRIES = 1000;
 
@@ -57,30 +57,31 @@ export class MediaClientService {
 	}
 
 	/**
-	 * Builds the legacy blob endpoint URL. Kept for backwards-compatibility
-	 * with callers that still expect a path string. NEW callers serialising
-	 * a profile picture for a browser client must use `presignProfilePictureUrl`
-	 * instead, since this endpoint requires a JWT and `<img src>` cannot
-	 * carry an Authorization header.
+	 * Construit l'URL legacy de l'endpoint blob. Conservee pour compat avec
+	 * les appelants qui attendent encore un simple path. Les NOUVEAUX appelants
+	 * qui serialisent une photo de profil pour un client navigateur doivent
+	 * passer par `presignProfilePictureUrl` : cet endpoint exige un JWT et
+	 * `<img src>` ne peut pas porter de header Authorization.
 	 */
 	resolveProfilePictureUrl(mediaId: string): string {
 		return `${this.baseUrl}/media/v1/${mediaId}/blob`;
 	}
 
 	/**
-	 * WHISPR-1253: Returns a presigned S3 URL the browser can use directly in
-	 * `<img src>` without an Authorization header.
+	 * WHISPR-1253 : renvoie une URL S3 presignee utilisable directement dans
+	 * `<img src>` sans header Authorization.
 	 *
-	 * Calls media-service GET /media/v1/:id/blob propagating the caller's JWT
-	 * so the read ACL stays enforced (avatar/group_icon are public-readable
-	 * but media-service still requires a valid JWT to issue a signed URL).
+	 * Appelle media-service GET /media/v1/:id/blob en propageant le JWT de
+	 * l'appelant pour que l'ACL en lecture reste appliquee (avatar/group_icon
+	 * sont lisibles publiquement mais le media-service exige quand meme un
+	 * JWT valide pour emettre l'URL signee).
 	 *
-	 * Falls back to the bare blob endpoint URL when:
-	 *   - no Authorization header is available (e.g. internal caller)
-	 *   - media-service is unreachable
-	 *   - media-service returns an error
-	 * The fallback path keeps the previous behaviour so a media-service outage
-	 * does not break the whole user-service profile responses.
+	 * Fallback vers l'URL brute du blob si :
+	 *   - pas de header Authorization (ex: appelant interne)
+	 *   - media-service injoignable
+	 *   - media-service renvoie une erreur
+	 * Ce fallback garde l'ancien comportement pour qu'une panne media-service
+	 * ne casse pas toutes les reponses profile du user-service.
 	 */
 	async presignProfilePictureUrl(mediaId: string, authorization?: string): Promise<string> {
 		const fallback = this.resolveProfilePictureUrl(mediaId);
@@ -138,12 +139,12 @@ export class MediaClientService {
 	}
 
 	/**
-	 * Fetch media metadata from media-service by ID.
+	 * Recupere les metadonnees d'un media depuis le media-service par son ID.
 	 *
-	 * @param mediaId  UUID of the uploaded media
-	 * @param userId   UUID of the requesting user (forwarded as x-user-id)
-	 * @param authorization Optional Authorization header from the caller ("Bearer ...")
-	 * @returns        MediaMetadata as returned by the media-service
+	 * @param mediaId  UUID du media uploade
+	 * @param userId   UUID de l'utilisateur appelant (transmis en x-user-id)
+	 * @param authorization Header Authorization optionnel ("Bearer ...")
+	 * @returns        MediaMetadata renvoyee par le media-service
 	 */
 	async getMediaMetadata(mediaId: string, userId: string, authorization?: string): Promise<MediaMetadata> {
 		const url = `${this.baseUrl}/media/v1/${mediaId}`;
@@ -192,9 +193,9 @@ export class MediaClientService {
 	}
 
 	private setCached(mediaId: string, url: string): void {
-		// Bound the cache size with a simple FIFO eviction. The hot set is
-		// small (a single conversations list rarely shows more than a few
-		// dozen avatars), so this is enough to avoid unbounded memory growth.
+		// Limite la taille du cache via une eviction FIFO simple. Le hot set est
+		// petit (une liste de conversations affiche rarement plus de quelques
+		// dizaines d'avatars), donc ca suffit a eviter de la memoire non-bornee.
 		if (this.presignCache.size >= PRESIGN_CACHE_MAX_ENTRIES) {
 			const firstKey = this.presignCache.keys().next().value;
 			if (firstKey !== undefined) {
