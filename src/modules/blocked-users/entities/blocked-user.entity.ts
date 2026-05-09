@@ -6,11 +6,14 @@ import {
 	ManyToOne,
 	JoinColumn,
 	Unique,
+	Index,
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 
 @Entity({ name: 'blocked_users', schema: 'users' })
 @Unique(['blockerId', 'blockedId'])
+@Index('IDX_blocked_users_blocker_id', ['blockerId'])
+@Index('IDX_blocked_users_blocked_id', ['blockedId'])
 export class BlockedUser {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;
