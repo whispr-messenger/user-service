@@ -2,6 +2,7 @@ import { WebhooksRepository } from './webhooks.repository';
 import { Webhook } from '../entities/webhook.entity';
 
 const mockQb = {
+	addSelect: jest.fn().mockReturnThis(),
 	where: jest.fn().mockReturnThis(),
 	andWhere: jest.fn().mockReturnThis(),
 	getMany: jest.fn(),
@@ -118,6 +119,15 @@ describe('WebhooksRepository', () => {
 				event: JSON.stringify(['sanction.created']),
 			});
 			expect(result).toBe(hooks);
+		});
+
+		// secret est select:false par defaut sur l'entity, doit etre re-inclus explicitement pour signer (WHISPR-1408)
+		it('explicitly addSelect webhook.secret for HMAC signing', async () => {
+			mockQb.getMany.mockResolvedValue([]);
+
+			await repo.findActiveByEvent('sanction.created');
+
+			expect(mockQb.addSelect).toHaveBeenCalledWith('webhook.secret');
 		});
 	});
 
