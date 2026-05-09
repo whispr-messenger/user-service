@@ -6,6 +6,7 @@ import {
 	UpdateDateColumn,
 	ManyToOne,
 	JoinColumn,
+	Index,
 } from 'typeorm';
 import { User } from '../../common/entities/user.entity';
 import { UserSanction } from '../../sanctions/entities/user-sanction.entity';
@@ -13,6 +14,9 @@ import { UserSanction } from '../../sanctions/entities/user-sanction.entity';
 export type AppealType = 'sanction' | 'blocked_image';
 
 @Entity({ name: 'appeals', schema: 'users' })
+@Index('IDX_appeals_user_id', ['userId'])
+@Index('IDX_appeals_status', ['status'])
+@Index('IDX_appeals_user_id_status', ['userId', 'status'])
 export class Appeal {
 	@PrimaryGeneratedColumn('uuid')
 	id: string;
