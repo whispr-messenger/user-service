@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, FindOptionsWhere, ILike } from 'typeorm';
+import { Repository, FindOptionsWhere, ILike, In } from 'typeorm';
 import { User } from '../entities/user.entity';
 
 /**
@@ -36,6 +36,19 @@ export class UserRepository {
 	async findById(id: string, relations?: string[]): Promise<User | null> {
 		return this.repository.findOne({
 			where: { id },
+			relations,
+		});
+	}
+
+	/**
+	 * Find multiple users by ids in a single query (1 SELECT IN au lieu de N).
+	 * Utilise par l'endpoint batch pour eviter les bursts de N requetes
+	 * lors du chargement de la liste des conversations cote mobile.
+	 */
+	async findByIds(ids: string[], relations?: string[]): Promise<User[]> {
+		if (ids.length === 0) return [];
+		return this.repository.find({
+			where: { id: In(ids) },
 			relations,
 		});
 	}
