@@ -13,6 +13,7 @@ import {
 	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request as ExpressRequest } from 'express';
 import { ContactRequestsService } from '../services/contact-requests.service';
 import { SendContactRequestDto } from '../dto/send-contact-request.dto';
@@ -26,7 +27,14 @@ import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 export class ContactRequestsController {
 	constructor(private readonly contactRequestsService: ContactRequestsService) {}
 
+	// Limite serree : envoyer une demande de contact est cher (notif, anti-spam social).
+	// On surcharge les 3 tiers globaux pour borner aussi la fenetre 1 min/10 envois.
 	@Post()
+	@Throttle({
+		short: { ttl: 1000, limit: 5 },
+		medium: { ttl: 10_000, limit: 10 },
+		long: { ttl: 60_000, limit: 10 },
+	})
 	@ApiOperation({ summary: 'Send a contact request' })
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Contact request sent successfully' })
 	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Cannot send request to yourself' })
