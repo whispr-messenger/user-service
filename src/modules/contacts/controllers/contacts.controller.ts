@@ -13,6 +13,7 @@ import {
 	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import type { Request as ExpressRequest } from 'express';
 import { ContactsService } from '../services/contacts.service';
 import { AddContactDto } from '../dto/add-contact.dto';
@@ -40,6 +41,11 @@ export class ContactsController {
 	}
 
 	@Post()
+	@Throttle({
+		short: { ttl: 1000, limit: 5 },
+		medium: { ttl: 10_000, limit: 15 },
+		long: { ttl: 60_000, limit: 20 },
+	})
 	@ApiOperation({ summary: 'Add a contact for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Contact added successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
