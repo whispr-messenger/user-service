@@ -34,11 +34,15 @@ export class ProfileController {
 	}
 
 	// Profil tiers : haute mais bornee, on coupe les bots qui scannent (WHISPR-1327).
+	// WHISPR-1344 : ConversationsList charge en burst tous les profils membres
+	// d une session (jusqu a 30+ chats directs), le palier short de 10/s
+	// faisait sauter 20+ requetes en 429. Endpoint authentifie, pas exposable
+	// publiquement, on peut relacher sans degrader la protection anti-bot.
 	@Get(':id')
 	@Throttle({
-		short: { ttl: 1000, limit: 10 },
-		medium: { ttl: 10_000, limit: 60 },
-		long: { ttl: 60_000, limit: 120 },
+		short: { ttl: 1000, limit: 30 },
+		medium: { ttl: 10_000, limit: 100 },
+		long: { ttl: 60_000, limit: 300 },
 	})
 	@ApiOperation({ summary: 'Get user profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
