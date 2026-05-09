@@ -13,6 +13,7 @@ import {
 	Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { GroupsService } from '../services/groups.service';
 import { CreateGroupDto } from '../dto/create-group.dto';
 import { UpdateGroupDto } from '../dto/update-group.dto';
@@ -40,6 +41,11 @@ export class GroupsController {
 	}
 
 	@Post()
+	@Throttle({
+		short: { ttl: 1000, limit: 3 },
+		medium: { ttl: 10_000, limit: 8 },
+		long: { ttl: 60_000, limit: 10 },
+	})
 	@ApiOperation({ summary: 'Create a group for the authenticated user' })
 	@ApiResponse({ status: HttpStatus.CREATED, description: 'Group created successfully' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
