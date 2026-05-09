@@ -144,8 +144,38 @@ export class ProfileService {
 		authorization?: string
 	): Promise<User> {
 		const user = await this.findOne(id);
+		return this.applyPrivacyGate(user, requesterId, authorization);
+	}
 
-		if (requesterId === id) {
+	/**
+	 * Recupere N profils en une seule requete DB (SELECT IN) puis applique
+	 * les privacy gates par profil. Les ids inconnus / inactifs sont renvoyes
+	 * dans `missing`. Pas d'erreur globale si un seul id manque, le client
+	 * voit la liste partielle pour ne pas casser le rendu mobile.
+	 *
+	 * Le caller doit deduper les ids cote controller pour ne pas presigner
+	 * deux fois la meme URL.
+	 */
+	public async getProfilesBatch(
+		ids: string[],
+		requesterId: string,
+		authorization?: string
+	): Promise<{ profiles: User[]; missing: string[] }> {
+		if (ids.length === 0) {
+			return { profiles: [], missing: [] };
+		}
+
+		const found = await this.userRepository.findByIds(ids);
+		const profiles = await Promise.all(
+			found.map((user) => this.applyPrivacyGate(user, requesterId, authorization))
+		);
+		const foundIds = new Set(found.map((u) => u.id));
+		const missing = ids.filter((id) => !foundIds.has(id));
+		return { profiles, missing };
+	}
+
+	private async applyPrivacyGate(user: User, requesterId: string, authorization?: string): Promise<User> {
+		if (requesterId === user.id) {
 			if (user.profilePictureUrl) {
 				user.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
 					user.profilePictureUrl,
@@ -155,8 +185,8 @@ export class ProfileService {
 			return user;
 		}
 
-		const settings = await this.privacyService.getSettings(id);
-		const isContact = await this.contactsService.isContact(id, requesterId);
+		const settings = await this.privacyService.getSettings(user.id);
+		const isContact = await this.contactsService.isContact(user.id, requesterId);
 
 		const canSee = (level: PrivacyLevel): boolean => {
 			if (level === PrivacyLevel.EVERYONE) return true;

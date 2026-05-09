@@ -4,12 +4,13 @@ import { UserSearchModule } from '../search/user-search.module';
 import { PrivacyModule } from '../privacy/privacy.module';
 import { ContactsModule } from '../contacts/contacts.module';
 import { ProfileController } from './controllers/profile.controller';
+import { ProfilesController } from './controllers/profiles.controller';
 import { ProfileService } from './services/profile.service';
 import { MediaClientService } from './services/media-client.service';
 
 @Module({
 	imports: [CommonModule, UserSearchModule, PrivacyModule, ContactsModule],
-	controllers: [ProfileController],
+	controllers: [ProfileController, ProfilesController],
 	providers: [ProfileService, MediaClientService],
 	exports: [ProfileService],
 })

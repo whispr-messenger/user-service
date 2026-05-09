@@ -648,4 +648,124 @@ describe('ProfileService', () => {
 			expect(user.firstName).toBe('Alice');
 		});
 	});
+
+	describe('getProfilesBatch', () => {
+		const userA = (): User =>
+			({
+				...mockUser(),
+				id: 'uuid-1',
+				firstName: 'Alice',
+				lastName: 'Smith',
+			}) as User;
+		const userB = (): User =>
+			({
+				...mockUser(),
+				id: 'uuid-2',
+				firstName: 'Bob',
+				lastName: 'Jones',
+			}) as User;
+
+		it('returns all requested profiles when they all exist', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA(), userB()]);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(true);
+
+			const result = await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(result.profiles).toHaveLength(2);
+			expect(result.profiles.map((p) => p.id).sort()).toEqual(['uuid-1', 'uuid-2']);
+			expect(result.missing).toEqual([]);
+		});
+
+		it('reports missing ids when some users do not exist', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfilesBatch(['uuid-1', 'uuid-missing'], 'uuid-3');
+
+			expect(result.profiles).toHaveLength(1);
+			expect(result.profiles[0].id).toBe('uuid-1');
+			expect(result.missing).toEqual(['uuid-missing']);
+		});
+
+		it('returns empty arrays when no ids are provided', async () => {
+			const findByIds = jest.fn().mockResolvedValue([]);
+			(userRepository as any).findByIds = findByIds;
+
+			const result = await service.getProfilesBatch([], 'uuid-3');
+
+			expect(result.profiles).toEqual([]);
+			expect(result.missing).toEqual([]);
+			expect(findByIds).not.toHaveBeenCalled();
+		});
+
+		it('applies privacy gates per profile (masks fields when not a contact)', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+					lastNamePrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-3');
+
+			expect(result.profiles[0].firstName).toBeNull();
+			expect(result.profiles[0].lastName).toBeNull();
+		});
+
+		it('reveals CONTACTS fields when requester is a contact of the target', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(true);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-3');
+
+			expect(result.profiles[0].firstName).toBe('Alice');
+		});
+
+		it('returns the full profile of the requester themselves without privacy lookup', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-1');
+
+			expect(result.profiles[0].firstName).toBe('Alice');
+			expect(privacyService.getSettings).not.toHaveBeenCalled();
+		});
+
+		it('issues a single SELECT IN regardless of the number of ids', async () => {
+			const findByIds = jest.fn().mockResolvedValue([userA(), userB()]);
+			(userRepository as any).findByIds = findByIds;
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(true);
+
+			await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(findByIds).toHaveBeenCalledTimes(1);
+			expect(findByIds).toHaveBeenCalledWith(['uuid-1', 'uuid-2']);
+		});
+
+		it('does not mutate the source user entities returned by the repository', async () => {
+			const sourceA = userA();
+			const sourceB = userB();
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([sourceA, sourceB]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.NOBODY,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(sourceA.firstName).toBe('Alice');
+			expect(sourceB.firstName).toBe('Bob');
+		});
+	});
 });
