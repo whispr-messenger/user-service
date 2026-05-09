@@ -4,11 +4,18 @@ import { WebhooksRepository } from '../repositories/webhooks.repository';
 import { CreateWebhookDto } from '../dto/create-webhook.dto';
 import { Webhook } from '../entities/webhook.entity';
 
+// timestamp pose cote serveur dans dispatch(): un caller ne peut pas le forcer (anti-replay) (WHISPR-1408)
 export interface WebhookEvent {
 	type: string;
-	timestamp: string;
 	data: Record<string, any>;
 }
+
+// payload signe envoye au receiver: timestamp server-side, les receivers DOIVENT rejeter > 5 min
+export interface SignedWebhookPayload extends WebhookEvent {
+	timestamp: string;
+}
+
+const DISPATCH_TIMEOUT_MS = 5000;
 
 @Injectable()
 export class WebhooksService {
@@ -39,7 +46,13 @@ export class WebhooksService {
 
 	async dispatch(event: WebhookEvent): Promise<void> {
 		const webhooks = await this.webhooksRepository.findActiveByEvent(event.type);
-		const payload = JSON.stringify(event);
+		// timestamp force cote serveur: ignore tout champ caller-supplied pour bloquer le replay (WHISPR-1408)
+		const signedPayload: SignedWebhookPayload = {
+			type: event.type,
+			data: event.data,
+			timestamp: new Date().toISOString(),
+		};
+		const payload = JSON.stringify(signedPayload);
 
 		const dispatches = webhooks.map(async (webhook) => {
 			try {
@@ -53,10 +66,12 @@ export class WebhooksService {
 					headers['X-Webhook-Signature'] = `sha256=${signature}`;
 				}
 
+				// timeout dur sur fetch: pas de pile-up de Promises sur URL hung (WHISPR-1408)
 				await fetch(webhook.url, {
 					method: 'POST',
 					headers,
 					body: payload,
+					signal: AbortSignal.timeout(DISPATCH_TIMEOUT_MS),
 				});
 			} catch (error) {
 				this.logger.warn(

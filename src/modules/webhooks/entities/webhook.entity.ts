@@ -11,7 +11,8 @@ export class Webhook {
 	@Column({ type: 'jsonb', default: [] })
 	events: string[];
 
-	@Column({ type: 'varchar', length: 255, nullable: true })
+	// secret: select false par defaut, addSelect explicite seulement quand on signe (WHISPR-1408)
+	@Column({ type: 'varchar', length: 255, nullable: true, select: false })
 	secret: string | null;
 
 	@Column({ type: 'boolean', default: true })

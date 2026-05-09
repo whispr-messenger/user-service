@@ -26,9 +26,11 @@ export class WebhooksRepository {
 		return this.repo.findOne({ where: { id } });
 	}
 
+	// addSelect du secret: usage strict pour signer le payload sortant (WHISPR-1408)
 	async findActiveByEvent(event: string): Promise<Webhook[]> {
 		return this.repo
 			.createQueryBuilder('webhook')
+			.addSelect('webhook.secret')
 			.where('webhook.active = true')
 			.andWhere('webhook.events @> :event', { event: JSON.stringify([event]) })
 			.getMany();
