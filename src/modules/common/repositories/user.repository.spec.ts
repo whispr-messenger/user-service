@@ -81,6 +81,43 @@ describe('UserRepository', () => {
 		});
 	});
 
+	describe('findByIds', () => {
+		it('returns all users matching the given ids in a single query', async () => {
+			const users = [{ id: 'uuid-1' } as User, { id: 'uuid-2' } as User];
+			mockTypeormRepo.find.mockResolvedValue(users);
+
+			const result = await repo.findByIds(['uuid-1', 'uuid-2']);
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledTimes(1);
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith(
+				expect.objectContaining({
+					where: { id: expect.any(Object) },
+					relations: undefined,
+				})
+			);
+			expect(result).toBe(users);
+		});
+
+		it('short-circuits without hitting the DB when ids is empty', async () => {
+			const result = await repo.findByIds([]);
+
+			expect(result).toEqual([]);
+			expect(mockTypeormRepo.find).not.toHaveBeenCalled();
+		});
+
+		it('passes relations through to TypeORM find', async () => {
+			mockTypeormRepo.find.mockResolvedValue([]);
+
+			await repo.findByIds(['uuid-1'], ['privacySettings']);
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith(
+				expect.objectContaining({
+					relations: ['privacySettings'],
+				})
+			);
+		});
+	});
+
 	describe('findByPhoneNumber', () => {
 		it('should find a user by phone number', async () => {
 			const user = { id: 'uuid', phoneNumber: '+1234567890' } as User;
