@@ -86,9 +86,13 @@ export class AuditController {
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
 	async exportCsv(@Request() req: ExpressRequest & { user: JwtPayload }, @Res() res: Response) {
-		const csv = await this.auditService.exportCsv(req.user.sub);
+		// stream pour eviter la troncature silencieuse au-dela de 1000 lignes (WHISPR-1382)
+		const result = await this.auditService.exportCsv(req.user.sub);
 		res.setHeader('Content-Type', 'text/csv');
 		res.setHeader('Content-Disposition', 'attachment; filename="audit-logs.csv"');
-		res.send(csv);
+		result.stream.on('end', () => {
+			res.addTrailers({ 'X-Total-Rows': String(result.totalRows()) });
+		});
+		result.stream.pipe(res);
 	}
 }

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ForbiddenException } from '@nestjs/common';
+import { Readable } from 'stream';
 import type { Request as ExpressRequest, Response } from 'express';
 import { AuditController } from './audit.controller';
 import { AuditService } from '../services/audit.service';
@@ -13,6 +14,13 @@ const makeRes = (): jest.Mocked<Response> => {
 	const res = {
 		setHeader: jest.fn().mockReturnThis(),
 		send: jest.fn().mockReturnThis(),
+		// stream.pipe(res) appelle ces methodes implicitement
+		on: jest.fn().mockReturnThis(),
+		once: jest.fn().mockReturnThis(),
+		emit: jest.fn().mockReturnThis(),
+		write: jest.fn().mockReturnValue(true),
+		end: jest.fn().mockReturnThis(),
+		addTrailers: jest.fn().mockReturnThis(),
 	} as unknown as jest.Mocked<Response>;
 	return res;
 };
@@ -139,9 +147,10 @@ describe('AuditController', () => {
 	});
 
 	describe('exportCsv', () => {
-		it('sets CSV content-type and sends the csv body', async () => {
-			const csv = 'id,action\n1,create';
-			service.exportCsv.mockResolvedValue(csv);
+		it('sets CSV content-type and pipes the stream', async () => {
+			const stream = Readable.from(['id,action\n1,create']);
+			const pipeSpy = jest.spyOn(stream, 'pipe').mockReturnValue({} as any);
+			service.exportCsv.mockResolvedValue({ stream, totalRows: () => 1 });
 			const res = makeRes();
 
 			await controller.exportCsv(makeReq('admin-1'), res);
@@ -152,7 +161,7 @@ describe('AuditController', () => {
 				'Content-Disposition',
 				'attachment; filename="audit-logs.csv"'
 			);
-			expect(res.send).toHaveBeenCalledWith(csv);
+			expect(pipeSpy).toHaveBeenCalledWith(res);
 		});
 
 		it('propagates ForbiddenException when not admin', async () => {
