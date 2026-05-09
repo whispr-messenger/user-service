@@ -115,7 +115,22 @@ describe('AuditService', () => {
 	});
 
 	describe('exportCsv', () => {
-		it('should return a CSV string with header and rows', async () => {
+		// helper : consomme le stream et retourne le CSV complet + le total final
+		const drainStream = async (result: {
+			stream: NodeJS.ReadableStream;
+			totalRows: () => number;
+		}): Promise<{ csv: string; totalRows: number }> => {
+			const chunks: Buffer[] = [];
+			for await (const chunk of result.stream) {
+				chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+			}
+			return {
+				csv: Buffer.concat(chunks).toString('utf8'),
+				totalRows: result.totalRows(),
+			};
+		};
+
+		it('should stream a CSV with header and rows', async () => {
 			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
 			const log = mockAuditLog({
 				id: 'log-1',
@@ -126,19 +141,42 @@ describe('AuditService', () => {
 				metadata: { reason: 'spam' },
 				createdAt: new Date('2026-01-15T10:00:00.000Z'),
 			});
-			auditRepository.findAll.mockResolvedValue([log]);
+			// premiere page avec une entree, puis page vide pour terminer la boucle
+			auditRepository.findAll.mockResolvedValueOnce([log]).mockResolvedValueOnce([]);
 
 			const result = await service.exportCsv('admin-1');
+			const { csv, totalRows } = await drainStream(result);
 
 			expect(rolesService.ensureAdminOrModerator).toHaveBeenCalledWith('admin-1');
 			expect(auditRepository.findAll).toHaveBeenCalledWith({ limit: 1000, offset: 0 });
 
-			const lines = result.split('\n');
+			const lines = csv.split('\n');
 			expect(lines[0]).toBe('id,actor_id,action,target_type,target_id,metadata,created_at');
 			expect(lines[1]).toContain('log-1');
 			expect(lines[1]).toContain('admin-1');
 			expect(lines[1]).toContain('sanction.create');
 			expect(lines[1]).toContain('2026-01-15T10:00:00.000Z');
+			expect(totalRows).toBe(1);
+		});
+
+		it('should iterate across pages until exhausted (no silent truncation)', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			// 1000 lignes premiere page, 5 lignes deuxieme page, terminate
+			const firstPage = Array.from({ length: 1000 }, (_, i) =>
+				mockAuditLog({ id: `log-${i}`, createdAt: new Date('2026-01-15T10:00:00.000Z') })
+			);
+			const secondPage = Array.from({ length: 5 }, (_, i) =>
+				mockAuditLog({ id: `log-${1000 + i}`, createdAt: new Date('2026-01-15T10:00:00.000Z') })
+			);
+			auditRepository.findAll.mockResolvedValueOnce(firstPage).mockResolvedValueOnce(secondPage);
+
+			const result = await service.exportCsv('admin-1');
+			const { csv, totalRows } = await drainStream(result);
+
+			expect(auditRepository.findAll).toHaveBeenNthCalledWith(1, { limit: 1000, offset: 0 });
+			expect(auditRepository.findAll).toHaveBeenNthCalledWith(2, { limit: 1000, offset: 1000 });
+			expect(totalRows).toBe(1005);
+			expect(csv.split('\n')).toHaveLength(1006); // 1 header + 1005 rows
 		});
 
 		it('should return only the header when no logs exist', async () => {
@@ -146,8 +184,10 @@ describe('AuditService', () => {
 			auditRepository.findAll.mockResolvedValue([]);
 
 			const result = await service.exportCsv('admin-1');
+			const { csv, totalRows } = await drainStream(result);
 
-			expect(result).toBe('id,actor_id,action,target_type,target_id,metadata,created_at');
+			expect(csv).toBe('id,actor_id,action,target_type,target_id,metadata,created_at');
+			expect(totalRows).toBe(0);
 		});
 
 		it('should throw ForbiddenException for regular user', async () => {
@@ -162,10 +202,11 @@ describe('AuditService', () => {
 				metadata: { note: 'said "hello"' },
 				createdAt: new Date('2026-01-15T10:00:00.000Z'),
 			});
-			auditRepository.findAll.mockResolvedValue([log]);
+			auditRepository.findAll.mockResolvedValueOnce([log]).mockResolvedValueOnce([]);
 
 			const result = await service.exportCsv('admin-1');
-			const dataRow = result.split('\n')[1];
+			const { csv } = await drainStream(result);
+			const dataRow = csv.split('\n')[1];
 
 			// Double quotes inside the JSON should be escaped as ""
 			expect(dataRow).toContain('""');
@@ -180,10 +221,11 @@ describe('AuditService', () => {
 				metadata: { note: '@evil' },
 				createdAt: new Date('2026-01-15T10:00:00.000Z'),
 			});
-			auditRepository.findAll.mockResolvedValue([log]);
+			auditRepository.findAll.mockResolvedValueOnce([log]).mockResolvedValueOnce([]);
 
 			const result = await service.exportCsv('admin-1');
-			const dataRow = result.split('\n')[1];
+			const { csv } = await drainStream(result);
+			const dataRow = csv.split('\n')[1];
 
 			// Each cell starting with =+-@ must be prefixed with a single quote.
 			expect(dataRow).toContain(`"'=cmd|calc!A1"`);
