@@ -77,13 +77,22 @@ describe('WebhooksService', () => {
 	});
 
 	describe('list', () => {
-		it('should return all webhooks', async () => {
+		it('should return webhooks with default pagination', async () => {
 			const webhooks = [mockWebhook(), mockWebhook({ id: 'wh-2' })];
 			repo.findAll.mockResolvedValue(webhooks);
 
 			const result = await service.list();
 
+			expect(repo.findAll).toHaveBeenCalledWith({});
 			expect(result).toEqual(webhooks);
+		});
+
+		it('should forward take and skip to repository', async () => {
+			repo.findAll.mockResolvedValue([]);
+
+			await service.list({ take: 10, skip: 20 });
+
+			expect(repo.findAll).toHaveBeenCalledWith({ take: 10, skip: 20 });
 		});
 
 		it('should return empty array when none exist', async () => {
