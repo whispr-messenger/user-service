@@ -1,4 +1,4 @@
-import { Inject, Module, OnModuleDestroy, Provider } from '@nestjs/common';
+import { Module, OnModuleDestroy } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
@@ -38,15 +38,10 @@ const SHORT_THROTTLER: ThrottlerOptions = { name: 'short', ttl: 1000, limit: 5 }
 const MEDIUM_THROTTLER: ThrottlerOptions = { name: 'medium', ttl: 10_000, limit: 50 };
 const LONG_THROTTLER: ThrottlerOptions = { name: 'long', ttl: 60_000, limit: 300 };
 
-// Token Nest pour exposer le client Redis du throttler et le fermer
-// proprement a l'arret de l'app (sinon jest hang sur la connexion ouverte).
-const THROTTLER_REDIS_CLIENT = 'THROTTLER_REDIS_CLIENT';
-
-const throttlerRedisProvider: Provider = {
-	provide: THROTTLER_REDIS_CLIENT,
-	inject: [ConfigService],
-	useFactory: (configService: ConfigService) => new Redis(buildRedisOptions(configService)),
-};
+// On garde une reference locale au client Redis cree par la factory pour pouvoir
+// le fermer dans OnModuleDestroy : sinon les tests jest hang sur la connexion
+// (cf pre-push hook code 137) et k8s ne peut pas terminer le pod proprement.
+let throttlerRedisClient: Redis | null = null;
 
 @Module({
 	imports: [
@@ -57,11 +52,14 @@ const throttlerRedisProvider: Provider = {
 		TypeOrmModule.forRootAsync(typeOrmModuleAsyncOptions),
 		ThrottlerModule.forRootAsync({
 			imports: [ConfigModule],
-			inject: [THROTTLER_REDIS_CLIENT],
-			useFactory: (client: Redis) => ({
-				throttlers: [SHORT_THROTTLER, MEDIUM_THROTTLER, LONG_THROTTLER],
-				storage: new ThrottlerStorageRedisService(client),
-			}),
+			inject: [ConfigService],
+			useFactory: (configService: ConfigService) => {
+				throttlerRedisClient = new Redis(buildRedisOptions(configService));
+				return {
+					throttlers: [SHORT_THROTTLER, MEDIUM_THROTTLER, LONG_THROTTLER],
+					storage: new ThrottlerStorageRedisService(throttlerRedisClient),
+				};
+			},
 		}),
 		ScheduleModule.forRoot(),
 		CacheModule,
@@ -86,7 +84,6 @@ const throttlerRedisProvider: Provider = {
 		InternalModule,
 	],
 	providers: [
-		throttlerRedisProvider,
 		{
 			provide: APP_GUARD,
 			useClass: HttpThrottlerGuard,
@@ -98,15 +95,14 @@ const throttlerRedisProvider: Provider = {
 	],
 })
 export class AppModule implements OnModuleDestroy {
-	constructor(@Inject(THROTTLER_REDIS_CLIENT) private readonly throttlerRedis: Redis) {}
-
 	async onModuleDestroy(): Promise<void> {
-		// Fermer la connexion Redis du throttler pour ne pas laisser le process hang
-		// (jest --detectOpenHandles, pre-push hook, lifecycle k8s).
+		if (!throttlerRedisClient) return;
 		try {
-			await this.throttlerRedis.quit();
+			await throttlerRedisClient.quit();
 		} catch {
-			this.throttlerRedis.disconnect();
+			throttlerRedisClient.disconnect();
+		} finally {
+			throttlerRedisClient = null;
 		}
 	}
 }
