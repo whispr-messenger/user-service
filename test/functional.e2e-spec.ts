@@ -342,6 +342,66 @@ describe('Functional E2E Scenarios', () => {
 		});
 	});
 
+	// Scenario 6b: Internal privacy lookup endpoint (machine-to-machine)
+	describe('Scenario 6b: Internal /internal/v1/users/:id/privacy (M2M)', () => {
+		const internalHeader = { 'x-internal-token': INTERNAL_TOKEN };
+
+		it('returns the privacy DTO with defaults when no settings row was created yet', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/users/${USER_A_ID}/privacy`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body).toEqual({
+				userId: USER_A_ID,
+				readReceipts: true,
+				lastSeenPrivacy: 'contacts',
+				onlineStatus: 'contacts',
+			});
+		});
+
+		it('reflects the user-updated privacy settings', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			await request(app.getHttpServer())
+				.patch('/user/v1/privacy')
+				.set(asUser(USER_A_ID))
+				.send({ readReceipts: false, onlineStatus: 'nobody' })
+				.expect(200);
+
+			const res = await request(app.getHttpServer())
+				.get(`/internal/v1/users/${USER_A_ID}/privacy`)
+				.set(internalHeader)
+				.expect(200);
+
+			expect(res.body.userId).toBe(USER_A_ID);
+			expect(res.body.readReceipts).toBe(false);
+			expect(res.body.onlineStatus).toBe('nobody');
+		});
+
+		it('returns 401 when the internal token header is missing', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			await request(app.getHttpServer()).get(`/internal/v1/users/${USER_A_ID}/privacy`).expect(401);
+		});
+
+		it('returns 404 when the user does not exist', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/users/${USER_A_ID}/privacy`)
+				.set(internalHeader)
+				.expect(404);
+		});
+
+		it('returns 400 when the id is not a UUID', async () => {
+			await request(app.getHttpServer())
+				.get(`/internal/v1/users/not-a-uuid/privacy`)
+				.set(internalHeader)
+				.expect(400);
+		});
+	});
+
 	// Scenario 7: Search endpoints return a JSON envelope { user } even when no user matches
 	describe('Scenario 7: GET /search/{username,phone} envelope response', () => {
 		it('returns { user: null } as valid JSON when no username matches', async () => {
