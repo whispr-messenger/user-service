@@ -1,5 +1,5 @@
 import { Module, OnModuleDestroy } from '@nestjs/common';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerOptions } from '@nestjs/throttler';
@@ -30,6 +30,7 @@ import { BackupsModule } from './backups/backups.module';
 import { InternalModule } from './internal/internal.module';
 import { JwtAuthModule } from './jwt-auth/jwt-auth.module';
 import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
+import { NoCacheInterceptor } from '../interceptors/no-cache.interceptor';
 
 // Triple-tier global throttler aligned with media-service (WHISPR-1327):
 // short = burst protection, medium = sustained burst, long = global ceiling.
@@ -91,6 +92,10 @@ let throttlerRedisClient: Redis | null = null;
 		{
 			provide: APP_GUARD,
 			useClass: JwtAuthGuard,
+		},
+		{
+			provide: APP_INTERCEPTOR,
+			useClass: NoCacheInterceptor,
 		},
 	],
 })
