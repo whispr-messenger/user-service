@@ -1,4 +1,6 @@
 import * as jwt from 'jsonwebtoken';
+import Redis from 'ioredis';
+import { setTimeout as delay } from 'node:timers/promises';
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, RequestMethod, ValidationPipe, VersioningType } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
@@ -443,5 +445,47 @@ describe('Functional E2E Scenarios', () => {
 			expect(res.body.user.id).toBe(USER_B_ID);
 			expect(res.body.user.username).toBe('bob');
 		});
+	});
+
+	// Scenario 8 (WHISPR-1327): POST /contact-requests is throttled at 10/60s
+	// per IP. Le 11e POST en moins de 60s doit retourner 429.
+	describe('Scenario 8: POST /contact-requests rate limit (10/60s)', () => {
+		it('returns 429 after the 11th contact request within 60s', async () => {
+			// Vider les compteurs Redis du throttler hérités des scenarios précédents.
+			const redis = new Redis({
+				host: process.env.REDIS_HOST ?? 'localhost',
+				port: Number.parseInt(process.env.REDIS_PORT ?? '6379', 10),
+			});
+			await redis.flushdb();
+			await redis.quit();
+
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			// 11 destinataires distincts pour ne pas declencher 409 CONFLICT
+			// (un meme couple requester/recipient ne peut pas avoir 2 demandes pending).
+			const recipients: string[] = [];
+			for (let i = 0; i < 11; i++) {
+				const hex = String(i).padStart(2, '0');
+				const id = `c0000000-0000-4000-a000-0000000000${hex}`;
+				await createUser(id, `+33610000${hex}`, `recipient${i}`);
+				recipients.push(id);
+			}
+
+			// Espacer les envois (260 ms) pour passer sous le SHORT (5/1s) global
+			// et n'eprouver que la limite specifique 10/60s.
+			const statuses: number[] = [];
+			for (let i = 0; i < 11; i++) {
+				const res = await request(app.getHttpServer())
+					.post('/user/v1/contact-requests')
+					.set(asUser(USER_A_ID))
+					.send({ contactId: recipients[i] });
+				statuses.push(res.status);
+				if (i < 10) {
+					await delay(260);
+				}
+			}
+
+			expect(statuses.slice(0, 10)).toEqual(Array(10).fill(201));
+			expect(statuses[10]).toBe(429);
+		}, 30000);
 	});
 });

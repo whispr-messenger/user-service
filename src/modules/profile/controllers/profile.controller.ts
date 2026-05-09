@@ -1,6 +1,6 @@
 import { Controller, Get, Patch, Param, Body, ParseUUIDPipe, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UserResponseDto } from '../../common/dto/user-response.dto';
@@ -33,8 +33,13 @@ export class ProfileController {
 		return SelfProfileResponseDto.fromEntity(user);
 	}
 
+	// Profil tiers : haute mais bornee, on coupe les bots qui scannent (WHISPR-1327).
 	@Get(':id')
-	@SkipThrottle()
+	@Throttle({
+		short: { ttl: 1000, limit: 10 },
+		medium: { ttl: 10_000, limit: 60 },
+		long: { ttl: 60_000, limit: 120 },
+	})
 	@ApiOperation({ summary: 'Get user profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({
