@@ -447,6 +447,77 @@ describe('Functional E2E Scenarios', () => {
 		});
 	});
 
+	// Scenario 7b (WHISPR-1349) : POST /profiles/batch — endpoint batch pour
+	// charger N profils en une seule requete. Suit WHISPR-1343 (concurrency
+	// mobile) et WHISPR-1344 (relachement throttle unitaire).
+	describe('Scenario 7b: POST /profiles/batch returns multiple profiles in one request', () => {
+		it('returns the requested profiles plus the missing ids', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+			await createUser(USER_B_ID, '+33600000002', 'bob');
+
+			const missingId = 'd0000000-0000-4000-9000-000000000099';
+
+			const res = await request(app.getHttpServer())
+				.post('/user/v1/profiles/batch')
+				.set(asUser(USER_A_ID))
+				.send({ ids: [USER_A_ID, USER_B_ID, missingId] })
+				.expect(200);
+
+			expect(res.body.profiles).toHaveLength(2);
+			const ids = res.body.profiles.map((p: { id: string }) => p.id).sort();
+			expect(ids).toEqual([USER_A_ID, USER_B_ID].sort());
+			expect(res.body.missing).toEqual([missingId]);
+		});
+
+		it('returns 401 without a bearer token', async () => {
+			await request(app.getHttpServer())
+				.post('/user/v1/profiles/batch')
+				.send({ ids: [USER_A_ID] })
+				.expect(401);
+		});
+
+		it('returns 400 when ids contains a non-uuid value', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			await request(app.getHttpServer())
+				.post('/user/v1/profiles/batch')
+				.set(asUser(USER_A_ID))
+				.send({ ids: ['not-a-uuid'] })
+				.expect(400);
+		});
+
+		it('returns 400 when ids exceeds the 100-item cap', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const tooMany: string[] = [];
+			for (let i = 0; i < 101; i++) {
+				const hex = i.toString(16).padStart(2, '0');
+				// Le 4eme groupe doit commencer par 8/9/a/b pour passer @IsUUID,
+				// on garde 9000 fixe et on incremente le dernier segment.
+				tooMany.push(`e0000000-0000-4000-9000-0000000000${hex.padStart(2, '0')}`);
+			}
+
+			await request(app.getHttpServer())
+				.post('/user/v1/profiles/batch')
+				.set(asUser(USER_A_ID))
+				.send({ ids: tooMany })
+				.expect(400);
+		});
+
+		it('does not leak phoneNumber even when fetching the requesters own profile', async () => {
+			await createUser(USER_A_ID, '+33600000001', 'alice');
+
+			const res = await request(app.getHttpServer())
+				.post('/user/v1/profiles/batch')
+				.set(asUser(USER_A_ID))
+				.send({ ids: [USER_A_ID] })
+				.expect(200);
+
+			expect(res.body.profiles[0].id).toBe(USER_A_ID);
+			expect(res.body.profiles[0].phoneNumber).toBeUndefined();
+		});
+	});
+
 	// Scenario 8 (WHISPR-1327): POST /contact-requests is throttled at 10/60s
 	// per IP. Le 11e POST en moins de 60s doit retourner 429.
 	describe('Scenario 8: POST /contact-requests rate limit (10/60s)', () => {
