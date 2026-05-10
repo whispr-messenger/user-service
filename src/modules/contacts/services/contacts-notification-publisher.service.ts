@@ -19,6 +19,17 @@ export interface ContactRequestAcceptedPayload {
 
 const REQUEST_RECEIVED_CHANNEL = 'whispr:contacts:request_received';
 const REQUEST_ACCEPTED_CHANNEL = 'whispr:contacts:request_accepted';
+const INBOX_CHANNEL = 'whispr:notifications:inbox';
+
+export interface InboxContactRequestPayload {
+	user_id: string;
+	event_type: 'contact_request';
+	payload: {
+		from_user_id: string;
+		from_username: string | null;
+		request_id: string;
+	};
+}
 
 /**
  * Publishes contact-related events to Redis pub/sub for the
@@ -60,6 +71,10 @@ export class ContactsNotificationPublisher implements OnModuleInit, OnModuleDest
 
 	async publishRequestAccepted(payload: ContactRequestAcceptedPayload): Promise<void> {
 		await this.publish(REQUEST_ACCEPTED_CHANNEL, payload);
+	}
+
+	async publishInboxContactRequest(payload: InboxContactRequestPayload): Promise<void> {
+		await this.publish(INBOX_CHANNEL, payload);
 	}
 
 	private async publish(channel: string, payload: unknown): Promise<void> {
