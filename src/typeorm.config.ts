@@ -45,8 +45,9 @@ function getDataSourceOptions(configService: ConfigService): DataSourceOptions {
 		logging: configService.get('DB_LOGGING', 'false') === 'true',
 		migrations: [__dirname + '/database/migrations/*{.ts,.js}'],
 		migrationsRun: configService.get('DB_MIGRATIONS_RUN', 'false') === 'true',
-		migrationsTransactionMode: 'each',
 		synchronize: configService.get('DB_SYNCHRONIZE', 'false') === 'true',
+		// Log queries qui prennent plus de 500ms via le logger NestJS pour detecter les slow queries en prod.
+		maxQueryExecutionTime: 500,
 	};
 }
 

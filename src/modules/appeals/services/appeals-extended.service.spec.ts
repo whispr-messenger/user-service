@@ -4,6 +4,8 @@ import { AppealsService } from './appeals.service';
 import { AppealsRepository } from '../repositories/appeals.repository';
 import { RolesService } from '../../roles/services/roles.service';
 import { SanctionsService } from '../../sanctions/services/sanctions.service';
+import { AuditService } from '../../audit/services/audit.service';
+import { RedisConfig } from '../../../config/redis.config';
 import { Appeal } from '../entities/appeal.entity';
 
 describe('AppealsService — extended features', () => {
@@ -17,6 +19,7 @@ describe('AppealsService — extended features', () => {
 		user: {} as any,
 		sanctionId: 'sanction-1',
 		sanction: {} as any,
+		type: 'sanction',
 		reason: 'I disagree',
 		evidence: {},
 		status: 'pending',
@@ -56,6 +59,20 @@ describe('AppealsService — extended features', () => {
 					useValue: {
 						getSanction: jest.fn(),
 						liftSanction: jest.fn(),
+					},
+				},
+				{
+					provide: RedisConfig,
+					useValue: {
+						getClient: jest.fn().mockReturnValue({
+							publish: jest.fn().mockResolvedValue(1),
+						}),
+					},
+				},
+				{
+					provide: AuditService,
+					useValue: {
+						log: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],

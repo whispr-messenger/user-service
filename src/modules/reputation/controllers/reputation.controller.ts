@@ -1,8 +1,10 @@
-import { Controller, Get, Param, ParseUUIDPipe, HttpStatus, Request } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, HttpStatus, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
 import { ReputationService } from '../services/reputation.service';
 import { ReputationResponseDto } from '../dto/reputation-response.dto';
 import { RolesService } from '../../roles/services/roles.service';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -24,6 +26,8 @@ export class ReputationController {
 	}
 
 	@Get(':userId')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get a user reputation (admin/moderator only)' })
 	@ApiParam({ name: 'userId', type: 'string', format: 'uuid', description: 'Target user ID' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Reputation retrieved', type: ReputationResponseDto })

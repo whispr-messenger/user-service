@@ -1,9 +1,16 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { User, UserVisualPreferences } from '../entities/user.entity';
+import { maskPhone } from '../../../utils/mask-phone.util';
 
 export class UserResponseDto {
 	@ApiProperty()
 	id: string;
+
+	@ApiPropertyOptional({
+		nullable: true,
+		description: 'Numero de telephone masque pour fallback display (ex: +33***1234)',
+	})
+	phoneNumberMasked: string | null;
 
 	@ApiPropertyOptional({ nullable: true })
 	username: string | null;
@@ -41,6 +48,7 @@ export class UserResponseDto {
 	static fromEntity(user: User): UserResponseDto {
 		const dto = new UserResponseDto();
 		dto.id = user.id;
+		dto.phoneNumberMasked = maskPhone(user.phoneNumber);
 		dto.username = user.username;
 		dto.firstName = user.firstName;
 		dto.lastName = user.lastName;

@@ -44,6 +44,10 @@ export class BlockedUsersService {
 		return this.blockedUsersRepository.create(blockerId, dto.blockedId);
 	}
 
+	async isBlockedEitherWay(userA: string, userB: string): Promise<boolean> {
+		return this.blockedUsersRepository.existsEitherDirection(userA, userB);
+	}
+
 	async unblockUser(blockerId: string, blockedId: string): Promise<void> {
 		await this.ensureUserExists(blockerId);
 

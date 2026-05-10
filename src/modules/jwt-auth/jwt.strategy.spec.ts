@@ -22,9 +22,8 @@ const { JwksService } = require('./jwks.service');
 import type { JwtPayload } from './jwt.strategy';
 
 describe('JwtStrategy', () => {
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	let strategy: any;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 	let module: any;
 	let userRepository: jest.Mocked<Pick<UserRepository, 'findById'>>;
 

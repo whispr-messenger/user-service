@@ -8,17 +8,32 @@ import {
 	ParseUUIDPipe,
 	HttpStatus,
 	HttpCode,
+	Query,
 	Request,
+	UseGuards,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiBody } from '@nestjs/swagger';
+import {
+	ApiTags,
+	ApiOperation,
+	ApiResponse,
+	ApiBearerAuth,
+	ApiParam,
+	ApiBody,
+	ApiQuery,
+} from '@nestjs/swagger';
 import { WebhooksService } from '../services/webhooks.service';
 import { CreateWebhookDto } from '../dto/create-webhook.dto';
+import { OffsetPaginationDto } from '../../common/dto/offset-pagination.dto';
 import { RolesService } from '../../roles/services/roles.service';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
 @ApiTags('Webhooks')
 @ApiBearerAuth()
+@UseGuards(RolesGuard)
+@Roles('admin', 'moderator')
 @Controller('webhooks')
 export class WebhooksController {
 	constructor(
@@ -40,12 +55,22 @@ export class WebhooksController {
 
 	@Get()
 	@ApiOperation({ summary: 'List all webhooks (admin only)' })
+	@ApiQuery({
+		name: 'limit',
+		required: false,
+		type: Number,
+		description: 'Max items (default 50, max 200)',
+	})
+	@ApiQuery({ name: 'offset', required: false, type: Number, description: 'Items to skip (default 0)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Webhooks listed' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
-	async list(@Request() req: ExpressRequest & { user: JwtPayload }) {
+	async list(
+		@Query() pagination: OffsetPaginationDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
 		await this.rolesService.ensureAdminOrModerator(req.user.sub);
-		return this.webhooksService.list();
+		return this.webhooksService.list({ take: pagination.limit, skip: pagination.offset });
 	}
 
 	@Delete(':id')

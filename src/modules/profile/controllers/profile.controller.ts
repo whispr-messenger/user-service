@@ -1,9 +1,10 @@
 import { Controller, Get, Patch, Param, Body, ParseUUIDPipe, HttpStatus, Request } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger';
-import { SkipThrottle } from '@nestjs/throttler';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { ProfileService } from '../services/profile.service';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { UserResponseDto } from '../../common/dto/user-response.dto';
+import { SelfProfileResponseDto } from '../dto/self-profile-response.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 import { assertOwnership } from '../../jwt-auth/ownership.util';
@@ -16,20 +17,33 @@ export class ProfileController {
 
 	@Get('me')
 	@SkipThrottle()
-	@ApiOperation({ summary: 'Get current user profile' })
+	@ApiOperation({ summary: 'Get my own profile (includes phoneNumber)' })
 	@ApiResponse({
 		status: HttpStatus.OK,
 		description: 'Profile retrieved successfully',
-		type: UserResponseDto,
+		type: SelfProfileResponseDto,
 	})
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getMyProfile(@Request() req: ExpressRequest & { user: JwtPayload }): Promise<UserResponseDto> {
-		const user = await this.profileService.getProfile(req.user.sub);
-		return UserResponseDto.fromEntity(user);
+	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
+	async getMyProfile(
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<SelfProfileResponseDto> {
+		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
+		const user = await this.profileService.getProfile(req.user.sub, authorization);
+		return SelfProfileResponseDto.fromEntity(user);
 	}
 
+	// Profil tiers : haute mais bornee, on coupe les bots qui scannent (WHISPR-1327).
+	// WHISPR-1344 : ConversationsList charge en burst tous les profils membres
+	// d une session (jusqu a 30+ chats directs), le palier short de 10/s
+	// faisait sauter 20+ requetes en 429. Endpoint authentifie, pas exposable
+	// publiquement, on peut relacher sans degrader la protection anti-bot.
 	@Get(':id')
-	@SkipThrottle()
+	@Throttle({
+		short: { ttl: 1000, limit: 30 },
+		medium: { ttl: 10_000, limit: 100 },
+		long: { ttl: 60_000, limit: 300 },
+	})
 	@ApiOperation({ summary: 'Get user profile' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'User ID' })
 	@ApiResponse({
@@ -39,8 +53,13 @@ export class ProfileController {
 	})
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'User not found' })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
-	async getProfile(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponseDto> {
-		const user = await this.profileService.getProfile(id);
+	async getProfile(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	): Promise<UserResponseDto> {
+		const requesterId: string = req.user?.sub ?? '';
+		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
+		const user = await this.profileService.getProfileWithPrivacy(id, requesterId, authorization);
 		return UserResponseDto.fromEntity(user);
 	}
 
@@ -63,13 +82,8 @@ export class ProfileController {
 	): Promise<UserResponseDto> {
 		assertOwnership(req, id, "Cannot update another user's profile");
 		const authorization = (req.headers['authorization'] as string | undefined) ?? undefined;
-		const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
-		const proto =
-			((req.headers['x-forwarded-proto'] as string | undefined)?.split(',')[0]?.trim() as
-				| string
-				| undefined) ?? req.protocol;
-		const requestBaseUrl = host ? `${proto || 'http'}://${host}` : undefined;
-		const user = await this.profileService.updateProfile(id, dto, authorization, requestBaseUrl);
+
+		const user = await this.profileService.updateProfile(id, dto, authorization);
 		return UserResponseDto.fromEntity(user);
 	}
 }

@@ -105,6 +105,36 @@ describe('SanctionsRepository', () => {
 		});
 	});
 
+	describe('findAllActive', () => {
+		it('returns active sanctions with default pagination', async () => {
+			const sanctions = [{ id: 's1' }] as UserSanction[];
+			mockTypeormRepo.find.mockResolvedValue(sanctions);
+
+			const result = await repo.findAllActive();
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				where: { active: true },
+				order: { createdAt: 'DESC' },
+				take: 50,
+				skip: 0,
+			});
+			expect(result).toBe(sanctions);
+		});
+
+		it('honours custom limit and offset', async () => {
+			mockTypeormRepo.find.mockResolvedValue([]);
+
+			await repo.findAllActive(25, 100);
+
+			expect(mockTypeormRepo.find).toHaveBeenCalledWith({
+				where: { active: true },
+				order: { createdAt: 'DESC' },
+				take: 25,
+				skip: 100,
+			});
+		});
+	});
+
 	describe('expireOldSanctions', () => {
 		it('executes update query and returns affected count', async () => {
 			mockQb.execute.mockResolvedValue({ affected: 3 });
@@ -124,6 +154,60 @@ describe('SanctionsRepository', () => {
 			const result = await repo.expireOldSanctions();
 
 			expect(result).toBe(0);
+		});
+	});
+
+	describe('findFiltered', () => {
+		it('paginates without applying optional filters when none are set', async () => {
+			const sanctions = [{ id: 's1' }] as UserSanction[];
+			mockQb.getMany.mockResolvedValue(sanctions);
+
+			const result = await repo.findFiltered({ limit: 20, offset: 10 });
+
+			expect(mockQb.orderBy).toHaveBeenCalledWith('s.createdAt', 'DESC');
+			expect(mockQb.andWhere).not.toHaveBeenCalled();
+			expect(mockQb.take).toHaveBeenCalledWith(20);
+			expect(mockQb.skip).toHaveBeenCalledWith(10);
+			expect(result).toBe(sanctions);
+		});
+
+		it('applies every filter when provided, including active=false', async () => {
+			mockQb.getMany.mockResolvedValue([]);
+			const dateFrom = new Date('2026-01-01');
+			const dateTo = new Date('2026-02-01');
+
+			await repo.findFiltered({
+				type: 'warning',
+				userId: 'u1',
+				active: false,
+				dateFrom,
+				dateTo,
+				limit: 10,
+				offset: 0,
+			});
+
+			expect(mockQb.andWhere).toHaveBeenCalledWith('s.type = :type', { type: 'warning' });
+			expect(mockQb.andWhere).toHaveBeenCalledWith('s.userId = :userId', { userId: 'u1' });
+			expect(mockQb.andWhere).toHaveBeenCalledWith('s.active = :active', { active: false });
+			expect(mockQb.andWhere).toHaveBeenCalledWith('s.createdAt >= :dateFrom', { dateFrom });
+			expect(mockQb.andWhere).toHaveBeenCalledWith('s.createdAt <= :dateTo', { dateTo });
+		});
+	});
+
+	describe('getStatsByType', () => {
+		it('groups by type and returns counts', async () => {
+			const stats = [
+				{ type: 'warning', count: 5 },
+				{ type: 'temp_ban', count: 2 },
+			];
+			mockQb.getRawMany.mockResolvedValue(stats);
+
+			const result = await repo.getStatsByType();
+
+			expect(mockQb.select).toHaveBeenCalledWith('s.type', 'type');
+			expect(mockQb.addSelect).toHaveBeenCalledWith('COUNT(*)::int', 'count');
+			expect(mockQb.groupBy).toHaveBeenCalledWith('s.type');
+			expect(result).toBe(stats);
 		});
 	});
 });
