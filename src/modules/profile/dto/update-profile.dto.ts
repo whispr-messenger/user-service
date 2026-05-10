@@ -77,9 +77,10 @@ export class UpdateProfileDto {
 	@MaxLength(100)
 	lastName?: string;
 
-	@ApiPropertyOptional({ description: 'User biography' })
+	@ApiPropertyOptional({ description: 'User biography', maxLength: 500 })
 	@IsOptional()
 	@IsString()
+	@MaxLength(500)
 	biography?: string;
 
 	@ApiPropertyOptional({

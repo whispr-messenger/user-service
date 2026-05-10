@@ -15,6 +15,8 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		'JWT_JWKS_URL',
 		'JWT_ISSUER',
 		'JWT_AUDIENCE',
+		'MEDIA_SERVICE_URL',
+		'INTERNAL_API_TOKEN',
 	],
 	optional: [
 		{ name: 'DB_URL', default: '(constructed from individual DB vars)' },
@@ -34,5 +36,6 @@ export const USER_SERVICE_ENV_CONFIG: EnvCheckConfig = {
 		{ name: 'REDIS_SENTINELS', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_MASTER_NAME', default: '(required when REDIS_MODE=sentinel)' },
 		{ name: 'REDIS_SENTINEL_PASSWORD', default: '(required when REDIS_MODE=sentinel)' },
+		{ name: 'MESSAGING_SERVICE_URL', default: '(required to restore backups)' },
 	],
 };

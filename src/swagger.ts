@@ -10,6 +10,15 @@ function buildSwaggerDocument() {
 		.setVersion('1.0')
 		.addServer('/', 'Current host')
 		.addBearerAuth()
+		.addApiKey(
+			{
+				type: 'apiKey',
+				name: 'x-internal-token',
+				in: 'header',
+				description: 'Shared secret for service-to-service calls under /internal/v1/...',
+			},
+			'internal-token'
+		)
 		.build();
 }
 

@@ -19,22 +19,21 @@ export class LoggingInterceptor implements NestInterceptor {
 
 		response.setHeader('X-Request-Id', requestId);
 
-		this.logger.log(
-			`[${requestId}] Incoming Request: ${method} ${url} - IP: ${ip} - User-Agent: ${userAgent}`
-		);
+		this.logger.log(`Incoming ${method} ${url} req=${requestId} ip=${ip} ua="${userAgent}"`);
 
 		return next.handle().pipe(
 			tap({
 				next: () => {
 					const duration = Date.now() - startTime;
 					this.logger.log(
-						`[${requestId}] Outgoing Response: ${method} ${url} - Status: ${response.statusCode} - Duration: ${duration}ms`
+						`Outgoing ${method} ${url} ${response.statusCode} ${duration}ms req=${requestId}`
 					);
 				},
 				error: (error) => {
 					const duration = Date.now() - startTime;
+					const status = error.status || 500;
 					this.logger.error(
-						`[${requestId}] Request Error: ${method} ${url} - Status: ${error.status || 500} - Duration: ${duration}ms - Error: ${error.message}`
+						`Error ${method} ${url} ${status} ${duration}ms req=${requestId} message="${error.message}"`
 					);
 				},
 			})

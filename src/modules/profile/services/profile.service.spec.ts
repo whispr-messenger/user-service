@@ -5,6 +5,9 @@ import { UserRepository } from '../../common/repositories';
 import { MediaClientService, MediaMetadata } from './media-client.service';
 import { SearchIndexService } from '../../cache/search-index.service';
 import { CacheService } from '../../cache/cache.service';
+import { PrivacyService } from '../../privacy/services/privacy.service';
+import { ContactsService } from '../../contacts/services/contacts.service';
+import { PrivacySettings, PrivacyLevel } from '../../privacy/entities/privacy-settings.entity';
 import { User } from '../../common/entities/user.entity';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 
@@ -25,21 +28,43 @@ const mockUser = (): User =>
 
 const mockMediaMetadata = (overrides: Partial<MediaMetadata> = {}): MediaMetadata => ({
 	id: 'media-uuid-1',
-	url: 'https://cdn.whispr.epitech.beer/avatars/media-uuid-1.webp',
-	thumbnailUrl: null,
-	context: 'avatar',
-	mimeType: 'image/webp',
-	sizeBytes: 12345,
 	ownerId: 'uuid-1',
+	context: 'avatar',
+	contentType: 'image/webp',
+	blobSize: 12345,
+	hasThumbnail: false,
+	isActive: true,
+	createdAt: '2026-04-01T00:00:00Z',
+	expiresAt: null,
 	...overrides,
 });
+
+const mockPrivacySettings = (overrides: Partial<PrivacySettings> = {}): PrivacySettings =>
+	({
+		id: 'ps-uuid-1',
+		userId: 'uuid-1',
+		profilePicturePrivacy: PrivacyLevel.EVERYONE,
+		firstNamePrivacy: PrivacyLevel.EVERYONE,
+		lastNamePrivacy: PrivacyLevel.EVERYONE,
+		biographyPrivacy: PrivacyLevel.EVERYONE,
+		lastSeenPrivacy: PrivacyLevel.EVERYONE,
+		onlineStatus: PrivacyLevel.EVERYONE,
+		groupAddPermission: PrivacyLevel.EVERYONE,
+		...overrides,
+	}) as PrivacySettings;
 
 describe('ProfileService', () => {
 	let service: ProfileService;
 	let userRepository: jest.Mocked<UserRepository>;
 	let mediaClient: jest.Mocked<MediaClientService>;
-	let searchIndexService: { indexUser: jest.Mock; removeUserFromIndex: jest.Mock };
+	let searchIndexService: {
+		indexUser: jest.Mock;
+		removeUserFromIndex: jest.Mock;
+		updateUserIndex: jest.Mock;
+	};
 	let cacheService: { get: jest.Mock; pipeline: jest.Mock; delMany: jest.Mock };
+	let privacyService: { getSettings: jest.Mock };
+	let contactsService: { isContact: jest.Mock };
 
 	beforeEach(async () => {
 		const module: TestingModule = await Test.createTestingModule({
@@ -57,6 +82,17 @@ describe('ProfileService', () => {
 					provide: MediaClientService,
 					useValue: {
 						getMediaMetadata: jest.fn(),
+						getBaseUrl: jest.fn().mockReturnValue('http://media-service:3000'),
+						resolveProfilePictureUrl: jest
+							.fn()
+							.mockImplementation(
+								(id: string) => `http://media-service:3000/media/v1/${id}/blob`
+							),
+						presignProfilePictureUrl: jest
+							.fn()
+							.mockImplementation(
+								async (id: string) => `http://media-service:3000/media/v1/${id}/blob`
+							),
 					},
 				},
 				{
@@ -64,6 +100,19 @@ describe('ProfileService', () => {
 					useValue: {
 						indexUser: jest.fn().mockResolvedValue(undefined),
 						removeUserFromIndex: jest.fn().mockResolvedValue(undefined),
+						updateUserIndex: jest.fn().mockResolvedValue(undefined),
+					},
+				},
+				{
+					provide: PrivacyService,
+					useValue: {
+						getSettings: jest.fn(),
+					},
+				},
+				{
+					provide: ContactsService,
+					useValue: {
+						isContact: jest.fn(),
 					},
 				},
 				{
@@ -82,6 +131,8 @@ describe('ProfileService', () => {
 		mediaClient = module.get(MediaClientService);
 		searchIndexService = module.get(SearchIndexService);
 		cacheService = module.get(CacheService);
+		privacyService = module.get(PrivacyService);
+		contactsService = module.get(ContactsService);
 	});
 
 	describe('getProfile', () => {
@@ -99,10 +150,47 @@ describe('ProfileService', () => {
 			);
 		});
 
+		it('resolves profilePictureUrl to blob URL when set', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+
+		it('returns null profilePictureUrl when not set', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfile('uuid-1');
+
+			expect(result.profilePictureUrl).toBeNull();
+			expect(mediaClient.presignProfilePictureUrl).not.toHaveBeenCalled();
+		});
+
 		it('throws NotFoundException when user does not exist', async () => {
 			userRepository.findById.mockResolvedValue(null);
 
 			await expect(service.getProfile('uuid-1')).rejects.toThrow(NotFoundException);
+		});
+
+		it('forwards the Authorization header to the media client when presigning', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+			(mediaClient.presignProfilePictureUrl as jest.Mock).mockResolvedValue(
+				'https://minio.example/avatars/media-uuid-1?X-Amz-Signature=abc'
+			);
+
+			const result = await service.getProfile('uuid-1', 'Bearer token-123');
+
+			expect(mediaClient.presignProfilePictureUrl).toHaveBeenCalledWith(
+				'media-uuid-1',
+				'Bearer token-123'
+			);
+			expect(result.profilePictureUrl).toBe(
+				'https://minio.example/avatars/media-uuid-1?X-Amz-Signature=abc'
+			);
 		});
 
 		it('returns the cached profile when available', async () => {
@@ -165,7 +253,7 @@ describe('ProfileService', () => {
 			expect(userRepository.findByUsernameInsensitive).not.toHaveBeenCalled();
 		});
 
-		it('indexes user in search when username is updated', async () => {
+		it('reconciles search indexes via updateUserIndex when a username is set', async () => {
 			const user = mockUser();
 			const dto: UpdateProfileDto = { username: 'alice' };
 			const saved = { ...user, username: 'alice' } as User;
@@ -176,10 +264,13 @@ describe('ProfileService', () => {
 
 			await service.updateProfile('uuid-1', dto);
 
-			expect(searchIndexService.indexUser).toHaveBeenCalledWith(saved);
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ id: user.id, username: null }),
+				saved
+			);
 		});
 
-		it('removes old index entries when username changes', async () => {
+		it('passes both prev and next snapshots when username changes', async () => {
 			const user = { ...mockUser(), username: 'old-name' } as User;
 			const dto: UpdateProfileDto = { username: 'new-name' };
 			const saved = { ...user, username: 'new-name' } as User;
@@ -190,9 +281,51 @@ describe('ProfileService', () => {
 
 			await service.updateProfile('uuid-1', dto);
 
-			expect(searchIndexService.removeUserFromIndex).toHaveBeenCalledWith(
-				expect.objectContaining({ username: 'old-name' })
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ username: 'old-name' }),
+				expect.objectContaining({ username: 'new-name' })
 			);
+		});
+
+		// WHISPR-1271 - l'ancien duo indexUser+removeUserFromIndex faisait
+		// HDEL/DEL sur des cles qu'il venait de reecrire quand seul firstName
+		// changeait. Le fix passe par updateUserIndex ; l'ancien duo ne doit
+		// plus jamais etre appele.
+		it('does not call legacy indexUser/removeUserFromIndex when only firstName changes', async () => {
+			const user = { ...mockUser(), firstName: 'Alice' } as User;
+			const dto: UpdateProfileDto = { firstName: 'Alicia' };
+			const saved = { ...user, firstName: 'Alicia' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.indexUser).not.toHaveBeenCalled();
+			expect(searchIndexService.removeUserFromIndex).not.toHaveBeenCalled();
+			expect(searchIndexService.updateUserIndex).toHaveBeenCalledWith(
+				expect.objectContaining({ firstName: 'Alice' }),
+				expect.objectContaining({ firstName: 'Alicia' })
+			);
+		});
+
+		// WHISPR-1271 - garde-fou contre la reintroduction d'un `if` qui
+		// declencherait la reconciliation sur des updates biography-only /
+		// sans changement de nom (gaspille un pipeline Redis et risque de
+		// faire revenir le bug de wipe).
+		it('does not touch search indexes when no name/username/lastName changes', async () => {
+			const user = { ...mockUser(), firstName: 'Alice', username: 'alice' } as User;
+			const dto: UpdateProfileDto = { biography: 'Hello world' };
+			const saved = { ...user, biography: 'Hello world' } as User;
+
+			userRepository.findById.mockResolvedValue(user);
+			userRepository.save.mockResolvedValue(saved);
+
+			await service.updateProfile('uuid-1', dto);
+
+			expect(searchIndexService.updateUserIndex).not.toHaveBeenCalled();
+			expect(searchIndexService.indexUser).not.toHaveBeenCalled();
+			expect(searchIndexService.removeUserFromIndex).not.toHaveBeenCalled();
 		});
 
 		it('swallows search indexing errors without failing the update', async () => {
@@ -202,7 +335,7 @@ describe('ProfileService', () => {
 
 			userRepository.findById.mockResolvedValue(user);
 			userRepository.save.mockResolvedValue(saved);
-			searchIndexService.indexUser.mockRejectedValue(new Error('Redis down'));
+			searchIndexService.updateUserIndex.mockRejectedValue(new Error('Redis down'));
 
 			const result = await service.updateProfile('uuid-1', dto);
 
@@ -293,45 +426,26 @@ describe('ProfileService', () => {
 	});
 
 	describe('updateProfile with avatarMediaId', () => {
-		it('resolves avatarMediaId to profilePictureUrl via media-service', async () => {
+		it('stores the raw mediaId and returns a resolved blob URL', async () => {
 			const user = mockUser();
 			const metadata = mockMediaMetadata();
 			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
 
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
-			userRepository.save.mockImplementation(async (u) => u as User);
+			let savedProfilePictureUrl: string | null = null;
+			userRepository.save.mockImplementation(async (u) => {
+				savedProfilePictureUrl = (u as User).profilePictureUrl;
+				return u as User;
+			});
 
 			const result = await service.updateProfile('uuid-1', dto);
 
-			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith(
-				'media-uuid-1',
-				'uuid-1',
-				undefined,
-				undefined
-			);
-			expect(result.profilePictureUrl).toBe(metadata.url);
-		});
-
-		it('falls back to gateway blob URL when media-service returns 404 and requestBaseUrl is provided', async () => {
-			const user = mockUser();
-			const dto: UpdateProfileDto = { avatarMediaId: 'media-uuid-1' };
-
-			userRepository.findById.mockResolvedValue(user);
-			mediaClient.getMediaMetadata.mockRejectedValue({
-				status: 404,
-				message: 'Media not found',
-			});
-			userRepository.save.mockImplementation(async (u) => u as User);
-
-			const result = await service.updateProfile(
-				'uuid-1',
-				dto,
-				'Bearer token',
-				'https://api.test.local'
-			);
-
-			expect(result.profilePictureUrl).toBe('https://api.test.local/media/v1/media-uuid-1/blob');
+			expect(mediaClient.getMediaMetadata).toHaveBeenCalledWith('media-uuid-1', 'uuid-1', undefined);
+			// DB receives the raw mediaId
+			expect(savedProfilePictureUrl).toBe('media-uuid-1');
+			// Returned value is the resolved URL
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
 		});
 
 		it('throws BadRequestException when media context is not avatar', async () => {
@@ -363,14 +477,295 @@ describe('ProfileService', () => {
 
 			userRepository.findById.mockResolvedValue(user);
 			mediaClient.getMediaMetadata.mockResolvedValue(metadata);
-			userRepository.save.mockImplementation(async (u) => u as User);
+			let savedSnapshot: Record<string, unknown> = {};
+			userRepository.save.mockImplementation(async (u) => {
+				savedSnapshot = { ...(u as any) };
+				return u as User;
+			});
 
 			await service.updateProfile('uuid-1', dto);
 
-			const savedArg = userRepository.save.mock.calls[0][0] as any;
-			expect(savedArg.avatarMediaId).toBeUndefined();
-			expect(savedArg.firstName).toBe('Alice');
-			expect(savedArg.profilePictureUrl).toBe(metadata.url);
+			expect(savedSnapshot.avatarMediaId).toBeUndefined();
+			expect(savedSnapshot.firstName).toBe('Alice');
+			expect(savedSnapshot.profilePictureUrl).toBe('media-uuid-1');
+		});
+	});
+
+	describe('getProfileWithPrivacy', () => {
+		it('returns full profile when requester is the owner', async () => {
+			const user = { ...mockUser(), firstName: 'Alice', lastName: 'Smith' } as User;
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-1');
+
+			expect(result.firstName).toBe('Alice');
+			expect(result.lastName).toBe('Smith');
+			expect(privacyService.getSettings).not.toHaveBeenCalled();
+		});
+
+		it('resolves profilePictureUrl for owner', async () => {
+			const user = { ...mockUser(), profilePictureUrl: 'media-uuid-1' } as User;
+			userRepository.findById.mockResolvedValue(user);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-1');
+
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+
+		it('returns null profilePictureUrl when user has no avatar', async () => {
+			const user = mockUser();
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.profilePictureUrl).toBeNull();
+			expect(mediaClient.presignProfilePictureUrl).not.toHaveBeenCalled();
+		});
+
+		it('returns full profile when all fields are set to EVERYONE', async () => {
+			const user = {
+				...mockUser(),
+				firstName: 'Alice',
+				lastName: 'Smith',
+				biography: 'Hello',
+				profilePictureUrl: 'media-uuid-1',
+				lastSeen: new Date(),
+			} as User;
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.firstName).toBe('Alice');
+			expect(result.lastName).toBe('Smith');
+			expect(result.biography).toBe('Hello');
+			expect(result.profilePictureUrl).toBe('http://media-service:3000/media/v1/media-uuid-1/blob');
+		});
+
+		it('masks fields set to NOBODY when requester is not the owner', async () => {
+			const user = {
+				...mockUser(),
+				firstName: 'Alice',
+				lastName: 'Smith',
+				biography: 'Hello',
+				profilePictureUrl: 'media-uuid-1',
+				lastSeen: new Date(),
+			} as User;
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.NOBODY,
+					lastNamePrivacy: PrivacyLevel.NOBODY,
+					biographyPrivacy: PrivacyLevel.NOBODY,
+					profilePicturePrivacy: PrivacyLevel.NOBODY,
+					lastSeenPrivacy: PrivacyLevel.NOBODY,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.firstName).toBeNull();
+			expect(result.lastName).toBeNull();
+			expect(result.biography).toBeNull();
+			expect(result.profilePictureUrl).toBeNull();
+			expect(result.lastSeen).toBeNull();
+		});
+
+		it('reveals CONTACTS fields when requester is a contact', async () => {
+			const lastSeen = new Date();
+			const user = {
+				...mockUser(),
+				firstName: 'Alice',
+				lastName: 'Smith',
+				lastSeen,
+			} as User;
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+					lastNamePrivacy: PrivacyLevel.CONTACTS,
+					lastSeenPrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(true);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.firstName).toBe('Alice');
+			expect(result.lastName).toBe('Smith');
+			expect(result.lastSeen).toBe(lastSeen);
+		});
+
+		it('masks CONTACTS fields when requester is not a contact', async () => {
+			const user = {
+				...mockUser(),
+				firstName: 'Alice',
+				lastName: 'Smith',
+				lastSeen: new Date(),
+			} as User;
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+					lastNamePrivacy: PrivacyLevel.CONTACTS,
+					lastSeenPrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(result.firstName).toBeNull();
+			expect(result.lastName).toBeNull();
+			expect(result.lastSeen).toBeNull();
+		});
+
+		it('throws NotFoundException when user does not exist', async () => {
+			userRepository.findById.mockResolvedValue(null);
+
+			await expect(service.getProfileWithPrivacy('uuid-1', 'uuid-2')).rejects.toThrow(
+				NotFoundException
+			);
+		});
+
+		it('does not mutate the original user entity', async () => {
+			const user = {
+				...mockUser(),
+				firstName: 'Alice',
+			} as User;
+			userRepository.findById.mockResolvedValue(user);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({ firstNamePrivacy: PrivacyLevel.NOBODY })
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			await service.getProfileWithPrivacy('uuid-1', 'uuid-2');
+
+			expect(user.firstName).toBe('Alice');
+		});
+	});
+
+	describe('getProfilesBatch', () => {
+		const userA = (): User =>
+			({
+				...mockUser(),
+				id: 'uuid-1',
+				firstName: 'Alice',
+				lastName: 'Smith',
+			}) as User;
+		const userB = (): User =>
+			({
+				...mockUser(),
+				id: 'uuid-2',
+				firstName: 'Bob',
+				lastName: 'Jones',
+			}) as User;
+
+		it('returns all requested profiles when they all exist', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA(), userB()]);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(true);
+
+			const result = await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(result.profiles).toHaveLength(2);
+			expect(result.profiles.map((p) => p.id).sort()).toEqual(['uuid-1', 'uuid-2']);
+			expect(result.missing).toEqual([]);
+		});
+
+		it('reports missing ids when some users do not exist', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfilesBatch(['uuid-1', 'uuid-missing'], 'uuid-3');
+
+			expect(result.profiles).toHaveLength(1);
+			expect(result.profiles[0].id).toBe('uuid-1');
+			expect(result.missing).toEqual(['uuid-missing']);
+		});
+
+		it('returns empty arrays when no ids are provided', async () => {
+			const findByIds = jest.fn().mockResolvedValue([]);
+			(userRepository as any).findByIds = findByIds;
+
+			const result = await service.getProfilesBatch([], 'uuid-3');
+
+			expect(result.profiles).toEqual([]);
+			expect(result.missing).toEqual([]);
+			expect(findByIds).not.toHaveBeenCalled();
+		});
+
+		it('applies privacy gates per profile (masks fields when not a contact)', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+					lastNamePrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-3');
+
+			expect(result.profiles[0].firstName).toBeNull();
+			expect(result.profiles[0].lastName).toBeNull();
+		});
+
+		it('reveals CONTACTS fields when requester is a contact of the target', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.CONTACTS,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(true);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-3');
+
+			expect(result.profiles[0].firstName).toBe('Alice');
+		});
+
+		it('returns the full profile of the requester themselves without privacy lookup', async () => {
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([userA()]);
+
+			const result = await service.getProfilesBatch(['uuid-1'], 'uuid-1');
+
+			expect(result.profiles[0].firstName).toBe('Alice');
+			expect(privacyService.getSettings).not.toHaveBeenCalled();
+		});
+
+		it('issues a single SELECT IN regardless of the number of ids', async () => {
+			const findByIds = jest.fn().mockResolvedValue([userA(), userB()]);
+			(userRepository as any).findByIds = findByIds;
+			privacyService.getSettings.mockResolvedValue(mockPrivacySettings());
+			contactsService.isContact.mockResolvedValue(true);
+
+			await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(findByIds).toHaveBeenCalledTimes(1);
+			expect(findByIds).toHaveBeenCalledWith(['uuid-1', 'uuid-2']);
+		});
+
+		it('does not mutate the source user entities returned by the repository', async () => {
+			const sourceA = userA();
+			const sourceB = userB();
+			(userRepository as any).findByIds = jest.fn().mockResolvedValue([sourceA, sourceB]);
+			privacyService.getSettings.mockResolvedValue(
+				mockPrivacySettings({
+					firstNamePrivacy: PrivacyLevel.NOBODY,
+				})
+			);
+			contactsService.isContact.mockResolvedValue(false);
+
+			await service.getProfilesBatch(['uuid-1', 'uuid-2'], 'uuid-3');
+
+			expect(sourceA.firstName).toBe('Alice');
+			expect(sourceB.firstName).toBe('Bob');
 		});
 	});
 });

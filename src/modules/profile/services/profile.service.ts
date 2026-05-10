@@ -4,16 +4,16 @@ import {
 	NotFoundException,
 	ConflictException,
 	BadRequestException,
-	HttpException,
-	HttpStatus,
 } from '@nestjs/common';
-import { User } from '../../common/entities/user.entity';
+import { User, UserVisualPreferences } from '../../common/entities/user.entity';
 import { UserRepository } from '../../common/repositories';
 import { UpdateProfileDto } from '../dto/update-profile.dto';
 import { MediaClientService } from './media-client.service';
 import { SearchIndexService } from '../../cache/search-index.service';
 import { CacheService } from '../../cache/cache.service';
-import { UserVisualPreferences } from '../../common/entities/user.entity';
+import { PrivacyService } from '../../privacy/services/privacy.service';
+import { ContactsService } from '../../contacts/services/contacts.service';
+import { PrivacyLevel } from '../../privacy/entities/privacy-settings.entity';
 
 @Injectable()
 export class ProfileService {
@@ -25,7 +25,9 @@ export class ProfileService {
 		private readonly userRepository: UserRepository,
 		private readonly mediaClient: MediaClientService,
 		private readonly searchIndexService: SearchIndexService,
-		private readonly cacheService: CacheService
+		private readonly cacheService: CacheService,
+		private readonly privacyService: PrivacyService,
+		private readonly contactsService: ContactsService
 	) {}
 
 	private getProfileCacheKey(id: string): string {
@@ -74,14 +76,18 @@ export class ProfileService {
 		return user;
 	}
 
-	public async getProfile(id: string): Promise<User> {
+	public async getProfile(id: string, authorization?: string): Promise<User> {
 		const cached = await this.getCachedProfile(id);
-		if (cached) {
-			return cached;
+		const user = cached ?? (await this.findOne(id));
+		if (!cached) {
+			await this.cacheProfile(user);
 		}
-
-		const user = await this.findOne(id);
-		await this.cacheProfile(user);
+		if (user.profilePictureUrl) {
+			user.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				user.profilePictureUrl,
+				authorization
+			);
+		}
 		return user;
 	}
 
@@ -132,12 +138,78 @@ export class ProfileService {
 		return base;
 	}
 
-	public async updateProfile(
+	public async getProfileWithPrivacy(
 		id: string,
-		dto: UpdateProfileDto,
-		authorization?: string,
-		requestBaseUrl?: string
+		requesterId: string,
+		authorization?: string
 	): Promise<User> {
+		const user = await this.findOne(id);
+		return this.applyPrivacyGate(user, requesterId, authorization);
+	}
+
+	/**
+	 * Recupere N profils en une seule requete DB (SELECT IN) puis applique
+	 * les privacy gates par profil. Les ids inconnus / inactifs sont renvoyes
+	 * dans `missing`. Pas d'erreur globale si un seul id manque, le client
+	 * voit la liste partielle pour ne pas casser le rendu mobile.
+	 *
+	 * Le caller doit deduper les ids cote controller pour ne pas presigner
+	 * deux fois la meme URL.
+	 */
+	public async getProfilesBatch(
+		ids: string[],
+		requesterId: string,
+		authorization?: string
+	): Promise<{ profiles: User[]; missing: string[] }> {
+		if (ids.length === 0) {
+			return { profiles: [], missing: [] };
+		}
+
+		const found = await this.userRepository.findByIds(ids);
+		const profiles = await Promise.all(
+			found.map((user) => this.applyPrivacyGate(user, requesterId, authorization))
+		);
+		const foundIds = new Set(found.map((u) => u.id));
+		const missing = ids.filter((id) => !foundIds.has(id));
+		return { profiles, missing };
+	}
+
+	private async applyPrivacyGate(user: User, requesterId: string, authorization?: string): Promise<User> {
+		if (requesterId === user.id) {
+			if (user.profilePictureUrl) {
+				user.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+					user.profilePictureUrl,
+					authorization
+				);
+			}
+			return user;
+		}
+
+		const settings = await this.privacyService.getSettings(user.id);
+		const isContact = await this.contactsService.isContact(user.id, requesterId);
+
+		const canSee = (level: PrivacyLevel): boolean => {
+			if (level === PrivacyLevel.EVERYONE) return true;
+			if (level === PrivacyLevel.CONTACTS) return isContact;
+			return false;
+		};
+
+		const masked: User = { ...user } as User;
+		if (!canSee(settings.firstNamePrivacy)) masked.firstName = null;
+		if (!canSee(settings.lastNamePrivacy)) masked.lastName = null;
+		if (!canSee(settings.biographyPrivacy)) masked.biography = null;
+		if (!canSee(settings.profilePicturePrivacy)) masked.profilePictureUrl = null;
+		if (!canSee(settings.lastSeenPrivacy)) masked.lastSeen = null;
+		if (masked.profilePictureUrl) {
+			masked.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				masked.profilePictureUrl,
+				authorization
+			);
+		}
+		return masked;
+	}
+
+	public async updateProfile(id: string, dto: UpdateProfileDto, authorization?: string): Promise<User> {
 		const user = await this.findOne(id);
 		const previousSnapshot = { ...user };
 
@@ -148,33 +220,18 @@ export class ProfileService {
 			}
 		}
 
-		// Resolve avatarMediaId → profilePictureUrl via media-service
+		// Resout avatarMediaId vers profilePictureUrl via le media-service
 		if (dto.avatarMediaId) {
-			try {
-				const media = await this.mediaClient.getMediaMetadata(
-					dto.avatarMediaId,
-					id,
-					authorization,
-					requestBaseUrl
+			const media = await this.mediaClient.getMediaMetadata(dto.avatarMediaId, id, authorization);
+			if (media.context !== 'avatar') {
+				throw new BadRequestException(
+					`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
 				);
-				if (media.context !== 'avatar') {
-					throw new BadRequestException(
-						`Media ${dto.avatarMediaId} is not an avatar (context=${media.context})`
-					);
-				}
-				if (media.ownerId !== id) {
-					throw new BadRequestException('Media does not belong to this user');
-				}
-				user.profilePictureUrl = media.url;
-			} catch (err) {
-				const status = err instanceof HttpException ? err.getStatus() : (err as any)?.status;
-				if (status === HttpStatus.NOT_FOUND && requestBaseUrl) {
-					const base = requestBaseUrl.replace(/\/+$/, '');
-					user.profilePictureUrl = `${base}/media/v1/${dto.avatarMediaId}/blob`;
-				} else {
-					throw err;
-				}
 			}
+			if (media.ownerId !== id) {
+				throw new BadRequestException('Media does not belong to this user');
+			}
+			user.profilePictureUrl = dto.avatarMediaId;
 		}
 
 		const mergedVisualPreferences = this.mergeVisualPreferences(
@@ -192,7 +249,7 @@ export class ProfileService {
 			user.visualPreferences = mergedVisualPreferences;
 		}
 
-		// Remove transient/non-column fields before saving.
+		// Enleve les champs transitoires / non-colonnes avant de sauvegarder.
 		const { avatarMediaId, visualPreferences, backgroundMediaId, backgroundMediaUrl, ...fields } = dto;
 		Object.assign(user, fields);
 
@@ -206,15 +263,21 @@ export class ProfileService {
 			saved.lastName !== previousSnapshot.lastName
 		) {
 			try {
-				// Index new data first, then remove old entries — if indexUser fails,
-				// the user remains discoverable under the old keys instead of vanishing.
-				await this.searchIndexService.indexUser(saved);
-				await this.searchIndexService.removeUserFromIndex(previousSnapshot as User);
+				// WHISPR-1271 : diff en un seul pipeline. L'ancien duo
+				// `indexUser(saved) + removeUserFromIndex(prev)` supprimait les cles
+				// phone / user-cache / username inchange qu'on venait de reecrire.
+				await this.searchIndexService.updateUserIndex(previousSnapshot as User, saved);
 			} catch (err) {
 				this.logger.warn(`Failed to update search index for user ${saved.id}: ${err}`);
 			}
 		}
 
+		if (saved.profilePictureUrl) {
+			saved.profilePictureUrl = await this.mediaClient.presignProfilePictureUrl(
+				saved.profilePictureUrl,
+				authorization
+			);
+		}
 		return saved;
 	}
 }

@@ -9,7 +9,7 @@ when picking up and completing a Jira ticket for this repository.
 
 - Jira cloud ID: `82ae2da5-7ee5-48f7-8877-a644651cd84b`
 - GitHub org/repo: `whispr-messenger/user-service`
-- Default base branch: `main`
+- Default base branch: `deploy/preprod`
 - Node package manager: `npm` (husky hooks run on commit and push)
 
 ---
@@ -26,11 +26,19 @@ when picking up and completing a Jira ticket for this repository.
 
 ## 2. Prepare the branch
 
+Always work in a **worktree** for isolation. Use `EnterWorktree` to create one,
+then reset it to `deploy/preprod`:
+
 ```bash
-git checkout main
-git pull origin main
+# Inside the worktree:
+git fetch origin deploy/preprod
+git reset --hard origin/deploy/preprod
 git checkout -b <TICKET-KEY>-<short-kebab-description>
 ```
+
+Before implementing, **enter Plan mode** to analyze the code and propose a
+step-by-step implementation plan. Only start coding after the user validates
+the plan.
 
 Branch naming convention: `WHISPR-XXX-short-description-of-the-fix`
 
@@ -236,7 +244,7 @@ fix, feature, refactor — must keep the `[WHISPR-XXX]` prefix.
   "repo": "user-service",
   "title": "[WHISPR-XXX] <type>(<scope>): <short imperative summary>",
   "head": "<branch-name>",
-  "base": "main",
+  "base": "deploy/preprod",
   "body": "## Summary\n- bullet 1\n- bullet 2\n\n## Test plan\n- [ ] Unit tests green\n- [ ] E2E tests green\n- [ ] Lint clean\n\nCloses <TICKET-KEY>"
 }
 ```
@@ -322,11 +330,11 @@ Once all CI checks are green, use `mcp__github__merge_pull_request`:
   "owner": "whispr-messenger",
   "repo": "user-service",
   "pullNumber": <number>,
-  "merge_method": "squash"
+  "merge_method": "merge"
 }
 ```
 
-Always use **squash** merge to keep `main` history linear.
+Always use **merge** (not squash - per user global rules §26) to keep the granular commit history.
 
 ---
 
@@ -337,15 +345,15 @@ Use `mcp__atlassian__transitionJiraIssue` with the transition whose `name` is
 
 ---
 
-## 11. Return to main and refresh the index
+## 11. Return to deploy/preprod and refresh the index
 
 ```bash
-git checkout main
-git pull origin main
+git checkout deploy/preprod
+git pull origin deploy/preprod
 npx gitnexus analyze --embeddings --force
 ```
 
-The `--force` flag is required after a squash merge: GitNexus compares commit hashes and will silently skip re-indexing if it considers the index already up to date. `--force` ensures embeddings are always regenerated.
+The `--force` flag is required after a merge: GitNexus compares commit hashes and will silently skip re-indexing if it considers the index already up to date. `--force` ensures embeddings are always regenerated.
 
 ---
 

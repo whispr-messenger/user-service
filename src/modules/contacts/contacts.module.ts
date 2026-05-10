@@ -7,13 +7,20 @@ import { ContactsRepository } from './repositories/contacts.repository';
 import { ContactRequestsRepository } from './repositories/contact-requests.repository';
 import { ContactsService } from './services/contacts.service';
 import { ContactRequestsService } from './services/contact-requests.service';
+import { ContactsNotificationPublisher } from './services/contacts-notification-publisher.service';
 import { ContactsController } from './controllers/contacts.controller';
 import { ContactRequestsController } from './controllers/contact-requests.controller';
 
 @Module({
 	imports: [CommonModule, TypeOrmModule.forFeature([Contact, ContactRequest])],
 	controllers: [ContactsController, ContactRequestsController],
-	providers: [ContactsService, ContactsRepository, ContactRequestsService, ContactRequestsRepository],
+	providers: [
+		ContactsService,
+		ContactsRepository,
+		ContactRequestsService,
+		ContactRequestsRepository,
+		ContactsNotificationPublisher,
+	],
 	exports: [ContactsService, ContactRequestsService],
 })
 export class ContactsModule {}

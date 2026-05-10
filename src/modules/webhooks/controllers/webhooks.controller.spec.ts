@@ -66,22 +66,31 @@ describe('WebhooksController', () => {
 	});
 
 	describe('list', () => {
-		it('checks admin role then returns all webhooks', async () => {
+		it('checks admin role then returns all webhooks with default pagination', async () => {
 			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
 			const webhooks = [{ id: 'w1' }, { id: 'w2' }] as any[];
 			webhooksService.list.mockResolvedValue(webhooks);
 
-			const result = await controller.list(makeReq('admin-1'));
+			const result = await controller.list({}, makeReq('admin-1'));
 
 			expect(rolesService.ensureAdminOrModerator).toHaveBeenCalledWith('admin-1');
-			expect(webhooksService.list).toHaveBeenCalled();
+			expect(webhooksService.list).toHaveBeenCalledWith({ take: undefined, skip: undefined });
 			expect(result).toBe(webhooks);
+		});
+
+		it('forwards limit and offset query params to service', async () => {
+			rolesService.ensureAdminOrModerator.mockResolvedValue(undefined);
+			webhooksService.list.mockResolvedValue([]);
+
+			await controller.list({ limit: 25, offset: 50 }, makeReq('admin-1'));
+
+			expect(webhooksService.list).toHaveBeenCalledWith({ take: 25, skip: 50 });
 		});
 
 		it('propagates ForbiddenException when not admin', async () => {
 			rolesService.ensureAdminOrModerator.mockRejectedValue(new ForbiddenException());
 
-			await expect(controller.list(makeReq('user-1'))).rejects.toThrow(ForbiddenException);
+			await expect(controller.list({}, makeReq('user-1'))).rejects.toThrow(ForbiddenException);
 
 			expect(webhooksService.list).not.toHaveBeenCalled();
 		});

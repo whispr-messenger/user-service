@@ -264,4 +264,23 @@ describe('ContactsService', () => {
 			);
 		});
 	});
+
+	describe('isContact', () => {
+		it('returns true when the contact relationship exists', async () => {
+			contactsRepository.findOne.mockResolvedValue(mockContact());
+
+			const result = await service.isContact('uuid-1', 'uuid-2');
+
+			expect(result).toBe(true);
+			expect(contactsRepository.findOne).toHaveBeenCalledWith('uuid-1', 'uuid-2');
+		});
+
+		it('returns false when no contact relationship exists', async () => {
+			contactsRepository.findOne.mockResolvedValue(null);
+
+			const result = await service.isContact('uuid-1', 'uuid-2');
+
+			expect(result).toBe(false);
+		});
+	});
 });

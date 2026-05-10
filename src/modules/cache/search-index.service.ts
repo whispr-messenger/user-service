@@ -87,6 +87,82 @@ export class SearchIndexService {
 		}
 	}
 
+	/**
+	 * Reconcile search indexes for a profile update by emitting only the
+	 * commands needed for the actual diff between `prev` and `next`.
+	 *
+	 * The legacy `indexUser(saved)` followed by `removeUserFromIndex(prev)`
+	 * pattern would `HDEL search:phone` and `DEL user:cache:<userId>` for
+	 * keys that were just rewritten — wiping the user from the search caches
+	 * after every profile edit (WHISPR-1271). This method skips deletes for
+	 * stable fields (phone, userId) and for unchanged username/name parts,
+	 * and bundles everything in a single Redis pipeline.
+	 */
+	async updateUserIndex(prev: User, next: User): Promise<void> {
+		try {
+			const indexEntry: SearchIndexEntry = {
+				userId: next.id,
+				phoneNumber: next.phoneNumber,
+				username: next.username ?? null,
+				firstName: next.firstName ?? null,
+				lastName: next.lastName ?? null,
+				fullName: this.buildFullName(next),
+				isActive: next.isActive,
+				createdAt: next.createdAt,
+			};
+
+			const commands: Array<[string, ...any[]]> = [
+				// Phone is immutable for a profile edit and userId never changes;
+				// HSET / SETEX overwrite any existing value, no HDEL/DEL needed.
+				['hset', this.PHONE_INDEX_KEY, next.phoneNumber, next.id],
+				['setex', `${this.USER_CACHE_PREFIX}:${next.id}`, this.CACHE_TTL, JSON.stringify(indexEntry)],
+			];
+
+			const prevUsername = prev.username?.toLowerCase();
+			const nextUsername = next.username?.toLowerCase();
+			if (prevUsername && prevUsername !== nextUsername) {
+				commands.push(['hdel', this.USERNAME_INDEX_KEY, prevUsername]);
+			}
+			if (nextUsername) {
+				commands.push(['hset', this.USERNAME_INDEX_KEY, nextUsername, next.id]);
+			}
+
+			this.appendNameDiff(commands, prev.firstName, next.firstName, next);
+			this.appendNameDiff(commands, prev.lastName, next.lastName, next);
+			this.appendNameDiff(commands, this.buildFullName(prev), this.buildFullName(next), next);
+
+			await this.cacheService.pipeline(commands);
+			this.logger.debug(`Updated search indexes for user ${next.id}`);
+		} catch (error) {
+			this.logger.error(`Failed to update search indexes for user ${next.id}:`, error);
+			throw error;
+		}
+	}
+
+	private buildFullName(user: Pick<User, 'firstName' | 'lastName'>): string {
+		return [user.firstName, user.lastName]
+			.filter((p): p is string => !!p)
+			.join(' ')
+			.toLowerCase()
+			.trim();
+	}
+
+	private appendNameDiff(
+		commands: Array<[string, ...any[]]>,
+		prevValue: string | null | undefined,
+		nextValue: string | null | undefined,
+		next: User
+	): void {
+		const prevNorm = prevValue?.toLowerCase();
+		const nextNorm = nextValue?.toLowerCase();
+		if (prevNorm && prevNorm !== nextNorm) {
+			commands.push(['zrem', `${this.NAME_INDEX_KEY}:${prevNorm}`, next.id]);
+		}
+		if (nextNorm) {
+			commands.push(['zadd', `${this.NAME_INDEX_KEY}:${nextNorm}`, next.createdAt.getTime(), next.id]);
+		}
+	}
+
 	async removeUserFromIndex(user: User): Promise<void> {
 		try {
 			const normalizedUsername = user.username?.toLowerCase();
