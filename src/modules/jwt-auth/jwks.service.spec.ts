@@ -20,7 +20,7 @@ jest.mock('jwks-rsa', () => {
 
 describe('JwksService', () => {
 	let service: JwksService;
-	// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 	let jwksMock: any;
 
 	beforeAll(() => {

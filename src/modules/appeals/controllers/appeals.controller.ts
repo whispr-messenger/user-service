@@ -9,6 +9,7 @@ import {
 	ParseUUIDPipe,
 	HttpStatus,
 	Request,
+	UseGuards,
 } from '@nestjs/common';
 import {
 	ApiTags,
@@ -19,6 +20,8 @@ import {
 	ApiParam,
 	ApiBody,
 } from '@nestjs/swagger';
+import { RolesGuard } from '../../roles/roles.guard';
+import { Roles } from '../../roles/roles.decorator';
 import { AppealsService } from '../services/appeals.service';
 import { CreateAppealDto } from '../dto/create-appeal.dto';
 import { ReviewAppealDto } from '../dto/review-appeal.dto';
@@ -28,6 +31,7 @@ import {
 	AppealStatsResponseDto,
 	AppealTimelineResponseDto,
 } from '../dto/appeal-response.dto';
+import { BulkReviewAppealsDto, BulkReviewAppealsResponseDto } from '../dto/bulk-review-appeals.dto';
 import type { Request as ExpressRequest } from 'express';
 import { JwtPayload } from '../../jwt-auth/jwt.strategy';
 
@@ -57,6 +61,8 @@ export class AppealsController {
 	}
 
 	@Get('queue')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get pending appeal queue (admin/moderator only)' })
 	@ApiQuery({
 		name: 'limit',
@@ -86,6 +92,8 @@ export class AppealsController {
 	}
 
 	@Get('search')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Search appeals with filters (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Appeals retrieved', type: [AppealResponseDto] })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -98,6 +106,8 @@ export class AppealsController {
 	}
 
 	@Get('stats')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Get appeal counts by status (admin/moderator only)' })
 	@ApiResponse({ status: HttpStatus.OK, description: 'Stats retrieved', type: [AppealStatsResponseDto] })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
@@ -116,8 +126,11 @@ export class AppealsController {
 	})
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Appeal not found' })
-	async getTimeline(@Param('id', ParseUUIDPipe) id: string) {
-		return this.appealsService.getTimeline(id);
+	async getTimeline(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.getTimeline(id, req.user.sub);
 	}
 
 	@Get(':id')
@@ -126,11 +139,16 @@ export class AppealsController {
 	@ApiResponse({ status: HttpStatus.OK, description: 'Appeal detail', type: AppealResponseDto })
 	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
 	@ApiResponse({ status: HttpStatus.NOT_FOUND, description: 'Appeal not found' })
-	async getAppeal(@Param('id', ParseUUIDPipe) id: string) {
-		return this.appealsService.getAppeal(id);
+	async getAppeal(
+		@Param('id', ParseUUIDPipe) id: string,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.getAppeal(id, req.user.sub);
 	}
 
 	@Put(':id/review')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
 	@ApiOperation({ summary: 'Review an appeal (admin/moderator only)' })
 	@ApiParam({ name: 'id', type: 'string', format: 'uuid', description: 'Appeal ID' })
 	@ApiBody({ type: ReviewAppealDto })
@@ -145,5 +163,32 @@ export class AppealsController {
 		@Request() req: ExpressRequest & { user: JwtPayload }
 	) {
 		return this.appealsService.reviewAppeal(id, req.user.sub, dto);
+	}
+
+	// WHISPR-1063: batch endpoint for the moderation queue — up to 100
+	// appeals reviewed with the same decision in a single request. The
+	// response separates successes from failures so the UI can highlight
+	// the specific rows that couldn't be applied (already resolved, etc.).
+	@Put('bulk-review')
+	@UseGuards(RolesGuard)
+	@Roles('admin', 'moderator')
+	@ApiOperation({ summary: 'Bulk-review multiple appeals (admin/moderator only)' })
+	@ApiBody({ type: BulkReviewAppealsDto })
+	@ApiResponse({
+		status: HttpStatus.OK,
+		description: 'Per-appeal result',
+		type: BulkReviewAppealsResponseDto,
+	})
+	@ApiResponse({ status: HttpStatus.BAD_REQUEST, description: 'Invalid input data' })
+	@ApiResponse({ status: HttpStatus.UNAUTHORIZED, description: 'Missing or invalid bearer token' })
+	@ApiResponse({ status: HttpStatus.FORBIDDEN, description: 'Admin role required' })
+	async bulkReviewAppeals(
+		@Body() dto: BulkReviewAppealsDto,
+		@Request() req: ExpressRequest & { user: JwtPayload }
+	) {
+		return this.appealsService.bulkReviewAppeals(req.user.sub, dto.appealIds, {
+			status: dto.status,
+			reviewerNotes: dto.reviewerNotes,
+		});
 	}
 }

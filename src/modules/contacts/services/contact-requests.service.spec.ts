@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { ContactRequestsService } from './contact-requests.service';
+import { ContactsNotificationPublisher } from './contacts-notification-publisher.service';
 import { UserRepository } from '../../common/repositories';
 import { ContactRequestsRepository } from '../repositories/contact-requests.repository';
 import { ContactsRepository } from '../repositories/contacts.repository';
@@ -15,7 +16,7 @@ import { ContactRequest, ContactRequestStatus } from '../entities/contact-reques
 import { Contact } from '../entities/contact.entity';
 import { User } from '../../common/entities/user.entity';
 
-const mockUser = (id: string): User => ({ id }) as User;
+const mockUser = (id: string, username: string | null = null): User => ({ id, username }) as User;
 
 const mockRequest = (overrides: Partial<ContactRequest> = {}): ContactRequest =>
 	({
@@ -33,13 +34,16 @@ describe('ContactRequestsService', () => {
 	let userRepository: jest.Mocked<UserRepository>;
 	let contactRequestsRepository: jest.Mocked<ContactRequestsRepository>;
 	let contactsRepository: jest.Mocked<ContactsRepository>;
+	let notificationPublisher: jest.Mocked<ContactsNotificationPublisher>;
 	let transactionalContactRepo: {
 		findOne: jest.Mock;
 		create: jest.Mock;
 		save: jest.Mock;
 	};
 	let transactionalRequestRepo: {
+		findOne: jest.Mock;
 		save: jest.Mock;
+		remove: jest.Mock;
 	};
 	let commitTransaction: jest.Mock;
 	let rollbackTransaction: jest.Mock;
@@ -52,7 +56,9 @@ describe('ContactRequestsService', () => {
 			save: jest.fn(async (entity: Partial<Contact>) => entity as Contact),
 		};
 		transactionalRequestRepo = {
+			findOne: jest.fn(),
 			save: jest.fn(async (entity: ContactRequest) => entity),
+			remove: jest.fn(async () => undefined),
 		};
 		commitTransaction = jest.fn();
 		rollbackTransaction = jest.fn();
@@ -103,6 +109,14 @@ describe('ContactRequestsService', () => {
 					provide: getDataSourceToken(),
 					useValue: dataSource,
 				},
+				{
+					provide: ContactsNotificationPublisher,
+					useValue: {
+						publishRequestReceived: jest.fn().mockResolvedValue(undefined),
+						publishRequestAccepted: jest.fn().mockResolvedValue(undefined),
+						publishInboxContactRequest: jest.fn().mockResolvedValue(undefined),
+					},
+				},
 			],
 		}).compile();
 
@@ -110,6 +124,7 @@ describe('ContactRequestsService', () => {
 		userRepository = module.get(UserRepository);
 		contactRequestsRepository = module.get(ContactRequestsRepository);
 		contactsRepository = module.get(ContactsRepository);
+		notificationPublisher = module.get(ContactsNotificationPublisher);
 	});
 
 	describe('sendRequest', () => {
@@ -156,6 +171,46 @@ describe('ContactRequestsService', () => {
 			expect(result).toBe(created);
 			expect(contactRequestsRepository.create).toHaveBeenCalledWith('uuid-a', 'uuid-b');
 		});
+
+		it('publishes inbox event to whispr:notifications:inbox after DB insert', async () => {
+			const created = mockRequest({ id: 'req-42' });
+			userRepository.findById.mockResolvedValue(mockUser('uuid-a', 'alice'));
+			contactsRepository.findOne.mockResolvedValue(null);
+			contactRequestsRepository.findPendingBetween.mockResolvedValue(null);
+			contactRequestsRepository.create.mockResolvedValue(created);
+
+			await service.sendRequest('uuid-a', 'uuid-b');
+
+			// laisser la promesse void se resoudre
+			await Promise.resolve();
+
+			expect(notificationPublisher.publishInboxContactRequest).toHaveBeenCalledWith({
+				user_id: 'uuid-b',
+				event_type: 'contact_request',
+				payload: {
+					from_user_id: 'uuid-a',
+					from_username: 'alice',
+					request_id: 'req-42',
+				},
+			});
+		});
+
+		it('does not publish inbox event when requester equals recipient (blocked upstream)', async () => {
+			await expect(service.sendRequest('uuid-a', 'uuid-a')).rejects.toThrow(BadRequestException);
+			expect(notificationPublisher.publishInboxContactRequest).not.toHaveBeenCalled();
+		});
+
+		it('does not block request creation when Redis publish fails', async () => {
+			const created = mockRequest();
+			userRepository.findById.mockResolvedValue(mockUser('uuid-a', 'alice'));
+			contactsRepository.findOne.mockResolvedValue(null);
+			contactRequestsRepository.findPendingBetween.mockResolvedValue(null);
+			contactRequestsRepository.create.mockResolvedValue(created);
+			notificationPublisher.publishInboxContactRequest.mockRejectedValueOnce(new Error('Redis down'));
+
+			// la creation doit reussir meme si Redis est KO
+			await expect(service.sendRequest('uuid-a', 'uuid-b')).resolves.toBe(created);
+		});
 	});
 
 	describe('getRequestsForUser', () => {
@@ -197,25 +252,43 @@ describe('ContactRequestsService', () => {
 
 	describe('acceptRequest', () => {
 		it('throws NotFound when request does not exist', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(null);
+			transactionalRequestRepo.findOne.mockResolvedValue(null);
 			await expect(service.acceptRequest('req-1', 'uuid-b')).rejects.toThrow(NotFoundException);
+			expect(rollbackTransaction).toHaveBeenCalled();
+			expect(release).toHaveBeenCalled();
 		});
 
 		it('throws Forbidden when the caller is not the recipient', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(mockRequest());
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 			await expect(service.acceptRequest('req-1', 'uuid-a')).rejects.toThrow(ForbiddenException);
+			expect(rollbackTransaction).toHaveBeenCalled();
 		});
 
 		it('throws Conflict when the request is not pending', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(
+			transactionalRequestRepo.findOne.mockResolvedValue(
 				mockRequest({ status: ContactRequestStatus.ACCEPTED })
 			);
 			await expect(service.acceptRequest('req-1', 'uuid-b')).rejects.toThrow(ConflictException);
+			expect(rollbackTransaction).toHaveBeenCalled();
+		});
+
+		it('locks the row with pessimistic_write before checking status', async () => {
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
+			transactionalContactRepo.findOne.mockResolvedValue(null);
+
+			await service.acceptRequest('req-1', 'uuid-b');
+
+			expect(transactionalRequestRepo.findOne).toHaveBeenCalledWith(
+				expect.objectContaining({
+					where: { id: 'req-1' },
+					lock: { mode: 'pessimistic_write' },
+				})
+			);
 		});
 
 		it('creates bidirectional contacts and updates status in a transaction', async () => {
 			const request = mockRequest();
-			contactRequestsRepository.findById.mockResolvedValue(request);
+			transactionalRequestRepo.findOne.mockResolvedValue(request);
 			transactionalContactRepo.findOne.mockResolvedValue(null);
 
 			const result = await service.acceptRequest('req-1', 'uuid-b');
@@ -239,7 +312,7 @@ describe('ContactRequestsService', () => {
 		});
 
 		it('skips creation of an existing contact row', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(mockRequest());
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 			transactionalContactRepo.findOne
 				.mockResolvedValueOnce({ id: 'c-ab' } as Contact)
 				.mockResolvedValueOnce(null);
@@ -253,7 +326,7 @@ describe('ContactRequestsService', () => {
 		});
 
 		it('rolls back the transaction on failure', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(mockRequest());
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 			transactionalContactRepo.findOne.mockResolvedValue(null);
 			transactionalContactRepo.save.mockRejectedValueOnce(new Error('DB boom'));
 
@@ -262,65 +335,116 @@ describe('ContactRequestsService', () => {
 			expect(rollbackTransaction).toHaveBeenCalled();
 			expect(release).toHaveBeenCalled();
 		});
+
+		it('rejects a follow-up accept with Conflict once the row was already accepted', async () => {
+			// premier appel: la ligne verrouillee est PENDING -> succes
+			// deuxieme appel: la ligne verrouillee est deja ACCEPTED -> Conflict
+			transactionalRequestRepo.findOne
+				.mockResolvedValueOnce(mockRequest())
+				.mockResolvedValueOnce(mockRequest({ status: ContactRequestStatus.ACCEPTED }));
+			transactionalContactRepo.findOne.mockResolvedValue(null);
+
+			const firstResult = await service.acceptRequest('req-1', 'uuid-b');
+			expect(firstResult.status).toBe(ContactRequestStatus.ACCEPTED);
+
+			await expect(service.acceptRequest('req-1', 'uuid-b')).rejects.toThrow(ConflictException);
+		});
 	});
 
 	describe('rejectRequest', () => {
 		it('throws NotFound when request does not exist', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(null);
+			transactionalRequestRepo.findOne.mockResolvedValue(null);
 			await expect(service.rejectRequest('req-1', 'uuid-b')).rejects.toThrow(NotFoundException);
+			expect(rollbackTransaction).toHaveBeenCalled();
+			expect(release).toHaveBeenCalled();
 		});
 
 		it('throws Forbidden when the caller is not the recipient', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(mockRequest());
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 			await expect(service.rejectRequest('req-1', 'uuid-a')).rejects.toThrow(ForbiddenException);
+			expect(rollbackTransaction).toHaveBeenCalled();
 		});
 
 		it('throws Conflict when the request is not pending', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(
+			transactionalRequestRepo.findOne.mockResolvedValue(
 				mockRequest({ status: ContactRequestStatus.REJECTED })
 			);
 			await expect(service.rejectRequest('req-1', 'uuid-b')).rejects.toThrow(ConflictException);
+			expect(rollbackTransaction).toHaveBeenCalled();
 		});
 
-		it('updates status to rejected', async () => {
+		it('locks the row with pessimistic_write', async () => {
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
+
+			await service.rejectRequest('req-1', 'uuid-b');
+
+			expect(transactionalRequestRepo.findOne).toHaveBeenCalledWith(
+				expect.objectContaining({
+					where: { id: 'req-1' },
+					lock: { mode: 'pessimistic_write' },
+				})
+			);
+		});
+
+		it('updates status to rejected and commits', async () => {
 			const request = mockRequest();
-			contactRequestsRepository.findById.mockResolvedValue(request);
-			contactRequestsRepository.save.mockImplementation(async (r) => r);
+			transactionalRequestRepo.findOne.mockResolvedValue(request);
 
 			const result = await service.rejectRequest('req-1', 'uuid-b');
 
 			expect(result.status).toBe(ContactRequestStatus.REJECTED);
-			expect(contactRequestsRepository.save).toHaveBeenCalledWith(
+			expect(transactionalRequestRepo.save).toHaveBeenCalledWith(
 				expect.objectContaining({ id: 'req-1', status: ContactRequestStatus.REJECTED })
 			);
+			expect(commitTransaction).toHaveBeenCalled();
+			expect(release).toHaveBeenCalled();
 		});
 	});
 
 	describe('cancelRequest', () => {
 		it('throws NotFound when request does not exist', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(null);
+			transactionalRequestRepo.findOne.mockResolvedValue(null);
 			await expect(service.cancelRequest('req-1', 'uuid-a')).rejects.toThrow(NotFoundException);
+			expect(rollbackTransaction).toHaveBeenCalled();
+			expect(release).toHaveBeenCalled();
 		});
 
 		it('throws Forbidden when the caller is not the requester', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(mockRequest());
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 			await expect(service.cancelRequest('req-1', 'uuid-b')).rejects.toThrow(ForbiddenException);
+			expect(rollbackTransaction).toHaveBeenCalled();
 		});
 
 		it('throws Conflict when the request is not pending', async () => {
-			contactRequestsRepository.findById.mockResolvedValue(
+			transactionalRequestRepo.findOne.mockResolvedValue(
 				mockRequest({ status: ContactRequestStatus.ACCEPTED })
 			);
 			await expect(service.cancelRequest('req-1', 'uuid-a')).rejects.toThrow(ConflictException);
+			expect(rollbackTransaction).toHaveBeenCalled();
 		});
 
-		it('removes the request when valid', async () => {
-			const request = mockRequest();
-			contactRequestsRepository.findById.mockResolvedValue(request);
+		it('locks the row with pessimistic_write', async () => {
+			transactionalRequestRepo.findOne.mockResolvedValue(mockRequest());
 
 			await service.cancelRequest('req-1', 'uuid-a');
 
-			expect(contactRequestsRepository.remove).toHaveBeenCalledWith(request);
+			expect(transactionalRequestRepo.findOne).toHaveBeenCalledWith(
+				expect.objectContaining({
+					where: { id: 'req-1' },
+					lock: { mode: 'pessimistic_write' },
+				})
+			);
+		});
+
+		it('removes the request and commits when valid', async () => {
+			const request = mockRequest();
+			transactionalRequestRepo.findOne.mockResolvedValue(request);
+
+			await service.cancelRequest('req-1', 'uuid-a');
+
+			expect(transactionalRequestRepo.remove).toHaveBeenCalledWith(request);
+			expect(commitTransaction).toHaveBeenCalled();
+			expect(release).toHaveBeenCalled();
 		});
 	});
 });

@@ -76,6 +76,47 @@ describe('UserResponseDto', () => {
 			expect(dto.lastSeen).toBeNull();
 		});
 
+		it('expose phoneNumberMasked au format +XX***NNNN sans leak du numero complet', () => {
+			const user = {
+				id: 'user-mask',
+				phoneNumber: '+33612341234',
+				username: null,
+				firstName: null,
+				lastName: null,
+				biography: null,
+				profilePictureUrl: null,
+				lastSeen: null,
+				isActive: true,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as unknown as User;
+
+			const dto = UserResponseDto.fromEntity(user);
+
+			expect(dto.phoneNumberMasked).toBe('+33***1234');
+			expect((dto as any).phoneNumber).toBeUndefined();
+		});
+
+		it('phoneNumberMasked vaut null si phoneNumber est absent', () => {
+			const user = {
+				id: 'user-no-phone',
+				phoneNumber: null,
+				username: 'noPhone',
+				firstName: null,
+				lastName: null,
+				biography: null,
+				profilePictureUrl: null,
+				lastSeen: null,
+				isActive: true,
+				createdAt: new Date(),
+				updatedAt: new Date(),
+			} as unknown as User;
+
+			const dto = UserResponseDto.fromEntity(user);
+
+			expect(dto.phoneNumberMasked).toBeNull();
+		});
+
 		it('preserves null values for nullable string fields', () => {
 			const user = {
 				id: 'user-3',

@@ -40,6 +40,25 @@ describe('PrivacyController', () => {
 		});
 	});
 
+	describe('getSettingsByUserId', () => {
+		it('returns the settings when userId matches the authenticated user', async () => {
+			const settings = { userId: 'user-1' } as PrivacySettings;
+			service.getSettings.mockResolvedValue(settings);
+
+			const result = await controller.getSettingsByUserId('user-1', makeReq('user-1'));
+
+			expect(result).toBe(settings);
+			expect(service.getSettings).toHaveBeenCalledWith('user-1');
+		});
+
+		it('throws ForbiddenException when userId differs from the authenticated user', async () => {
+			await expect(controller.getSettingsByUserId('user-2', makeReq('user-1'))).rejects.toThrow(
+				'Cannot access another user privacy settings'
+			);
+			expect(service.getSettings).not.toHaveBeenCalled();
+		});
+	});
+
 	describe('updateSettings', () => {
 		it('delegates to the service using req.user.sub as userId', async () => {
 			const dto: UpdatePrivacySettingsDto = {} as UpdatePrivacySettingsDto;

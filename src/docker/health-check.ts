@@ -29,33 +29,45 @@ console.log(`[${timestamp()}] Timeout: ${options.timeout}ms`);
 const req = http.request(options, (res: http.IncomingMessage) => {
 	console.log(`[${timestamp()}] Response received with status code: ${res.statusCode}`);
 
+	const MAX_BODY_LOG_LENGTH = 512;
+	const sanitizeForLog = (input: string): string => {
+		let out = '';
+		for (let i = 0; i < input.length && out.length < MAX_BODY_LOG_LENGTH; i++) {
+			const code = input.charCodeAt(i);
+			out += code < 0x20 || code === 0x7f ? ' ' : input.charAt(i);
+		}
+		return out;
+	};
+
 	let body = '';
 	res.on('data', (chunk) => {
-		body += chunk;
+		if (body.length < MAX_BODY_LOG_LENGTH) {
+			body += chunk;
+		}
 	});
 
 	res.on('end', () => {
-		console.log(`[${timestamp()}] Response body: ${body}`);
+		console.log(`[${timestamp()}] Response body: ${sanitizeForLog(body)}`);
 
 		if (res.statusCode === 200) {
-			console.log(`[${timestamp()}] ✓ Health check PASSED`);
+			console.log(`[${timestamp()}] Health check PASSED`);
 			process.exit(0);
 		} else {
-			console.error(`[${timestamp()}] ✗ Health check FAILED: Invalid status code ${res.statusCode}`);
+			console.error(`[${timestamp()}] Health check FAILED: Invalid status code ${res.statusCode}`);
 			process.exit(1);
 		}
 	});
 });
 
 req.on('error', (err: Error) => {
-	console.error(`[${timestamp()}] ✗ Health check FAILED: Request error`);
+	console.error(`[${timestamp()}] Health check FAILED: Request error`);
 	console.error(`[${timestamp()}] Error details: ${err.message}`);
 	console.error(`[${timestamp()}] Error stack: ${err.stack}`);
 	process.exit(1);
 });
 
 req.on('timeout', () => {
-	console.error(`[${timestamp()}] ✗ Health check FAILED: Request timeout after ${options.timeout}ms`);
+	console.error(`[${timestamp()}] Health check FAILED: Request timeout after ${options.timeout}ms`);
 	req.destroy();
 	process.exit(1);
 });

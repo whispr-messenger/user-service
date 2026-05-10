@@ -8,11 +8,12 @@
     "^.+\\.js$": ["ts-jest", { "diagnostics": false }]
   },
   "transformIgnorePatterns": [
-    "node_modules/(?!(jose)/)"
+    "node_modules/(?!(jose|uuid)/)"
   ],
   "moduleNameMapper": {
     "^@/(.*)$": "<rootDir>/../src/$1",
     "^src/(.*)$": "<rootDir>/../src/$1",
+    "^uuid$": "<rootDir>/../node_modules/uuid/dist-node/index.js",
     "^../../privacy/privacy-settings\\.entity$": "<rootDir>/stubs/entity.stub.ts",
     "^../../blocked-users/blocked-user\\.entity$": "<rootDir>/stubs/entity.stub.ts",
     "^../../groups/group\\.entity$": "<rootDir>/stubs/entity.stub.ts",
