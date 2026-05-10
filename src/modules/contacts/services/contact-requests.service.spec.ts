@@ -16,7 +16,7 @@ import { ContactRequest, ContactRequestStatus } from '../entities/contact-reques
 import { Contact } from '../entities/contact.entity';
 import { User } from '../../common/entities/user.entity';
 
-const mockUser = (id: string): User => ({ id }) as User;
+const mockUser = (id: string, username: string | null = null): User => ({ id, username }) as User;
 
 const mockRequest = (overrides: Partial<ContactRequest> = {}): ContactRequest =>
 	({
@@ -34,6 +34,7 @@ describe('ContactRequestsService', () => {
 	let userRepository: jest.Mocked<UserRepository>;
 	let contactRequestsRepository: jest.Mocked<ContactRequestsRepository>;
 	let contactsRepository: jest.Mocked<ContactsRepository>;
+	let notificationPublisher: jest.Mocked<ContactsNotificationPublisher>;
 	let transactionalContactRepo: {
 		findOne: jest.Mock;
 		create: jest.Mock;
@@ -113,6 +114,7 @@ describe('ContactRequestsService', () => {
 					useValue: {
 						publishRequestReceived: jest.fn().mockResolvedValue(undefined),
 						publishRequestAccepted: jest.fn().mockResolvedValue(undefined),
+						publishInboxContactRequest: jest.fn().mockResolvedValue(undefined),
 					},
 				},
 			],
@@ -122,6 +124,7 @@ describe('ContactRequestsService', () => {
 		userRepository = module.get(UserRepository);
 		contactRequestsRepository = module.get(ContactRequestsRepository);
 		contactsRepository = module.get(ContactsRepository);
+		notificationPublisher = module.get(ContactsNotificationPublisher);
 	});
 
 	describe('sendRequest', () => {
@@ -167,6 +170,46 @@ describe('ContactRequestsService', () => {
 
 			expect(result).toBe(created);
 			expect(contactRequestsRepository.create).toHaveBeenCalledWith('uuid-a', 'uuid-b');
+		});
+
+		it('publishes inbox event to whispr:notifications:inbox after DB insert', async () => {
+			const created = mockRequest({ id: 'req-42' });
+			userRepository.findById.mockResolvedValue(mockUser('uuid-a', 'alice'));
+			contactsRepository.findOne.mockResolvedValue(null);
+			contactRequestsRepository.findPendingBetween.mockResolvedValue(null);
+			contactRequestsRepository.create.mockResolvedValue(created);
+
+			await service.sendRequest('uuid-a', 'uuid-b');
+
+			// laisser la promesse void se resoudre
+			await Promise.resolve();
+
+			expect(notificationPublisher.publishInboxContactRequest).toHaveBeenCalledWith({
+				user_id: 'uuid-b',
+				event_type: 'contact_request',
+				payload: {
+					from_user_id: 'uuid-a',
+					from_username: 'alice',
+					request_id: 'req-42',
+				},
+			});
+		});
+
+		it('does not publish inbox event when requester equals recipient (blocked upstream)', async () => {
+			await expect(service.sendRequest('uuid-a', 'uuid-a')).rejects.toThrow(BadRequestException);
+			expect(notificationPublisher.publishInboxContactRequest).not.toHaveBeenCalled();
+		});
+
+		it('does not block request creation when Redis publish fails', async () => {
+			const created = mockRequest();
+			userRepository.findById.mockResolvedValue(mockUser('uuid-a', 'alice'));
+			contactsRepository.findOne.mockResolvedValue(null);
+			contactRequestsRepository.findPendingBetween.mockResolvedValue(null);
+			contactRequestsRepository.create.mockResolvedValue(created);
+			notificationPublisher.publishInboxContactRequest.mockRejectedValueOnce(new Error('Redis down'));
+
+			// la creation doit reussir meme si Redis est KO
+			await expect(service.sendRequest('uuid-a', 'uuid-b')).resolves.toBe(created);
 		});
 	});
 

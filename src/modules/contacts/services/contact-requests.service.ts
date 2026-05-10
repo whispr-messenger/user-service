@@ -73,6 +73,22 @@ export class ContactRequestsService {
 			request_id: created.id,
 		});
 
+		// Inbox event pour la notification-service (canal generique inbox).
+		// Best-effort : ne jamais bloquer la creation de la contact request.
+		this.notificationPublisher
+			.publishInboxContactRequest({
+				user_id: recipientId,
+				event_type: 'contact_request',
+				payload: {
+					from_user_id: requesterId,
+					from_username: requester.username,
+					request_id: created.id,
+				},
+			})
+			.catch(() => {
+				// echec Redis tolere — la DB row est deja committee
+			});
+
 		return created;
 	}
 
