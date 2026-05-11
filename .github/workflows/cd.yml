@@ -33,6 +33,10 @@ jobs:
         with:
           app-id: ${{ secrets.ACTIONS_CD }}
           private-key: ${{ secrets.ACTIONS_CD_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: |
+            user-service
+            infrastructure
 
       - name: Checkout user-service
         uses: actions/checkout@v5
