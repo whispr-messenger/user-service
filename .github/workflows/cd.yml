@@ -11,6 +11,14 @@ on:
         description: 'Commit SHA to deploy (leave empty for latest)'
         required: false
         type: string
+      target_env:
+        description: 'Target environment'
+        required: false
+        type: choice
+        options:
+          - preprod
+          - prod
+        default: 'prod'
 
 env:
   REGISTRY: ghcr.io
@@ -110,7 +118,7 @@ jobs:
           IMAGE_TAG="sha-${SHORT_SHA}"
           FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
           FULL_IMAGE=$(echo "${FULL_IMAGE}" | tr '[:upper:]' '[:lower:]')
-          
+
           echo "Verifying image existence: ${FULL_IMAGE}"
           # We use docker manifest inspect which is available in modern docker versions
           if ! docker manifest inspect "${FULL_IMAGE}" > /dev/null 2>&1; then
@@ -120,121 +128,123 @@ jobs:
           fi
           echo "✅ Image found in registry"
 
-      - name: Determine trigger branch
-        id: branch
+      - name: Resolve target environment and infra branch
+        id: resolve_targets
         run: |
-          TRIGGER_BRANCH="${{ github.event.workflow_run.head_branch || 'main' }}"
-          echo "trigger_branch=${TRIGGER_BRANCH}" >> $GITHUB_OUTPUT
-          if [ "$TRIGGER_BRANCH" = "main" ]; then
-            echo "infra_branch=main" >> $GITHUB_OUTPUT
-            echo "is_main=true" >> $GITHUB_OUTPUT
+          # Determine target_env: explicit input on dispatch, derived from branch on workflow_run
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGET_ENV="${{ inputs.target_env || 'prod' }}"
           else
-            echo "infra_branch=deploy/preprod" >> $GITHUB_OUTPUT
-            echo "is_main=false" >> $GITHUB_OUTPUT
+            TRIGGER_BRANCH="${{ github.event.workflow_run.head_branch }}"
+            if [ "$TRIGGER_BRANCH" = "main" ]; then
+              TARGET_ENV="prod"
+            else
+              TARGET_ENV="preprod"
+            fi
           fi
+
+          BASE="k8s/whispr"
+          case "${TARGET_ENV}" in
+            preprod)
+              DEPLOYMENTS="${BASE}/preprod/user-service/deployment.yaml"
+              MIGRATION_JOBS="${BASE}/preprod/user-service/migration-job.yaml"
+              INFRA_BRANCH="deploy/preprod"
+              ;;
+            prod)
+              DEPLOYMENTS="${BASE}/prod/user-service/deployment.yaml ${BASE}/production/user-service/deployment.yaml"
+              MIGRATION_JOBS="${BASE}/prod/user-service/migration-job.yaml"
+              INFRA_BRANCH="main"
+              ;;
+            *)
+              echo "❌ Error: Unknown target_env '${TARGET_ENV}' (expected 'preprod' or 'prod')."
+              exit 1
+              ;;
+          esac
+
+          echo "Target environment: ${TARGET_ENV}"
+          echo "Infra branch: ${INFRA_BRANCH}"
+          echo "Deployments: ${DEPLOYMENTS}"
+          echo "Migration jobs: ${MIGRATION_JOBS}"
+
+          {
+            echo "target_env=${TARGET_ENV}"
+            echo "infra_branch=${INFRA_BRANCH}"
+            echo "deployments<<EOF"
+            echo "${DEPLOYMENTS}"
+            echo "EOF"
+            echo "migration_jobs<<EOF"
+            echo "${MIGRATION_JOBS}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Checkout infrastructure repository
         uses: actions/checkout@v5
         with:
           repository: whispr-messenger/infrastructure
           path: infrastructure
-          ref: ${{ steps.branch.outputs.infra_branch }}
+          ref: ${{ steps.resolve_targets.outputs.infra_branch }}
           token: ${{ steps.generate_token.outputs.token }}
 
       - name: Validate deployment and migration-job manifest paths
+        working-directory: infrastructure
         run: |
-          BASE="infrastructure/k8s/whispr"
-
-          # Always validate preprod
-          MANIFEST_PATH="${BASE}/preprod/user-service/deployment.yaml"
-          if [ ! -f "$MANIFEST_PATH" ]; then
-            echo "❌ Error: Deployment manifest not found at $MANIFEST_PATH"
-            exit 1
-          fi
-          echo "✅ Deployment manifest found at $MANIFEST_PATH"
-
-          MIGRATION_PATH="${BASE}/preprod/user-service/migration-job.yaml"
-          if [ -f "$MIGRATION_PATH" ]; then
-            echo "✅ Migration job manifest found at $MIGRATION_PATH"
-          else
-            echo "ℹ️ No migration-job.yaml in preprod/ — skipping"
-          fi
-
-          # Validate prod and production dirs only on main
-          if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
-            for DIR in prod production; do
-              DEPLOY_PATH="${BASE}/${DIR}/user-service/deployment.yaml"
-              if [ ! -f "$DEPLOY_PATH" ]; then
-                echo "❌ Error: Deployment manifest not found at $DEPLOY_PATH"
-                exit 1
-              fi
-              echo "✅ Deployment manifest found at $DEPLOY_PATH"
-            done
-
-            # Validate migration-job only in prod (NOT production)
-            PROD_MIGRATION="${BASE}/prod/user-service/migration-job.yaml"
-            if [ -f "$PROD_MIGRATION" ]; then
-              echo "✅ Migration job manifest found at $PROD_MIGRATION"
-            else
-              echo "ℹ️ No migration-job.yaml in prod/ — skipping"
+          for FILE in ${{ steps.resolve_targets.outputs.deployments }}; do
+            if [ ! -f "$FILE" ]; then
+              echo "❌ Error: Deployment manifest not found at $FILE"
+              exit 1
             fi
-          fi
+            echo "✅ Deployment manifest found at $FILE"
+          done
+
+          for FILE in ${{ steps.resolve_targets.outputs.migration_jobs }}; do
+            if [ -f "$FILE" ]; then
+              echo "✅ Migration job manifest found at $FILE"
+            else
+              echo "ℹ️ No migration job at $FILE — skipping"
+            fi
+          done
 
       - name: Update image tag in deployment
         id: update_image
+        working-directory: infrastructure
         run: |
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
           IMAGE_TAG="sha-${SHORT_SHA}"
           FULL_IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
           FULL_IMAGE=$(echo "${FULL_IMAGE}" | tr '[:upper:]' '[:lower:]')
-          BASE="infrastructure/k8s/whispr"
 
           echo "Commit SHA: $COMMIT_SHA"
           echo "Short SHA: $SHORT_SHA"
           echo "Image tag: $IMAGE_TAG"
           echo "Updating deployment image to: ${FULL_IMAGE}"
 
-          # Always update preprod
-          yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/preprod/user-service/deployment.yaml"
-          if [ -f "${BASE}/preprod/user-service/migration-job.yaml" ]; then
-            yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/preprod/user-service/migration-job.yaml"
-          fi
+          for FILE in ${{ steps.resolve_targets.outputs.deployments }}; do
+            echo "Updating Deployment ${FILE}"
+            yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${FILE}"
+          done
 
-          # On main, also update prod and production
-          if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
-            yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/prod/user-service/deployment.yaml"
-            yq -i 'select(.kind == "Deployment").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/production/user-service/deployment.yaml"
-
-            # Update migration-job in prod only (NOT production)
-            if [ -f "${BASE}/prod/user-service/migration-job.yaml" ]; then
-              yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${BASE}/prod/user-service/migration-job.yaml"
+          for FILE in ${{ steps.resolve_targets.outputs.migration_jobs }}; do
+            if [ -f "$FILE" ]; then
+              echo "Updating Job ${FILE}"
+              yq -i 'select(.kind == "Job").spec.template.spec.containers[0].image = "'"${FULL_IMAGE}"'"' "${FILE}"
             fi
-          fi
+          done
 
       - name: Verify update
+        working-directory: infrastructure
         run: |
-          BASE="infrastructure/k8s/whispr"
-          echo "=== preprod ==="
-          echo "Deployment:"
-          yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${BASE}/preprod/user-service/deployment.yaml"
-          if [ -f "${BASE}/preprod/user-service/migration-job.yaml" ]; then
-            echo "Migration job:"
-            yq 'select(.kind == "Job").spec.template.spec.containers[0].image' "${BASE}/preprod/user-service/migration-job.yaml"
-          fi
+          for FILE in ${{ steps.resolve_targets.outputs.deployments }}; do
+            echo "=== ${FILE} (Deployment) ==="
+            yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${FILE}"
+          done
 
-          if [ "${{ steps.branch.outputs.is_main }}" = "true" ]; then
-            echo "=== prod ==="
-            echo "Deployment:"
-            yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${BASE}/prod/user-service/deployment.yaml"
-            if [ -f "${BASE}/prod/user-service/migration-job.yaml" ]; then
-              echo "Migration job:"
-              yq 'select(.kind == "Job").spec.template.spec.containers[0].image' "${BASE}/prod/user-service/migration-job.yaml"
+          for FILE in ${{ steps.resolve_targets.outputs.migration_jobs }}; do
+            if [ -f "$FILE" ]; then
+              echo "=== ${FILE} (Job) ==="
+              yq 'select(.kind == "Job").spec.template.spec.containers[0].image' "${FILE}"
             fi
-            echo "=== production ==="
-            echo "Deployment:"
-            yq 'select(.kind == "Deployment").spec.template.spec.containers[0].image' "${BASE}/production/user-service/deployment.yaml"
-          fi
+          done
 
       - name: Commit and push changes
         working-directory: infrastructure
@@ -250,18 +260,18 @@ jobs:
 
           COMMIT_SHA="${{ steps.validate_commit.outputs.commit_sha }}"
           SHORT_SHA=$(printf "%.7s" "$COMMIT_SHA")
+          TARGET_ENV="${{ steps.resolve_targets.outputs.target_env }}"
+          INFRA_BRANCH="${{ steps.resolve_targets.outputs.infra_branch }}"
 
           # Build commit message based on trigger type
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA} (manual trigger)"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update ${TARGET_ENV} image to ${SHORT_SHA} (manual trigger)"
           else
-            COMMIT_MSG="🔧 chore(deploy/user-service): update image to ${SHORT_SHA}"
+            COMMIT_MSG="🔧 chore(deploy/user-service): update ${TARGET_ENV} image to ${SHORT_SHA}"
           fi
 
           git add -A
           git commit -m "${COMMIT_MSG}"
 
-          # Push to the correct branch in infrastructure repo
-          INFRA_BRANCH="${{ steps.branch.outputs.infra_branch }}"
           git pull origin "${INFRA_BRANCH}" --rebase
           git push https://x-access-token:${{ steps.generate_token.outputs.token }}@github.com/whispr-messenger/infrastructure.git HEAD:"${INFRA_BRANCH}"
