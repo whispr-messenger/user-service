@@ -1,0 +1,163 @@
+name: 🏷️ Release
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - '.github/**'
+      - 'documentation/**'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: 🚀 Create Release
+    if: ${{ !contains(github.event.head_commit.message, '[skip release]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Get latest tag
+        id: latest_tag
+        run: |
+          latest=$(git tag -l 'v*' --sort=-v:refname | head -1)
+          if [ -z "$latest" ]; then
+            latest="v0.0.0"
+          fi
+          echo "tag=$latest" >> "$GITHUB_OUTPUT"
+          echo "Latest tag: $latest"
+
+      - name: Determine version bump from commits
+        id: bump
+        run: |
+          latest_tag="${{ steps.latest_tag.outputs.tag }}"
+
+          # Get commits since last tag (or all commits if no tag exists)
+          if git rev-parse "$latest_tag" >/dev/null 2>&1; then
+            commits=$(git log "$latest_tag"..HEAD --pretty=format:"%s" --no-merges)
+          else
+            commits=$(git log --pretty=format:"%s" --no-merges)
+          fi
+
+          echo "Commits since $latest_tag:"
+          echo "$commits"
+
+          bump="patch"
+
+          if echo "$commits" | grep -qiE "^[a-z]+(\(.+\))?!:|BREAKING[ -]CHANGE"; then
+            bump="major"
+          elif echo "$commits" | grep -qiE "^feat(\(.+\))?:"; then
+            bump="minor"
+          fi
+
+          echo "bump=$bump" >> "$GITHUB_OUTPUT"
+          echo "Version bump: $bump"
+
+      - name: Calculate next version
+        id: next_version
+        run: |
+          current="${{ steps.latest_tag.outputs.tag }}"
+          current="${current#v}"
+          bump="${{ steps.bump.outputs.bump }}"
+
+          IFS='.' read -r major minor patch <<< "$current"
+
+          case "$bump" in
+            major)
+              major=$((major + 1))
+              minor=0
+              patch=0
+              ;;
+            minor)
+              minor=$((minor + 1))
+              patch=0
+              ;;
+            patch)
+              patch=$((patch + 1))
+              ;;
+          esac
+
+          next="v${major}.${minor}.${patch}"
+          echo "version=$next" >> "$GITHUB_OUTPUT"
+          echo "Next version: $next"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          latest_tag="${{ steps.latest_tag.outputs.tag }}"
+
+          if git rev-parse "$latest_tag" >/dev/null 2>&1; then
+            range="$latest_tag..HEAD"
+          else
+            range="HEAD"
+          fi
+
+          {
+            echo "notes<<RELEASE_NOTES_EOF"
+
+            # Features
+            feats=$(git log "$range" --pretty=format:"%s" --no-merges | grep -iE "^feat(\(.+\))?:" || true)
+            if [ -n "$feats" ]; then
+              echo "### Features"
+              echo "$feats" | while IFS= read -r line; do
+                echo "- $line"
+              done
+              echo ""
+            fi
+
+            # Bug fixes
+            fixes=$(git log "$range" --pretty=format:"%s" --no-merges | grep -iE "^fix(\(.+\))?:" || true)
+            if [ -n "$fixes" ]; then
+              echo "### Bug Fixes"
+              echo "$fixes" | while IFS= read -r line; do
+                echo "- $line"
+              done
+              echo ""
+            fi
+
+            # CI/CD, chore, refactor, etc.
+            others=$(git log "$range" --pretty=format:"%s" --no-merges | grep -iE "^(ci|chore|refactor|perf|docs|test)(\(.+\))?:" || true)
+            if [ -n "$others" ]; then
+              echo "### Other Changes"
+              echo "$others" | while IFS= read -r line; do
+                echo "- $line"
+              done
+              echo ""
+            fi
+
+            # Breaking changes
+            breaking=$(git log "$range" --pretty=format:"%s" --no-merges | grep -iE "^[a-z]+(\(.+\))?!:|BREAKING[ -]CHANGE" || true)
+            if [ -n "$breaking" ]; then
+              echo "### Breaking Changes"
+              echo "$breaking" | while IFS= read -r line; do
+                echo "- $line"
+              done
+              echo ""
+            fi
+
+            echo "---"
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${{ steps.latest_tag.outputs.tag }}...${{ steps.next_version.outputs.version }}"
+
+            echo "RELEASE_NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${{ steps.next_version.outputs.version }}"
+
+          git tag "$version"
+          git push origin "$version"
+
+          gh release create "$version" \
+            --title "$version" \
+            --notes "${{ steps.notes.outputs.notes }}" \
+            --latest
